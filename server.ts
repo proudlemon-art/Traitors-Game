@@ -416,6 +416,17 @@ function recordRoundOutcome(s: GameState, playersMap: Record<string, Player>, ba
 // REST API Endpoints (Vercel Serverless & Local Node)
 // ----------------------------------------------------
 
+// Gatekeeper Passcode Verification
+app.post('/api/auth/verify-passcode', (req, res) => {
+  const entered = (req.body?.password || '').trim().toLowerCase();
+  const configured = (process.env.CASTLE_PASSWORD || 'libby').trim().toLowerCase();
+
+  if (entered && entered === configured) {
+    return res.json({ success: true, message: 'Passcode verified' });
+  }
+  return res.status(401).json({ success: false, error: 'Incorrect castle passcode.' });
+});
+
 // Admin Media Storage
 app.get('/api/admin/media', async (req, res) => {
   const media = await db.getMediaConfig();

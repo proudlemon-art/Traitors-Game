@@ -7,6 +7,7 @@ import { AudioSettingsModal } from './components/AudioSettingsModal';
 import { PartyGuideModal } from './components/PartyGuideModal';
 import { AdminStudioModal } from './components/AdminStudioModal';
 import { DemoSwitcher, DEMO_PLAYERS } from './components/DemoSwitcher';
+import { CastleGatekeeper } from './components/CastleGatekeeper';
 import {
   Flame,
   Shield,
@@ -19,10 +20,25 @@ import {
   Tv,
   ArrowRight,
   Lock,
+  Unlock,
   Film,
 } from 'lucide-react';
 
 export default function App() {
+  const [isCastleUnlocked, setIsCastleUnlocked] = useState<boolean>(() => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      const urlPwd = params.get('pwd') || params.get('passcode') || params.get('auth');
+      if (urlPwd && urlPwd.toLowerCase() === 'libby') {
+        localStorage.setItem('traitors_castle_unlocked', 'true');
+        localStorage.setItem('traitors_castle_passcode', urlPwd);
+        return true;
+      }
+      return localStorage.getItem('traitors_castle_unlocked') === 'true';
+    }
+    return false;
+  });
+
   const [gameState, setGameState] = useState<ClientGameState | null>(null);
   const [currentRoomCode, setCurrentRoomCode] = useState<string>('');
   const [playerToken, setPlayerToken] = useState<string>('');
@@ -33,6 +49,14 @@ export default function App() {
   const [showGuide, setShowGuide] = useState(false);
   const [showAdminStudio, setShowAdminStudio] = useState(false);
   const [adminStudioSceneId, setAdminStudioSceneId] = useState<string | undefined>(undefined);
+
+  const handleLockCastle = () => {
+    if (typeof localStorage !== 'undefined') {
+      localStorage.removeItem('traitors_castle_unlocked');
+      localStorage.removeItem('traitors_castle_passcode');
+    }
+    setIsCastleUnlocked(false);
+  };
 
   const handleOpenAdminStudio = (sceneId?: string) => {
     setAdminStudioSceneId(sceneId);
@@ -142,6 +166,11 @@ export default function App() {
     }
   };
 
+  // If locked behind castle gatekeeper:
+  if (!isCastleUnlocked) {
+    return <CastleGatekeeper onUnlock={() => setIsCastleUnlocked(true)} />;
+  }
+
   // If inside an active room:
   if (gameState) {
     return (
@@ -181,6 +210,13 @@ export default function App() {
                 }`}
               >
                 <Smartphone className="w-3 h-3" /> My Phone Seat
+              </button>
+              <button
+                onClick={handleLockCastle}
+                className="p-1.5 rounded text-xs bg-zinc-900 hover:bg-zinc-800 text-zinc-400 hover:text-amber-300 transition"
+                title="Lock Castle (Sign Out)"
+              >
+                <Lock className="w-3 h-3" />
               </button>
             </div>
           </div>
@@ -260,6 +296,13 @@ export default function App() {
             title="Audio Settings"
           >
             <Settings className="w-4 h-4" />
+          </button>
+          <button
+            onClick={handleLockCastle}
+            className="p-2 bg-burgundy-950/80 hover:bg-burgundy-900 text-amber-400/90 hover:text-amber-200 border border-burgundy-800/80 rounded"
+            title="Lock Castle (Sign Out)"
+          >
+            <Lock className="w-4 h-4" />
           </button>
         </div>
       </header>
