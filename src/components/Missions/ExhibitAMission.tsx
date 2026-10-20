@@ -30,6 +30,17 @@ export const ExhibitAMission: React.FC<Props> = ({ state, isHostDisplay, playerT
   const currentContenderName = demoPlayer?.name || state.players.find(p => p.id === myPlayerId)?.name || 'Contender';
   const isTraitor = state.myRole === 'TRAITOR';
 
+  // Accurately resolve planted object name from exhibitState, objects list, or secret mission
+  const resolvedPlantedName =
+    exhibitState?.plantedObjectName ||
+    (exhibitState?.plantedObjectId
+      ? exhibitState.objects.find(o => o.id === exhibitState.plantedObjectId)?.name
+      : undefined) ||
+    (state.mySecretMission && state.mySecretMission.includes('planted evidence is: ')
+      ? state.mySecretMission.split('planted evidence is: ')[1]?.split('.')[0]?.replace(/^["']|["']$/g, '').trim()
+      : undefined) ||
+    (exhibitState?.objects && exhibitState.objects.length > 0 ? exhibitState.objects[0].name : 'Contender Evidence');
+
   // Local state for registering/editing object
   const [objectNameInput, setObjectNameInput] = useState('');
   const [isEditing, setIsEditing] = useState(false);
@@ -189,14 +200,14 @@ export const ExhibitAMission: React.FC<Props> = ({ state, isHostDisplay, playerT
             <div className="flex items-center justify-between">
               <div>
                 <h3 className="text-lg font-serif font-bold text-amber-200">
-                  Registered Household Contenders ({exhibitState.objects.length}/7)
+                  Registered Household Contenders ({exhibitState.objects.length}/{state.players.length || 7})
                 </h3>
                 <p className="text-xs text-zinc-400 mt-1">
                   Each player must fetch one ordinary household object, bring it to the table, and enter its name on their phone.
                 </p>
               </div>
 
-              {exhibitState.objects.length >= 7 && (
+              {(exhibitState.objects.length >= 7 || exhibitState.objects.length >= state.players.length || (state.isDemoRoom && exhibitState.objects.length > 0)) && (
                 <button
                   onClick={handleLockObjects}
                   disabled={isSubmitting}
@@ -555,7 +566,7 @@ export const ExhibitAMission: React.FC<Props> = ({ state, isHostDisplay, playerT
                   Your Planted Evidence Is:
                 </span>
                 <div className="text-2xl font-serif font-black text-amber-300 drop-shadow">
-                  "{exhibitState.plantedObjectName || 'Secret Object'}"
+                  "{resolvedPlantedName}"
                 </div>
               </div>
 
@@ -606,10 +617,10 @@ export const ExhibitAMission: React.FC<Props> = ({ state, isHostDisplay, playerT
             When called upon, you have 30 seconds to explain why your object is suspicious evidence from the murder. Invent ridiculous backstories!
           </p>
 
-          {isTraitor && exhibitState.plantedObjectName && (
+          {isTraitor && resolvedPlantedName && (
             <div className="p-3 bg-burgundy-950/80 border border-amber-500/40 rounded-lg text-xs font-serif text-amber-200">
               Remember your goal: secretly steer the group toward{' '}
-              <strong>"{exhibitState.plantedObjectName}"</strong> without exposing yourself.
+              <strong>"{resolvedPlantedName}"</strong> without exposing yourself.
             </div>
           )}
         </div>

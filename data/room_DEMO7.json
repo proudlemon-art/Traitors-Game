@@ -2,13 +2,13 @@
   "code": "DEMO7",
   "creatorToken": "demo_token_libby",
   "state": {
-    "phase": "LOBBY",
+    "phase": "MISSION",
     "roomCode": "DEMO7",
     "roundGold": 0,
-    "traitorId": null,
+    "traitorId": "p_beatrice",
     "isDemoRoom": true,
     "isTieRevote": false,
-    "traitorName": null,
+    "traitorName": "Beatrice",
     "currentRound": 1,
     "roundHistory": [],
     "seatingOrder": [
@@ -22,25 +22,25 @@
     ],
     "totalGoldPot": 0,
     "exhibitAState": {
-      "stage": "COLLECTION",
+      "stage": "SECRET_BRIEFING",
       "objects": [
         {
           "id": "obj_p_libby",
-          "name": "Wooden Spoon",
+          "name": "Ornate Silver Dagger",
           "hasPresented": true,
           "contributorId": "p_libby",
           "contributorName": "Libby"
         },
         {
           "id": "obj_p_arthur",
-          "name": "Arthur Antique Pocket Watch",
+          "name": "Antique Pocket Watch",
           "hasPresented": true,
           "contributorId": "p_arthur",
           "contributorName": "Arthur"
         },
         {
           "id": "obj_p_beatrice",
-          "name": "Beatrice Vintage Silk Scarf",
+          "name": "Tea Towel",
           "hasPresented": true,
           "contributorId": "p_beatrice",
           "contributorName": "Beatrice"
@@ -74,88 +74,109 @@
           "contributorName": "Fiona"
         }
       ],
-      "isListLocked": false,
+      "isListLocked": true,
       "evidenceVotes": {},
       "tiedObjectIds": [],
       "isEvidenceTieRevote": false,
       "evidenceVoteRevealed": false,
       "isEvidenceVoteLocked": false,
-      "acknowledgedPlayerIds": [
-        "p_edgar",
-        "p_fiona",
-        "p_libby",
-        "p_arthur",
-        "p_callum",
-        "p_daphne",
-        "p_beatrice"
-      ]
+      "acknowledgedPlayerIds": [],
+      "plantedObjectId": "obj_p_libby",
+      "plantedObjectName": "Ornate Silver Dagger"
     },
     "isTimerPaused": false,
-    "timerDeadline": 1792511082964,
-    "latestDialogue": "Welcome to Jasmine’s Castle.\n\nSeven of you have arrived. All alive. Lovely. Let’s not get attached.\n\nWe’re celebrating Libby’s birthday, and nothing says friendship quite like Murder, Merlot and Manipulation.\n\nYour allegiance changes each round. Your points stay with you. But to win, you must survive the final banishments. A surviving Traitor steals the victory. Otherwise, the highest-scoring Faithful still standing takes the crown.\n\nNow. Phones out. Secrets to yourselves.\n\nLet’s make this uncomfortable.",
+    "timerDeadline": 1792513814658,
+    "latestDialogue": "The lord of the castle is dead. Seven objects were recovered from the scene. One of them is going in the evidence bag. Unfortunately, our entire forensic department is you.\n\nOne object was planted by the Traitor. Their assignment is to persuade you to choose it as Exhibit A. You know what they’re trying to do. You don’t know which object they need you to choose.",
     "tieRevealIndex": 0,
     "tieCandidateIds": [],
-    "timerDurationSec": 480,
-    "traitorObjective": null,
+    "timerDurationSec": 420,
+    "traitorObjective": {
+      "title": "The Planted Exhibit",
+      "description": "Persuade the group to choose your secret planted household object as Exhibit A.",
+      "successCondition": "The Traitor’s secret planted object is chosen as the final Exhibit A.",
+      "conversationalGoal": "Steer the investigation so everyone believes selecting your planted object was their own brilliant idea."
+    },
     "currentRevealIndex": 0,
-    "phaseTimeRemaining": 480
+    "phaseTimeRemaining": 420
   },
   "players": {
     "demo_token_edgar": {
       "id": "p_edgar",
       "name": "Edgar",
+      "role": "FAITHFUL",
       "score": 0,
       "connected": true,
       "seatNumber": 6,
-      "isRoomCreator": false
+      "hasLockedVote": false,
+      "isRoomCreator": false,
+      "hasRevealedSlate": false
     },
     "demo_token_fiona": {
       "id": "p_fiona",
       "name": "Fiona",
+      "role": "FAITHFUL",
       "score": 0,
       "connected": true,
       "seatNumber": 7,
-      "isRoomCreator": false
+      "hasLockedVote": false,
+      "isRoomCreator": false,
+      "hasRevealedSlate": false
     },
     "demo_token_libby": {
       "id": "p_libby",
       "name": "Libby",
+      "role": "FAITHFUL",
       "score": 0,
       "connected": true,
       "seatNumber": 1,
-      "isRoomCreator": true
+      "hasLockedVote": false,
+      "isRoomCreator": true,
+      "hasRevealedSlate": false
     },
     "demo_token_arthur": {
       "id": "p_arthur",
       "name": "Arthur",
+      "role": "FAITHFUL",
       "score": 0,
       "connected": true,
       "seatNumber": 2,
-      "isRoomCreator": false
+      "hasLockedVote": false,
+      "isRoomCreator": false,
+      "hasRevealedSlate": false
     },
     "demo_token_callum": {
       "id": "p_callum",
       "name": "Callum",
+      "role": "FAITHFUL",
       "score": 0,
       "connected": true,
       "seatNumber": 4,
-      "isRoomCreator": false
+      "hasLockedVote": false,
+      "isRoomCreator": false,
+      "hasRevealedSlate": false
     },
     "demo_token_daphne": {
       "id": "p_daphne",
       "name": "Daphne",
+      "role": "FAITHFUL",
       "score": 0,
       "connected": true,
       "seatNumber": 5,
-      "isRoomCreator": false
+      "hasLockedVote": false,
+      "isRoomCreator": false,
+      "hasRevealedSlate": false
     },
     "demo_token_beatrice": {
       "id": "p_beatrice",
       "name": "Beatrice",
+      "role": "TRAITOR",
       "score": 0,
       "connected": true,
       "seatNumber": 3,
-      "isRoomCreator": false
+      "hasLockedVote": false,
+      "isRoomCreator": false,
+      "secretMission": "Your planted evidence is: Ornate Silver Dagger. Get this object chosen as Exhibit A. Everyone knows you’re pushing for something. Nobody knows which object it is. Make them believe it was their idea.",
+      "hasRevealedSlate": false
     }
   }
 }

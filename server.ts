@@ -239,11 +239,37 @@ function sanitizeState(
     clientState.isMyTurnToReveal = isMyTurnToReveal;
     clientState.isMyEliminated = !!callingPlayer.isEliminated;
 
+    // Dynamically resolve planted object name from objects if needed
+    let resolvedPlantedObjectId = s.exhibitAState?.plantedObjectId;
+    let resolvedPlantedObjectName = s.exhibitAState?.plantedObjectName;
+
+    if (s.exhibitAState) {
+      if (resolvedPlantedObjectId && !resolvedPlantedObjectName) {
+        const match = s.exhibitAState.objects.find(o => o.id === resolvedPlantedObjectId);
+        if (match?.name) resolvedPlantedObjectName = match.name;
+      }
+      if (!resolvedPlantedObjectName && s.exhibitAState.stage !== 'COLLECTION' && s.exhibitAState.objects.length > 0) {
+        const nonTraitor = s.exhibitAState.objects.filter(o => o.contributorId !== s.traitorId && o.name && o.name.trim().length > 0);
+        const chosen = nonTraitor.length > 0 ? nonTraitor[0] : s.exhibitAState.objects[0];
+        if (chosen) {
+          resolvedPlantedObjectId = chosen.id;
+          resolvedPlantedObjectName = chosen.name;
+          s.exhibitAState.plantedObjectId = chosen.id;
+          s.exhibitAState.plantedObjectName = chosen.name;
+        }
+      }
+    }
+
     if (callingPlayer.role === 'TRAITOR') {
       clientState.mySecretMission = callingPlayer.secretMission;
       if (s.currentRound === 1) {
-        clientState.mySecretBriefing =
-          'You are the Traitor. Everyone will bring an object to the table, including you. Once all seven contenders are submitted, the app will secretly tell you which object you planted. Your job will be to get that object chosen as Exhibit A. For now, bring an ordinary object and act innocent.';
+        if (resolvedPlantedObjectName && s.exhibitAState?.stage !== 'COLLECTION') {
+          clientState.mySecretBriefing = `You are the Traitor. Your planted evidence is: "${resolvedPlantedObjectName}". Your secret mission is to convince the group to choose "${resolvedPlantedObjectName}" as Exhibit A without revealing your identity!`;
+          clientState.mySecretMission = `Your planted evidence is: "${resolvedPlantedObjectName}". Get this object chosen as Exhibit A.`;
+        } else {
+          clientState.mySecretBriefing =
+            'You are the Traitor. Everyone will bring an object to the table, including you. Once all contenders are submitted and locked, the app will secretly tell you which object you planted. Your job will be to get that object chosen as Exhibit A. For now, bring an ordinary object and act innocent.';
+        }
       } else if (s.currentRound === 6) {
         clientState.mySecretBriefing =
           'The Traitor chosen for this round stays the Traitor until the game ends. Maintain your composure through the auction and survive the final banishments to steal victory outright.';
@@ -278,10 +304,13 @@ function sanitizeState(
     const isTraitor = callingPlayer?.id === s.traitorId;
     const isRevealed = isRound1to5PostBanishment || s.currentRound > 1;
 
+    const finalPlantedId = s.exhibitAState.plantedObjectId || (s.exhibitAState.stage !== 'COLLECTION' ? s.exhibitAState.objects[0]?.id : undefined);
+    const finalPlantedName = s.exhibitAState.plantedObjectName || (finalPlantedId ? s.exhibitAState.objects.find(o => o.id === finalPlantedId)?.name : undefined);
+
     clientState.exhibitAState = {
       ...s.exhibitAState,
-      plantedObjectId: isTraitor || isRevealed ? s.exhibitAState.plantedObjectId : undefined,
-      plantedObjectName: isTraitor || isRevealed ? s.exhibitAState.plantedObjectName : undefined,
+      plantedObjectId: isTraitor || isRevealed ? finalPlantedId : undefined,
+      plantedObjectName: isTraitor || isRevealed ? finalPlantedName : undefined,
     };
   }
 
@@ -333,9 +362,12 @@ function assignSecretRoles(s: GameState, playersMap: Record<string, Player>) {
 
   // Reset missions for round
   if (roundNum === 1) {
+    const existingObjects = s.exhibitAState?.objects && s.exhibitAState.objects.length > 0 ? s.exhibitAState.objects : [];
     s.exhibitAState = {
       stage: 'COLLECTION',
-      objects: [],
+      objects: existingObjects,
+      plantedObjectId: undefined,
+      plantedObjectName: undefined,
       isListLocked: false,
       acknowledgedPlayerIds: [],
       evidenceVotes: {},
@@ -855,18 +887,67 @@ app.post('/api/rooms/:code/action', async (req, res) => {
       s.exhibitAState.isListLocked = true;
       s.exhibitAState.stage = 'SECRET_BRIEFING';
 
-      // Randomly select one object from the six contributed by players OTHER than the Traitor
-      const eligibleObjects = s.exhibitAState.objects.filter(o => o.contributorId !== s.traitorId);
-      if (eligibleObjects.length > 0 && !s.exhibitAState.plantedObjectId) {
-        const selected = eligibleObjects[Math.floor(Math.random() * eligibleObjects.length)];
-        s.exhibitAState.plantedObjectId = selected.id;
-        s.exhibitAState.plantedObjectName = selected.name;
+      // Ensure roles are assigned if not yet set
+      if (!s.traitorId) {
+        assignSecretRoles(s, room.players);
+      }
 
-        // Update Traitor's private briefing
-        const traitorPlayer = Object.values(room.players).find(p => p.id === s.traitorId);
-        if (traitorPlayer) {
-          traitorPlayer.secretMission = `Your planted evidence is: ${selected.name}. Get this object chosen as Exhibit A. Everyone knows you’re pushing for something. Nobody knows which object it is. Make them believe it was their idea.`;
+      // Ensure every seated player has a named object registered
+      const defaultPool = [
+        'Wooden Spoon',
+        'Single Sock',
+        'Tea Towel',
+        'Screwdriver',
+        'Rubber Duck',
+        'Coffee Mug',
+        'Candlestick',
+        'Antique Pocket Watch',
+        'Vintage Silk Scarf',
+        'Brass Key',
+      ];
+      Object.values(room.players).forEach((p, idx) => {
+        const existing = s.exhibitAState!.objects.find(o => o.contributorId === p.id);
+        if (!existing) {
+          s.exhibitAState!.objects.push({
+            id: `obj_${p.id}`,
+            contributorId: p.id,
+            contributorName: p.name,
+            name: defaultPool[idx % defaultPool.length] || `Artifact ${idx + 1}`,
+            hasPresented: false,
+          });
+        } else if (!existing.name || !existing.name.trim()) {
+          existing.name = defaultPool[idx % defaultPool.length] || `Artifact ${idx + 1}`;
         }
+      });
+
+      // Prefer objects submitted by players other than the Traitor with valid names
+      let eligibleObjects = s.exhibitAState.objects.filter(
+        o => o.contributorId !== s.traitorId && o.name && o.name.trim().length > 0
+      );
+      if (eligibleObjects.length === 0) {
+        eligibleObjects = s.exhibitAState.objects.filter(o => o.name && o.name.trim().length > 0);
+      }
+      if (eligibleObjects.length === 0) {
+        const fallbackObj = {
+          id: `obj_evidence_1`,
+          contributorId: 'p_evidence',
+          contributorName: 'The Castle',
+          name: 'Candlestick',
+          hasPresented: false,
+        };
+        s.exhibitAState.objects.push(fallbackObj);
+        eligibleObjects = [fallbackObj];
+      }
+
+      // Randomly select one object from the inputted objects
+      const selected = eligibleObjects[Math.floor(Math.random() * eligibleObjects.length)];
+      s.exhibitAState.plantedObjectId = selected.id;
+      s.exhibitAState.plantedObjectName = selected.name;
+
+      // Update Traitor's private briefing and secret mission
+      const traitorPlayer = Object.values(room.players).find(p => p.id === s.traitorId);
+      if (traitorPlayer) {
+        traitorPlayer.secretMission = `Your planted evidence is: ${selected.name}. Get this object chosen as Exhibit A. Everyone knows you’re pushing for something. Nobody knows which object it is. Make them believe it was their idea.`;
       }
       break;
     }
