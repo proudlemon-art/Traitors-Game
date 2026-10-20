@@ -14,6 +14,17 @@ export type GamePhase =
   | 'BANISHMENT_OUTCOME'
   | 'ASSIGNMENT_VERIFICATION'
   | 'ROUND_SUMMARY'
+  // Finale phases:
+  | 'FINALE_AUCTION_RECAP'
+  | 'FINALE_DISCUSSION'
+  | 'FINALE_VOTING'
+  | 'FINALE_VOTE_REVEALS'
+  | 'FINALE_TIE_DEFENCE'
+  | 'FINALE_TIE_VOTING'
+  | 'FINALE_TIE_REVEALS'
+  | 'FINALE_ELIMINATION'
+  | 'FINALE_END_OR_BANISH'
+  | 'FINALE_FINAL_REVEAL'
   | 'FINAL_RESULTS';
 
 export interface Player {
@@ -23,8 +34,10 @@ export interface Player {
   isRoomCreator?: boolean;
   seatNumber: number; // 1 to 7
   connected: boolean;
-  score: number; // Frozen during round, updated in ROUND_SUMMARY
+  score: number; // Frozen during round, updated in ROUND_SUMMARY / FINAL_RESULTS
   lastRoundScore?: number;
+  isEliminated?: boolean; // Set in finale when permanently eliminated
+  survivedFinale?: boolean;
   // Private fields only populated for player themselves or post-reveal:
   role?: Role;
   secretMission?: string;
@@ -44,6 +57,8 @@ export interface SanitizedPlayer {
   isRoomCreator: boolean;
   hasLockedVote: boolean;
   hasRevealedSlate: boolean;
+  isEliminated?: boolean;
+  survivedFinale?: boolean;
   revealedVoteForId?: string;
   revealedVoteForName?: string;
   revealedRole?: Role;
@@ -58,8 +73,8 @@ export interface TraitorObjective {
 
 export interface PlayerScoreBreakdown {
   missionPoints: number; // 0 to 3
-  mainObjectivePoints: number; // 0 or 2
-  bonusPoints: number; // 0 or 1
+  personalObjectivePoints: number; // 0 or 2 (Faithful: first ballot Traitor accuracy; Traitor: secret assignment)
+  roundOutcomePoints: number; // 0 or 1 (Faithful: Traitor banished; Traitor: Traitor survived)
   totalRoundPoints: number; // sum: 0 to 6
 }
 
@@ -74,24 +89,48 @@ export interface RoundHistory {
   firstBallotVotes: Record<string, string>; // voterId -> targetId
   scoreBreakdown: Record<string, PlayerScoreBreakdown>; // playerId -> breakdown
   roundScores: Record<string, number>; // playerId -> totalRoundPoints
+  exhibitAPlantedObjectName?: string;
+  exhibitAWon?: boolean;
   notes?: string;
 }
 
 // ----------------------------------------------------------------------
-// SIX SPECIFIC MISSION STATES
+// MISSION 1: EXHIBIT A STATE
 // ----------------------------------------------------------------------
-
-// MISSION 1: THE CASTLE HEIST
-export interface CastleHeistState {
-  currentStage: 1 | 2 | 3;
-  confirmedHouseholdItems: string[];
-  targetObjectForTraitor: string;
-  qualifyingPlayers: Record<number, string[]>; // stage -> playerIds who presented qualifying object
-  stageVotes: Record<number, Record<string, string>>; // stage -> (voterId -> targetId)
-  stageFavorites: Record<number, { playerId: string; playerName: string }>;
+export interface ExhibitAObject {
+  id: string; // e.g. "obj_p_libby"
+  contributorId: string;
+  contributorName: string;
+  name: string; // ordinary household object name
+  hasPresented: boolean;
 }
 
+export interface ExhibitAState {
+  stage:
+    | 'COLLECTION'
+    | 'SECRET_BRIEFING'
+    | 'PRESENTATIONS'
+    | 'EVIDENCE_VOTING'
+    | 'EVIDENCE_REVEAL'
+    | 'COMPLETED';
+  objects: ExhibitAObject[];
+  isListLocked: boolean;
+  plantedObjectId?: string; // Secret to Traitor
+  plantedObjectName?: string; // Secret to Traitor
+  acknowledgedPlayerIds: string[]; // Generic list of players who acknowledged secret briefing
+  evidenceVotes: Record<string, string>; // voterPlayerId -> objectId
+  isEvidenceVoteLocked: boolean;
+  evidenceVoteRevealed: boolean;
+  isEvidenceTieRevote: boolean;
+  tiedObjectIds: string[];
+  winningObjectId?: string; // Chosen Exhibit A
+  winningObjectName?: string;
+  winningObjectContributorName?: string;
+}
+
+// ----------------------------------------------------------------------
 // MISSION 2: THE BIRTHDAY MAJORITY
+// ----------------------------------------------------------------------
 export interface BirthdayMajorityQuestion {
   id: number;
   prompt: string;
@@ -105,7 +144,7 @@ export interface BirthdayMajorityState {
   allInitialAnswersLocked: boolean;
   predictions: Record<number, Record<string, string>>; // questionId -> (playerId -> predictedName)
   questionResults?: Record<number, { topNames: string[]; votesCount: Record<string, number> }>;
-  playerCorrectCount: Record<string, number>; // playerId -> count of correct predictions
+  playerCorrectCount: Record<string, number>;
   traitorTargetFaithfulId?: string;
   traitorTargetFaithfulName?: string;
   traitorAssignedQuestionId?: number;
@@ -113,7 +152,9 @@ export interface BirthdayMajorityState {
   traitorAssignmentSuccess?: boolean;
 }
 
+// ----------------------------------------------------------------------
 // MISSION 3: THE FORGERY GALLERY
+// ----------------------------------------------------------------------
 export interface ForgeryGalleryState {
   faithfulBrief: string;
   traitorBrief: string;
@@ -121,7 +162,9 @@ export interface ForgeryGalleryState {
   isDrawingLocked: boolean;
 }
 
+// ----------------------------------------------------------------------
 // MISSION 4: THE BODY DISPOSAL COMMITTEE
+// ----------------------------------------------------------------------
 export interface BodyDisposalState {
   scenario: string;
   confirmedHouseholdItems: string[];
@@ -135,7 +178,9 @@ export interface BodyDisposalState {
   traitorObjectFetchedByOther?: boolean;
 }
 
+// ----------------------------------------------------------------------
 // MISSION 5: THE COUNTERFEIT EXPERT
+// ----------------------------------------------------------------------
 export interface CounterfeitExpertState {
   invention: string;
   faithfulThreeWords: [string, string, string];
@@ -146,7 +191,9 @@ export interface CounterfeitExpertState {
   traitorGuessedWordSuccess?: boolean;
 }
 
+// ----------------------------------------------------------------------
 // MISSION 6: THE GETAWAY AUCTION
+// ----------------------------------------------------------------------
 export interface AuctionLot {
   lotNumber: number;
   title: string;
@@ -171,15 +218,56 @@ export interface GetawayAuctionState {
   lotWinners: Record<number, { winnerId: string; winnerName: string; winningBid: number } | null>;
 }
 
+// ----------------------------------------------------------------------
+// FINALE STATE (ROUND 6 POST-AUCTION)
+// ----------------------------------------------------------------------
+export interface FinaleState {
+  stage:
+    | 'AUCTION_RECAP'
+    | 'DISCUSSION'
+    | 'VOTING'
+    | 'VOTE_REVEALS'
+    | 'TIE_DEFENCE'
+    | 'TIE_VOTING'
+    | 'TIE_REVEALS'
+    | 'ELIMINATION_OUTCOME'
+    | 'END_OR_BANISH'
+    | 'FINAL_REVEAL';
+  cycleNumber: number;
+  eliminationCount: number; // Count of mandatory eliminations (targets 3 to reach 4 survivors)
+  eliminatedPlayerIds: string[]; // Permanently banished players (roles kept secret until final reveal!)
+  currentEliminatedPlayerId?: string; // Player just banished in current cycle
+  firstBanishmentVotes: Record<string, string>; // voterId -> targetId from first finale vote (for Faithful scoring)
+  // End or Banish
+  endOrBanishChoices: Record<string, 'END' | 'BANISH'>; // survivorId -> choice
+  endOrBanishRevealed: boolean;
+  // Step-by-step survivor reveal
+  revealedSurvivorIds: string[];
+  currentSurvivorRevealIndex: number;
+  allSurvivorsRevealed: boolean;
+  // Overall outcome
+  overallWinnerId?: string;
+  overallWinnerName?: string;
+  isTraitorWinner?: boolean;
+  jointWinnerNames?: string[];
+  loserPlayerId?: string;
+  loserPlayerName?: string;
+  jointLoserNames?: string[];
+  forfeitCompleted?: boolean;
+}
+
+// ----------------------------------------------------------------------
+// SERVER STATE & CLIENT PERSPECTIVE STATE
+// ----------------------------------------------------------------------
 export interface GameState {
   roomCode: string;
   currentRound: number; // 1 to 6
   phase: GamePhase;
   phaseTimeRemaining: number;
   isTimerPaused: boolean;
-  timerDeadline?: number; // timestamp in ms when phase expires
-  timerDurationSec?: number; // initial duration in seconds
-  timerPausedRemaining?: number; // remaining seconds when paused
+  timerDeadline?: number;
+  timerDurationSec?: number;
+  timerPausedRemaining?: number;
   seatingOrder: string[]; // playerIds 1..7
   currentRevealIndex: number;
   tieCandidateIds: string[];
@@ -195,15 +283,15 @@ export interface GameState {
   roundGold?: number;
 
   // Active round mission states
-  castleHeistState?: CastleHeistState;
+  exhibitAState?: ExhibitAState;
   birthdayMajorityState?: BirthdayMajorityState;
   forgeryGalleryState?: ForgeryGalleryState;
   bodyDisposalState?: BodyDisposalState;
   counterfeitExpertState?: CounterfeitExpertState;
   getawayAuctionState?: GetawayAuctionState;
+  finaleState?: FinaleState;
 }
 
-// Client perspective state sent by backend:
 export interface ClientGameState {
   roomCode: string;
   currentRound: number;
@@ -234,23 +322,26 @@ export interface ClientGameState {
   myHasLockedVote?: boolean;
   myHasRevealedSlate?: boolean;
   isMyTurnToReveal?: boolean;
+  isMyEliminated?: boolean;
 
   // Post-banishment / end of round revealed secrets:
   revealedTraitorId?: string;
   revealedTraitorName?: string;
   revealedTraitorObjective?: TraitorObjective;
+  revealedPlantedObjectName?: string;
   traitorAssignmentSuccess?: boolean | null;
   banishedPlayerId?: string | null;
   banishedPlayerName?: string | null;
   wasTraitorCaught?: boolean;
 
   // Active Mission States (Sanitized per player token)
-  castleHeistState?: CastleHeistState;
+  exhibitAState?: ExhibitAState;
   birthdayMajorityState?: BirthdayMajorityState;
   forgeryGalleryState?: ForgeryGalleryState;
   bodyDisposalState?: BodyDisposalState;
   counterfeitExpertState?: CounterfeitExpertState;
   getawayAuctionState?: GetawayAuctionState;
+  finaleState?: FinaleState;
 }
 
 export interface AudioEventMapping {

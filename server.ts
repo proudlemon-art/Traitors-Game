@@ -10,17 +10,19 @@ import type {
   SanitizedPlayer,
   RoundHistory,
   TraitorObjective,
-  CastleHeistState,
+  ExhibitAState,
+  ExhibitAObject,
   BirthdayMajorityState,
   ForgeryGalleryState,
   BodyDisposalState,
   CounterfeitExpertState,
   GetawayAuctionState,
+  FinaleState,
+  PlayerScoreBreakdown,
 } from './src/types/game.ts';
 import {
   TRAITOR_OBJECTIVES,
-  HEIST_HOUSEHOLD_ITEMS_POOL,
-  HEIST_STAGES,
+  EXHIBIT_A_EXAMPLES,
   BIRTHDAY_MAJORITY_QUESTION_POOL,
   FORGERY_BRIEF_PAIRS,
   BODY_DISPOSAL_SCENARIO,
@@ -28,7 +30,7 @@ import {
   COUNTERFEIT_INVENTIONS,
   AUCTION_LOTS,
 } from './src/data/missions.ts';
-import { HOST_SCRIPTS } from './src/data/dialogue.ts';
+import { HOST_SCRIPTS, JASMINE_FORFEIT_APOLOGY } from './src/data/dialogue.ts';
 import { db } from './src/server/db.ts';
 
 const app = express();
@@ -57,8 +59,9 @@ async function getDialogueForPhase(phase: string, round: number): Promise<string
   try {
     const saved = await db.getMediaConfig();
     if (Array.isArray(saved)) {
-      const scene = saved.find((s: any) =>
-        (s.id === `ROUND_${round}_${phase}` || (s.phase === phase && s.round === round)) && s.customText
+      const scene = saved.find(
+        (s: any) =>
+          (s.id === `ROUND_${round}_${phase}` || (s.phase === phase && s.round === round)) && s.customText
       );
       if (scene && scene.customText) {
         return scene.customText;
@@ -70,18 +73,25 @@ async function getDialogueForPhase(phase: string, round: number): Promise<string
 
   const roundScripts = HOST_SCRIPTS[round] || HOST_SCRIPTS[1];
   switch (phase) {
-    case 'INTRO': return roundScripts.intro;
-    case 'ROLE_BRIEFING': return roundScripts.roleBriefing;
-    case 'MISSION': return roundScripts.missionStart;
-    case 'ROUND_TABLE': return roundScripts.roundTable;
-    case 'VOTING': return roundScripts.votingOpen;
-    case 'VOTE_REVEALS': return roundScripts.allVotesLocked;
-    default: return '';
+    case 'INTRO':
+      return roundScripts.intro;
+    case 'ROLE_BRIEFING':
+      return roundScripts.roleBriefing;
+    case 'MISSION':
+      return roundScripts.missionStart;
+    case 'ROUND_TABLE':
+      return roundScripts.roundTable;
+    case 'VOTING':
+      return roundScripts.votingOpen;
+    case 'VOTE_REVEALS':
+      return roundScripts.allVotesLocked;
+    default:
+      return '';
   }
 }
 
 function createInitialState(roomCode: string, isDemo = false): GameState {
-  const initialDuration = 600; // 10 mins
+  const initialDuration = 480; // 8 mins for opening
   return {
     roomCode,
     currentRound: 1,
@@ -104,13 +114,16 @@ function createInitialState(roomCode: string, isDemo = false): GameState {
     roundHistory: [],
     latestDialogue: HOST_SCRIPTS[1].intro,
     isDemoRoom: isDemo,
-    castleHeistState: {
-      currentStage: 1,
-      confirmedHouseholdItems: HEIST_HOUSEHOLD_ITEMS_POOL.slice(0, 5),
-      targetObjectForTraitor: HEIST_HOUSEHOLD_ITEMS_POOL[0],
-      qualifyingPlayers: { 1: [], 2: [], 3: [] },
-      stageVotes: { 1: {}, 2: {}, 3: {} },
-      stageFavorites: {},
+    exhibitAState: {
+      stage: 'COLLECTION',
+      objects: [],
+      isListLocked: false,
+      acknowledgedPlayerIds: [],
+      evidenceVotes: {},
+      isEvidenceVoteLocked: false,
+      evidenceVoteRevealed: false,
+      isEvidenceTieRevote: false,
+      tiedObjectIds: [],
     },
   };
 }
@@ -129,7 +142,8 @@ function setPhaseWithTimer(s: GameState, phase: GamePhase, durationSec: number, 
  * Sanitizes game state enforcing strict privacy rules:
  * - Calling player sees ONLY their own role, secret mission, and vote.
  * - Others' roles, secret missions, and unrevealed votes are completely stripped.
- * - Post-banishment / end-of-round reveals the traitor and votes publicly.
+ * - Exhibit A planted object is secret to Traitor only until post-banishment.
+ * - Finale eliminated players' roles are strictly hidden until final reveal.
  * - Live countdown is dynamically calculated from persistent timer deadlines.
  */
 function sanitizeState(
@@ -142,12 +156,13 @@ function sanitizeState(
   const playersList = Object.values(playersMap);
   const callingPlayer = playerToken ? playersMap[playerToken] : undefined;
 
-  const isPostBanishment = [
-    'BANISHMENT_OUTCOME',
-    'ASSIGNMENT_VERIFICATION',
-    'ROUND_SUMMARY',
-    'FINAL_RESULTS',
-  ].includes(s.phase);
+  const isRound1to5PostBanishment =
+    s.currentRound < 6 &&
+    ['BANISHMENT_OUTCOME', 'ASSIGNMENT_VERIFICATION', 'ROUND_SUMMARY'].includes(s.phase);
+
+  const isFinalResultsRevealed =
+    s.phase === 'FINAL_RESULTS' ||
+    (s.phase === 'FINALE_FINAL_REVEAL' && s.finaleState?.allSurvivorsRevealed);
 
   // 1. Calculate live remaining time dynamically from deadline
   let liveRemaining = s.phaseTimeRemaining;
@@ -160,23 +175,37 @@ function sanitizeState(
   // 2. Strict player privacy sanitization
   const sanitizedPlayers: SanitizedPlayer[] = playersList.map(p => {
     const isSelf = callingPlayer?.id === p.id;
+    let revealedRole: Role | undefined = undefined;
+
+    if (isRound1to5PostBanishment || isFinalResultsRevealed) {
+      revealedRole = p.role;
+    } else if (isSelf) {
+      revealedRole = p.role;
+    }
+
     return {
       id: p.id,
       name: p.name,
       seatNumber: p.seatNumber,
       connected: p.connected,
       score: p.score,
+      lastRoundScore: p.lastRoundScore,
       isRoomCreator: !!p.isRoomCreator,
       hasLockedVote: !!p.hasLockedVote,
       hasRevealedSlate: !!p.hasRevealedSlate,
-      revealedVoteForId: p.hasRevealedSlate || isPostBanishment ? p.votedForPlayerId : undefined,
-      revealedVoteForName: p.hasRevealedSlate || isPostBanishment ? p.votedForPlayerName : undefined,
-      revealedRole: isPostBanishment || isSelf ? p.role : undefined,
+      isEliminated: !!p.isEliminated,
+      survivedFinale: !!p.survivedFinale,
+      revealedVoteForId: p.hasRevealedSlate || isRound1to5PostBanishment ? p.votedForPlayerId : undefined,
+      revealedVoteForName: p.hasRevealedSlate || isRound1to5PostBanishment ? p.votedForPlayerName : undefined,
+      revealedRole,
     };
   });
 
   const activeTurnPlayerId = s.seatingOrder[s.currentRevealIndex];
-  const isMyTurnToReveal = !!callingPlayer && callingPlayer.id === activeTurnPlayerId && s.phase === 'VOTE_REVEALS';
+  const isMyTurnToReveal =
+    !!callingPlayer &&
+    callingPlayer.id === activeTurnPlayerId &&
+    (s.phase === 'VOTE_REVEALS' || s.phase === 'FINALE_VOTE_REVEALS');
 
   const clientState: ClientGameState = {
     roomCode: s.roomCode,
@@ -208,29 +237,60 @@ function sanitizeState(
     clientState.myHasRevealedSlate = callingPlayer.hasRevealedSlate;
     clientState.myVotedForId = callingPlayer.votedForPlayerId;
     clientState.isMyTurnToReveal = isMyTurnToReveal;
+    clientState.isMyEliminated = !!callingPlayer.isEliminated;
 
     if (callingPlayer.role === 'TRAITOR') {
       clientState.mySecretMission = callingPlayer.secretMission;
-      clientState.mySecretBriefing = `You are THE TRAITOR for Round ${s.currentRound}. The castle is yours to deceive. Maintain your composure and fulfill your secret assignment.`;
+      if (s.currentRound === 1) {
+        clientState.mySecretBriefing =
+          'You are the Traitor. Everyone will bring an object to the table, including you. Once all seven contenders are submitted, the app will secretly tell you which object you planted. Your job will be to get that object chosen as Exhibit A. For now, bring an ordinary object and act innocent.';
+      } else if (s.currentRound === 6) {
+        clientState.mySecretBriefing =
+          'The Traitor chosen for this round stays the Traitor until the game ends. Maintain your composure through the auction and survive the final banishments to steal victory outright.';
+      } else {
+        clientState.mySecretBriefing = `You are THE TRAITOR for Round ${s.currentRound}. The castle is yours to deceive. Maintain your composure and fulfill your secret assignment.`;
+      }
     } else if (callingPlayer.role === 'FAITHFUL') {
-      clientState.mySecretBriefing = `You are FAITHFUL for Round ${s.currentRound}. Sworn to protect Libby's birthday honour! One player among you is lying. Watch who deflects and who steers the group.`;
+      if (s.currentRound === 1) {
+        clientState.mySecretBriefing =
+          'Bring one ordinary household object to the table and register it on your phone. Once everyone has submitted, the Traitor will secretly receive the object they must persuade you to choose as Exhibit A. Watch who tries to steer the investigation.';
+      } else if (s.currentRound === 6) {
+        clientState.mySecretBriefing =
+          'You are FAITHFUL for Round 6 and the Grand Finale. From this moment, if you are banished, you are permanently eliminated. Stay alert and banish the Traitor.';
+      } else {
+        clientState.mySecretBriefing = `You are FAITHFUL for Round ${s.currentRound}. Sworn to protect Libby's birthday honour! One player among you is lying. Watch who deflects and who steers the group.`;
+      }
     }
   }
 
-  // 4. Reveal traitor identity only post-banishment
-  if (isPostBanishment) {
+  // 4. Reveal secrets only post-banishment
+  if (isRound1to5PostBanishment || isFinalResultsRevealed) {
     clientState.revealedTraitorId = s.traitorId || undefined;
     clientState.revealedTraitorName = s.traitorName || undefined;
     clientState.revealedTraitorObjective = s.traitorObjective || undefined;
+    if (s.exhibitAState?.plantedObjectName) {
+      clientState.revealedPlantedObjectName = s.exhibitAState.plantedObjectName;
+    }
   }
 
-  // Safe mission states
-  if (s.castleHeistState) clientState.castleHeistState = s.castleHeistState;
+  // 5. Mission States Sanitization
+  if (s.exhibitAState) {
+    const isTraitor = callingPlayer?.id === s.traitorId;
+    const isRevealed = isRound1to5PostBanishment || s.currentRound > 1;
+
+    clientState.exhibitAState = {
+      ...s.exhibitAState,
+      plantedObjectId: isTraitor || isRevealed ? s.exhibitAState.plantedObjectId : undefined,
+      plantedObjectName: isTraitor || isRevealed ? s.exhibitAState.plantedObjectName : undefined,
+    };
+  }
+
   if (s.birthdayMajorityState) clientState.birthdayMajorityState = s.birthdayMajorityState;
   if (s.forgeryGalleryState) clientState.forgeryGalleryState = s.forgeryGalleryState;
   if (s.bodyDisposalState) clientState.bodyDisposalState = s.bodyDisposalState;
   if (s.counterfeitExpertState) clientState.counterfeitExpertState = s.counterfeitExpertState;
   if (s.getawayAuctionState) clientState.getawayAuctionState = s.getawayAuctionState;
+  if (s.finaleState) clientState.finaleState = s.finaleState;
 
   return clientState;
 }
@@ -239,6 +299,7 @@ function assignSecretRoles(s: GameState, playersMap: Record<string, Player>) {
   const players = Object.values(playersMap);
   if (players.length === 0) return;
 
+  // Assign roles independently each round
   const traitorIndex = Math.floor(Math.random() * players.length);
   const traitorPlayer = players[traitorIndex];
   const roundNum = s.currentRound;
@@ -247,7 +308,12 @@ function assignSecretRoles(s: GameState, playersMap: Record<string, Player>) {
   players.forEach((p, idx) => {
     if (idx === traitorIndex) {
       p.role = 'TRAITOR';
-      p.secretMission = `${objective.title}: ${objective.description} Goal: ${objective.conversationalGoal}`;
+      if (roundNum === 1) {
+        p.secretMission =
+          'You are the Traitor. Everyone will bring an object to the table, including you. Once all seven contenders are submitted, the app will secretly tell you which object you planted. Your job will be to get that object chosen as Exhibit A. For now, bring an ordinary object and act innocent.';
+      } else {
+        p.secretMission = `${objective.title}: ${objective.description} Goal: ${objective.conversationalGoal}`;
+      }
     } else {
       p.role = 'FAITHFUL';
       p.secretMission = undefined;
@@ -267,13 +333,16 @@ function assignSecretRoles(s: GameState, playersMap: Record<string, Player>) {
 
   // Reset missions for round
   if (roundNum === 1) {
-    s.castleHeistState = {
-      currentStage: 1,
-      confirmedHouseholdItems: HEIST_HOUSEHOLD_ITEMS_POOL.slice(0, 5),
-      targetObjectForTraitor: HEIST_HOUSEHOLD_ITEMS_POOL[0],
-      qualifyingPlayers: { 1: [], 2: [], 3: [] },
-      stageVotes: { 1: {}, 2: {}, 3: {} },
-      stageFavorites: {},
+    s.exhibitAState = {
+      stage: 'COLLECTION',
+      objects: [],
+      isListLocked: false,
+      acknowledgedPlayerIds: [],
+      evidenceVotes: {},
+      isEvidenceVoteLocked: false,
+      evidenceVoteRevealed: false,
+      isEvidenceTieRevote: false,
+      tiedObjectIds: [],
     };
   } else if (roundNum === 2) {
     s.birthdayMajorityState = {
@@ -333,16 +402,62 @@ function assignSecretRoles(s: GameState, playersMap: Record<string, Player>) {
       tieRebids: {},
       lotWinners: {},
     };
+    s.finaleState = {
+      stage: 'AUCTION_RECAP',
+      cycleNumber: 1,
+      eliminationCount: 0,
+      eliminatedPlayerIds: [],
+      firstBanishmentVotes: {},
+      endOrBanishChoices: {},
+      endOrBanishRevealed: false,
+      revealedSurvivorIds: [],
+      currentSurvivorRevealIndex: 0,
+      allSurvivorsRevealed: false,
+    };
   }
 }
 
-function recordRoundOutcome(s: GameState, playersMap: Record<string, Player>, banishedId: string | null, wasTraitor: boolean) {
+/**
+ * REVISED SCORING FOR ALL SIX ROUNDS:
+ * Maximum 6 points per round (Total max: 36 points across 6 rounds)
+ * 1. MISSION PERFORMANCE: 0 to 3 points
+ * 2. PERSONAL OBJECTIVE:
+ *    - Faithful: 2 pts if their first banishment ballot identified the Traitor
+ *    - Traitor: 2 pts if secret assignment succeeded
+ * 3. ROUND OUTCOME:
+ *    - Faithful: 1 pt if the group banishes the Traitor
+ *    - Traitor: 1 pt if Traitor survives banishment
+ */
+function recordRoundOutcome(
+  s: GameState,
+  playersMap: Record<string, Player>,
+  banishedId: string | null,
+  wasTraitor: boolean
+) {
   const players = Object.values(playersMap);
   const traitor = players.find(p => p.id === s.traitorId);
   const banished = banishedId ? players.find(p => p.id === banishedId) : null;
   const roundScores: Record<string, number> = {};
-  const scoreBreakdown: Record<string, any> = {};
+  const scoreBreakdown: Record<string, PlayerScoreBreakdown> = {};
   const firstBallotVotes: Record<string, string> = {};
+
+  let traitorAssignmentCompleted = false;
+
+  // Check Traitor assignment success per round:
+  if (s.currentRound === 1 && s.exhibitAState) {
+    traitorAssignmentCompleted =
+      !!s.exhibitAState.plantedObjectId &&
+      s.exhibitAState.plantedObjectId === s.exhibitAState.winningObjectId;
+  } else if (s.currentRound === 2 && s.birthdayMajorityState) {
+    traitorAssignmentCompleted = !!s.birthdayMajorityState.traitorAssignmentSuccess;
+  } else if (s.currentRound === 4 && s.bodyDisposalState) {
+    traitorAssignmentCompleted =
+      s.bodyDisposalState.chosenFiveObjects.includes(s.bodyDisposalState.traitorAssignedObject);
+  } else if (s.currentRound === 5 && s.counterfeitExpertState) {
+    traitorAssignmentCompleted = !!s.counterfeitExpertState.traitorGuessedWordSuccess;
+  } else if (s.currentRound === 6 && s.getawayAuctionState) {
+    traitorAssignmentCompleted = !!s.getawayAuctionState.traitorAssignmentSuccess;
+  }
 
   players.forEach(p => {
     if (p.votedForPlayerId) {
@@ -351,9 +466,16 @@ function recordRoundOutcome(s: GameState, playersMap: Record<string, Player>, ba
 
     // 1. Mission Points (0 to 3)
     let missionPoints = 0;
-    if (s.currentRound === 1 && s.castleHeistState) {
-      const q = s.castleHeistState.qualifyingPlayers;
-      missionPoints = [1, 2, 3].filter(st => q[st]?.includes(p.id)).length;
+    if (s.currentRound === 1 && s.exhibitAState) {
+      // 1 pt for registering and presenting an object
+      const obj = s.exhibitAState.objects.find(o => o.contributorId === p.id);
+      if (obj?.hasPresented) missionPoints += 1;
+      // 1 pt for submitting valid first evidence ballot
+      if (s.exhibitAState.evidenceVotes[p.id]) missionPoints += 1;
+      // 1 pt if first evidence ballot selected final winning object
+      if (s.exhibitAState.evidenceVotes[p.id] === s.exhibitAState.winningObjectId) {
+        missionPoints += 1;
+      }
     } else if (s.currentRound === 2 && s.birthdayMajorityState) {
       missionPoints = Math.min(3, s.birthdayMajorityState.playerCorrectCount?.[p.id] || 0);
     } else if (s.currentRound === 3 && s.forgeryGalleryState) {
@@ -361,37 +483,53 @@ function recordRoundOutcome(s: GameState, playersMap: Record<string, Player>, ba
       missionPoints = (ms?.person ? 1 : 0) + (ms?.setting ? 1 : 0) + (ms?.threeObjects ? 1 : 0);
     } else if (s.currentRound === 4 && s.bodyDisposalState) {
       const ms = s.bodyDisposalState.milestones;
-      missionPoints = (ms?.fiveObjectsChosen ? 1 : 0) + (ms?.allFiveInStory ? 1 : 0) + (ms?.presentationUnderOneMinute ? 1 : 0);
+      missionPoints =
+        (ms?.fiveObjectsChosen ? 1 : 0) +
+        (ms?.allFiveInStory ? 1 : 0) +
+        (ms?.presentationUnderOneMinute ? 1 : 0);
     } else if (s.currentRound === 5 && s.counterfeitExpertState) {
       const ms = s.counterfeitExpertState.playerMilestones?.[p.id];
-      missionPoints = (ms?.under30Seconds ? 1 : 0) + (ms?.word1Used ? 1 : 0) + (ms?.word2Used ? 1 : 0);
+      missionPoints =
+        (ms?.under30Seconds ? 1 : 0) + (ms?.word1Used ? 1 : 0) + (ms?.word2Used ? 1 : 0);
     } else if (s.currentRound === 6 && s.getawayAuctionState) {
       const esc = s.getawayAuctionState.playerEscapePoints?.[p.id] || 0;
-      missionPoints = Math.min(3, Math.max(1, Math.floor(esc / 2)));
+      missionPoints = Math.min(3, Math.max(0, Math.floor(esc / 2)));
     }
     missionPoints = Math.min(3, Math.max(0, missionPoints));
 
-    // 2. Main Objective Points (0 or 2)
-    let mainObjectivePoints = 0;
+    // 2. Personal Objective (0 or 2)
+    let personalObjectivePoints = 0;
     if (p.role === 'FAITHFUL') {
       if (p.votedForPlayerId === s.traitorId) {
-        mainObjectivePoints = 2;
+        personalObjectivePoints = 2;
       }
     } else if (p.role === 'TRAITOR') {
-      if (banishedId !== s.traitorId) {
-        mainObjectivePoints = 2;
+      if (traitorAssignmentCompleted) {
+        personalObjectivePoints = 2;
       }
     }
 
-    const bonusPoints = 0;
-    const totalRoundPoints = missionPoints + mainObjectivePoints + bonusPoints;
+    // 3. Round Outcome (0 or 1)
+    let roundOutcomePoints = 0;
+    if (p.role === 'FAITHFUL') {
+      if (wasTraitor) {
+        roundOutcomePoints = 1;
+      }
+    } else if (p.role === 'TRAITOR') {
+      if (!wasTraitor) {
+        roundOutcomePoints = 1;
+      }
+    }
+
+    const totalRoundPoints = missionPoints + personalObjectivePoints + roundOutcomePoints;
 
     p.score += totalRoundPoints;
+    p.lastRoundScore = totalRoundPoints;
     roundScores[p.id] = totalRoundPoints;
     scoreBreakdown[p.id] = {
       missionPoints,
-      mainObjectivePoints,
-      bonusPoints,
+      personalObjectivePoints,
+      roundOutcomePoints,
       totalRoundPoints,
     };
   });
@@ -403,10 +541,12 @@ function recordRoundOutcome(s: GameState, playersMap: Record<string, Player>, ba
     banishedPlayerId: banishedId,
     banishedPlayerName: banished?.name || null,
     wasTraitorBanished: wasTraitor,
-    traitorAssignmentCompleted: false,
+    traitorAssignmentCompleted,
     firstBallotVotes,
     scoreBreakdown,
     roundScores,
+    exhibitAPlantedObjectName: s.exhibitAState?.plantedObjectName,
+    exhibitAWon: s.exhibitAState?.winningObjectId === s.exhibitAState?.plantedObjectId,
   };
 
   s.roundHistory.push(history);
@@ -560,7 +700,7 @@ app.post('/api/rooms/:code/join', async (req, res) => {
   });
 });
 
-// Seed Instant Demo Castle (7-player test room)
+// Seed Instant Demo Castle (7-player test room with Exhibit A pre-seeded objects)
 app.post('/api/rooms/demo-setup', async (req, res) => {
   const code = 'DEMO7';
   const creatorToken = 'demo_token_libby';
@@ -569,16 +709,18 @@ app.post('/api/rooms/demo-setup', async (req, res) => {
 
   const players: Record<string, Player> = {};
   const demoGuestList = [
-    { name: 'Libby', isCreator: true, token: 'demo_token_libby' },
-    { name: 'Arthur', isCreator: false, token: 'demo_token_arthur' },
-    { name: 'Beatrice', isCreator: false, token: 'demo_token_beatrice' },
-    { name: 'Callum', isCreator: false, token: 'demo_token_callum' },
-    { name: 'Daphne', isCreator: false, token: 'demo_token_daphne' },
-    { name: 'Edgar', isCreator: false, token: 'demo_token_edgar' },
-    { name: 'Fiona', isCreator: false, token: 'demo_token_fiona' },
+    { name: 'Libby', isCreator: true, token: 'demo_token_libby', defaultObject: 'Wooden Spoon' },
+    { name: 'Arthur', isCreator: false, token: 'demo_token_arthur', defaultObject: 'Single Sock' },
+    { name: 'Beatrice', isCreator: false, token: 'demo_token_beatrice', defaultObject: 'Tea Towel' },
+    { name: 'Callum', isCreator: false, token: 'demo_token_callum', defaultObject: 'Screwdriver' },
+    { name: 'Daphne', isCreator: false, token: 'demo_token_daphne', defaultObject: 'Rubber Duck' },
+    { name: 'Edgar', isCreator: false, token: 'demo_token_edgar', defaultObject: 'Coffee Mug' },
+    { name: 'Fiona', isCreator: false, token: 'demo_token_fiona', defaultObject: 'Candlestick' },
   ];
 
   state.seatingOrder = [];
+  const demoObjects: ExhibitAObject[] = [];
+
   demoGuestList.forEach((guest, idx) => {
     const id = `p_${guest.name.toLowerCase()}`;
     players[guest.token] = {
@@ -590,7 +732,18 @@ app.post('/api/rooms/demo-setup', async (req, res) => {
       score: 0,
     };
     state.seatingOrder.push(id);
+    demoObjects.push({
+      id: `obj_${id}`,
+      contributorId: id,
+      contributorName: guest.name,
+      name: guest.defaultObject,
+      hasPresented: true,
+    });
   });
+
+  if (state.exhibitAState) {
+    state.exhibitAState.objects = demoObjects;
+  }
 
   await db.saveRoom({
     code,
@@ -648,7 +801,7 @@ app.post('/api/rooms/:code/action', async (req, res) => {
 
     case 'START_GAME': {
       const dialogue = await getDialogueForPhase('INTRO', s.currentRound);
-      setPhaseWithTimer(s, 'INTRO', 600, dialogue);
+      setPhaseWithTimer(s, 'INTRO', 480, dialogue); // 8 mins opening
       break;
     }
 
@@ -665,6 +818,152 @@ app.post('/api/rooms/:code/action', async (req, res) => {
       break;
     }
 
+    // -------------------------------------------------------------------
+    // MISSION 1: EXHIBIT A ACTIONS
+    // -------------------------------------------------------------------
+    case 'EXHIBIT_A_SUBMIT_OBJECT': {
+      if (!s.exhibitAState || !player) break;
+      const objectName = (payload?.objectName || '').trim();
+      if (!objectName) break;
+
+      const existingIdx = s.exhibitAState.objects.findIndex(o => o.contributorId === player.id);
+      if (existingIdx >= 0) {
+        s.exhibitAState.objects[existingIdx].name = objectName;
+      } else {
+        s.exhibitAState.objects.push({
+          id: `obj_${player.id}`,
+          contributorId: player.id,
+          contributorName: player.name,
+          name: objectName,
+          hasPresented: false,
+        });
+      }
+      break;
+    }
+
+    case 'EXHIBIT_A_LOCK_OBJECTS': {
+      if (!s.exhibitAState) break;
+      s.exhibitAState.isListLocked = true;
+      s.exhibitAState.stage = 'SECRET_BRIEFING';
+
+      // Randomly select one object from the six contributed by players OTHER than the Traitor
+      const eligibleObjects = s.exhibitAState.objects.filter(o => o.contributorId !== s.traitorId);
+      if (eligibleObjects.length > 0 && !s.exhibitAState.plantedObjectId) {
+        const selected = eligibleObjects[Math.floor(Math.random() * eligibleObjects.length)];
+        s.exhibitAState.plantedObjectId = selected.id;
+        s.exhibitAState.plantedObjectName = selected.name;
+
+        // Update Traitor's private briefing
+        const traitorPlayer = Object.values(room.players).find(p => p.id === s.traitorId);
+        if (traitorPlayer) {
+          traitorPlayer.secretMission = `Your planted evidence is: ${selected.name}. Get this object chosen as Exhibit A. Everyone knows you’re pushing for something. Nobody knows which object it is. Make them believe it was their idea.`;
+        }
+      }
+      break;
+    }
+
+    case 'EXHIBIT_A_ACKNOWLEDGE': {
+      if (!s.exhibitAState || !player) break;
+      if (!s.exhibitAState.acknowledgedPlayerIds.includes(player.id)) {
+        s.exhibitAState.acknowledgedPlayerIds.push(player.id);
+      }
+      break;
+    }
+
+    case 'EXHIBIT_A_START_PRESENTATIONS': {
+      if (!s.exhibitAState) break;
+      s.exhibitAState.stage = 'PRESENTATIONS';
+      setPhaseWithTimer(s, 'MISSION', 300, HOST_SCRIPTS[1].missionStart);
+      break;
+    }
+
+    case 'EXHIBIT_A_TOGGLE_PRESENTED': {
+      if (!s.exhibitAState || !payload?.contributorId) break;
+      const targetObj = s.exhibitAState.objects.find(o => o.contributorId === payload.contributorId);
+      if (targetObj) {
+        targetObj.hasPresented = !targetObj.hasPresented;
+      }
+      break;
+    }
+
+    case 'EXHIBIT_A_OPEN_VOTING': {
+      if (!s.exhibitAState) break;
+      s.exhibitAState.stage = 'EVIDENCE_VOTING';
+      s.exhibitAState.evidenceVotes = {};
+      s.exhibitAState.isEvidenceVoteLocked = false;
+      s.exhibitAState.evidenceVoteRevealed = false;
+      break;
+    }
+
+    case 'EXHIBIT_A_CAST_VOTE': {
+      if (!s.exhibitAState || !player || !payload?.objectId) break;
+      s.exhibitAState.evidenceVotes[player.id] = payload.objectId;
+
+      const totalPlayersCount = Object.keys(room.players).length;
+      const votesCount = Object.keys(s.exhibitAState.evidenceVotes).length;
+      if (votesCount >= totalPlayersCount) {
+        s.exhibitAState.isEvidenceVoteLocked = true;
+      }
+      break;
+    }
+
+    case 'EXHIBIT_A_REVEAL_VOTES': {
+      if (!s.exhibitAState) break;
+      s.exhibitAState.evidenceVoteRevealed = true;
+
+      // Tally object votes
+      const tallies: Record<string, number> = {};
+      Object.values(s.exhibitAState.evidenceVotes).forEach(objId => {
+        tallies[objId] = (tallies[objId] || 0) + 1;
+      });
+
+      let maxCount = 0;
+      let topObjectIds: string[] = [];
+      Object.entries(tallies).forEach(([objId, count]) => {
+        if (count > maxCount) {
+          maxCount = count;
+          topObjectIds = [objId];
+        } else if (count === maxCount) {
+          topObjectIds.push(objId);
+        }
+      });
+
+      if (topObjectIds.length > 1) {
+        if (!s.exhibitAState.isEvidenceTieRevote) {
+          s.exhibitAState.isEvidenceTieRevote = true;
+          s.exhibitAState.tiedObjectIds = topObjectIds;
+        } else {
+          // If still tied after revote, randomly choose among tied
+          const winnerId = topObjectIds[Math.floor(Math.random() * topObjectIds.length)];
+          const winnerObj = s.exhibitAState.objects.find(o => o.id === winnerId);
+          s.exhibitAState.winningObjectId = winnerId;
+          s.exhibitAState.winningObjectName = winnerObj?.name || 'Selected Object';
+          s.exhibitAState.winningObjectContributorName = winnerObj?.contributorName || 'Unknown';
+          s.exhibitAState.stage = 'EVIDENCE_REVEAL';
+        }
+      } else if (topObjectIds.length === 1) {
+        const winnerId = topObjectIds[0];
+        const winnerObj = s.exhibitAState.objects.find(o => o.id === winnerId);
+        s.exhibitAState.winningObjectId = winnerId;
+        s.exhibitAState.winningObjectName = winnerObj?.name || 'Selected Object';
+        s.exhibitAState.winningObjectContributorName = winnerObj?.contributorName || 'Unknown';
+        s.exhibitAState.stage = 'EVIDENCE_REVEAL';
+      }
+      break;
+    }
+
+    case 'EXHIBIT_A_TIE_REVOTE': {
+      if (!s.exhibitAState) break;
+      s.exhibitAState.stage = 'EVIDENCE_VOTING';
+      s.exhibitAState.evidenceVotes = {};
+      s.exhibitAState.isEvidenceVoteLocked = false;
+      s.exhibitAState.evidenceVoteRevealed = false;
+      break;
+    }
+
+    // -------------------------------------------------------------------
+    // ROUND TABLE & BANISHMENT (ROUNDS 1 TO 5)
+    // -------------------------------------------------------------------
     case 'ADVANCE_TO_ROUND_TABLE': {
       const dialogue = await getDialogueForPhase('ROUND_TABLE', s.currentRound);
       setPhaseWithTimer(s, 'ROUND_TABLE', 300, dialogue);
@@ -697,7 +996,8 @@ app.post('/api/rooms/:code/action', async (req, res) => {
       player.votedForPlayerName = target.name;
       player.hasLockedVote = true;
 
-      const allLocked = Object.values(room.players).every(p => p.hasLockedVote);
+      const activePlayers = Object.values(room.players).filter(p => !p.isEliminated);
+      const allLocked = activePlayers.every(p => p.hasLockedVote);
       if (allLocked) {
         s.phase = s.isTieRevote ? 'TIE_REVEALS' : 'VOTE_REVEALS';
         s.currentRevealIndex = 0;
@@ -761,7 +1061,10 @@ app.post('/api/rooms/:code/action', async (req, res) => {
           const banishedPlayer = Object.values(room.players).find(p => p.id === banishedId);
           const wasTraitor = banishedId === s.traitorId;
           s.phase = 'BANISHMENT_OUTCOME';
-          s.latestDialogue = HOST_SCRIPTS[s.currentRound].banishment(banishedPlayer?.name || 'Someone', wasTraitor);
+          s.latestDialogue = HOST_SCRIPTS[s.currentRound].banishment(
+            banishedPlayer?.name || 'Someone',
+            wasTraitor
+          );
           recordRoundOutcome(s, room.players, banishedId, wasTraitor);
         }
       }
@@ -782,28 +1085,433 @@ app.post('/api/rooms/:code/action', async (req, res) => {
 
     case 'CONFIRM_ASSIGNMENT_RESULT': {
       const success = !!payload?.success;
-      const traitor = Object.values(room.players).find(p => p.id === s.traitorId);
-      if (traitor && success) {
-        traitor.score += 1;
-      }
       const lastHistory = s.roundHistory[s.roundHistory.length - 1];
       if (lastHistory) {
         lastHistory.traitorAssignmentCompleted = success;
+        // Update Traitor's personal objective points if corrected
+        const traitorId = s.traitorId;
+        if (traitorId && lastHistory.scoreBreakdown[traitorId]) {
+          const prevPts = lastHistory.scoreBreakdown[traitorId].personalObjectivePoints;
+          const newPts = success ? 2 : 0;
+          const diff = newPts - prevPts;
+          lastHistory.scoreBreakdown[traitorId].personalObjectivePoints = newPts;
+          lastHistory.scoreBreakdown[traitorId].totalRoundPoints += diff;
+          lastHistory.roundScores[traitorId] += diff;
+          const traitor = Object.values(room.players).find(p => p.id === traitorId);
+          if (traitor) traitor.score += diff;
+        }
       }
       s.phase = 'ROUND_SUMMARY';
       break;
     }
 
     case 'ADVANCE_NEXT_ROUND': {
-      if (s.currentRound < 6) {
+      if (s.currentRound < 5) {
         s.currentRound += 1;
         const dialogue = await getDialogueForPhase('INTRO', s.currentRound);
         setPhaseWithTimer(s, 'INTRO', 60, dialogue);
+      } else if (s.currentRound === 5) {
+        // Advance to Round 6 (Auction & Finale)
+        s.currentRound = 6;
+        const dialogue = await getDialogueForPhase('INTRO', 6);
+        setPhaseWithTimer(s, 'INTRO', 60, dialogue);
+      }
+      break;
+    }
+
+    // -------------------------------------------------------------------
+    // ROUND 6: AUCTION & FINALE ACTIONS
+    // -------------------------------------------------------------------
+    case 'SUBMIT_AUCTION_BID': {
+      if (!s.getawayAuctionState || !player) break;
+      const { lotNumber, bid } = payload;
+      if (!s.getawayAuctionState.bids[lotNumber]) {
+        s.getawayAuctionState.bids[lotNumber] = {};
+      }
+      s.getawayAuctionState.bids[lotNumber][player.id] = bid;
+      break;
+    }
+
+    case 'RESOLVE_AUCTION_LOT': {
+      if (!s.getawayAuctionState) break;
+      const { lotNumber, winnerId, winningBid } = payload;
+      const winner = Object.values(room.players).find(p => p.id === winnerId);
+      const lot = s.getawayAuctionState.lots.find(l => l.lotNumber === lotNumber);
+      if (winner && lot) {
+        s.getawayAuctionState.lotWinners[lotNumber] = {
+          winnerId,
+          winnerName: winner.name,
+          winningBid,
+        };
+        s.getawayAuctionState.playerCoins[winnerId] = Math.max(
+          0,
+          (s.getawayAuctionState.playerCoins[winnerId] ?? 12) - winningBid
+        );
+        s.getawayAuctionState.playerEscapePoints[winnerId] =
+          (s.getawayAuctionState.playerEscapePoints[winnerId] ?? 0) + lot.escapePoints;
+        if (!s.getawayAuctionState.purchasedLots[winnerId]) {
+          s.getawayAuctionState.purchasedLots[winnerId] = [];
+        }
+        s.getawayAuctionState.purchasedLots[winnerId].push(lotNumber);
+      }
+
+      // If last lot (lot 6), transition to finale auction recap without revealing traitor
+      if (lotNumber === 6) {
+        s.phase = 'FINALE_AUCTION_RECAP';
+        s.latestDialogue =
+          'The auction is over. Your money has gone. Your Traitor hasn’t. From this moment, if you’re banished, you’re finished.';
+      }
+      break;
+    }
+
+    case 'FINALE_START_DISCUSSION': {
+      if (!s.finaleState) break;
+      s.phase = 'FINALE_DISCUSSION';
+      s.finaleState.stage = 'DISCUSSION';
+      setPhaseWithTimer(
+        s,
+        'FINALE_DISCUSSION',
+        180,
+        `Discussion Cycle ${s.finaleState.cycleNumber}. Four minutes on the clock to question the survivors.`
+      );
+      break;
+    }
+
+    case 'FINALE_OPEN_VOTING': {
+      if (!s.finaleState) break;
+      s.phase = 'FINALE_VOTING';
+      s.finaleState.stage = 'VOTING';
+      setPhaseWithTimer(
+        s,
+        'FINALE_VOTING',
+        120,
+        'Banishment — vote for a PERSON. Permanent elimination. Choose with utmost care.'
+      );
+
+      // Reset votes for active non-eliminated players
+      Object.values(room.players).forEach(p => {
+        p.hasLockedVote = false;
+        p.hasRevealedSlate = false;
+        p.votedForPlayerId = undefined;
+        p.votedForPlayerName = undefined;
+      });
+      break;
+    }
+
+    case 'FINALE_LOCK_VOTE': {
+      if (!s.finaleState || !player || player.isEliminated) {
+        return res.status(401).json({ error: 'Eliminated players cannot vote' });
+      }
+      const targetId = payload?.targetPlayerId;
+      if (!targetId || targetId === player.id) {
+        return res.status(400).json({ error: 'Cannot vote for yourself' });
+      }
+      const target = Object.values(room.players).find(p => p.id === targetId);
+      if (!target || target.isEliminated) {
+        return res.status(400).json({ error: 'Target player not eligible' });
+      }
+
+      player.votedForPlayerId = target.id;
+      player.votedForPlayerName = target.name;
+      player.hasLockedVote = true;
+
+      // Record very first finale vote for Faithful scoring
+      if (s.finaleState.cycleNumber === 1 && !s.finaleState.firstBanishmentVotes[player.id]) {
+        s.finaleState.firstBanishmentVotes[player.id] = target.id;
+      }
+
+      const activeSurvivors = Object.values(room.players).filter(p => !p.isEliminated);
+      const allLocked = activeSurvivors.every(p => p.hasLockedVote);
+      if (allLocked) {
+        s.phase = 'FINALE_VOTE_REVEALS';
+        s.finaleState.stage = 'VOTE_REVEALS';
+        s.currentRevealIndex = 0;
+        s.latestDialogue = 'All surviving slates locked. Let the slates turn in seating order.';
+      }
+      break;
+    }
+
+    case 'FINALE_FINISH_SLATE': {
+      if (!s.finaleState) break;
+      const activeSurvivors = s.seatingOrder.filter(id => !room.players[id]?.isEliminated);
+      const activePlayerId = activeSurvivors[s.currentRevealIndex];
+      const revealingPlayer = Object.values(room.players).find(p => p.id === activePlayerId);
+
+      if (revealingPlayer) {
+        revealingPlayer.hasRevealedSlate = true;
+        s.latestDialogue = `${revealingPlayer.name} has pointed the finger at ${revealingPlayer.votedForPlayerName}.`;
+      }
+
+      s.currentRevealIndex += 1;
+
+      if (s.currentRevealIndex >= activeSurvivors.length) {
+        // Tally votes among active survivors
+        const tallies: Record<string, number> = {};
+        Object.values(room.players)
+          .filter(p => !p.isEliminated)
+          .forEach(p => {
+            if (p.votedForPlayerId) {
+              tallies[p.votedForPlayerId] = (tallies[p.votedForPlayerId] || 0) + 1;
+            }
+          });
+
+        let maxVotes = 0;
+        let candidatesWithMax: string[] = [];
+        Object.entries(tallies).forEach(([candId, count]) => {
+          if (count > maxVotes) {
+            maxVotes = count;
+            candidatesWithMax = [candId];
+          } else if (count === maxVotes) {
+            candidatesWithMax.push(candId);
+          }
+        });
+
+        if (candidatesWithMax.length > 1) {
+          if (!s.isTieRevote) {
+            s.isTieRevote = true;
+            s.tieCandidateIds = candidatesWithMax;
+            s.phase = 'FINALE_TIE_DEFENCE';
+            s.finaleState.stage = 'TIE_DEFENCE';
+            setPhaseWithTimer(s, 'FINALE_TIE_DEFENCE', 60, 'Deadlock in the finale! Sixty seconds to defend.');
+          } else {
+            // Still tied revote -> No banishment! Does NOT count towards 3 eliminations. Resume discussion.
+            s.isTieRevote = false;
+            s.phase = 'FINALE_DISCUSSION';
+            s.finaleState.stage = 'DISCUSSION';
+            setPhaseWithTimer(
+              s,
+              'FINALE_DISCUSSION',
+              120,
+              'Tied revote! No banishment. Discussion must resume until an elimination is decided.'
+            );
+          }
+        } else if (candidatesWithMax.length === 1) {
+          s.isTieRevote = false;
+          const banishedId = candidatesWithMax[0];
+          const banishedPlayer = Object.values(room.players).find(p => p.id === banishedId);
+          if (banishedPlayer) {
+            banishedPlayer.isEliminated = true;
+          }
+          s.finaleState.eliminatedPlayerIds.push(banishedId);
+          s.finaleState.currentEliminatedPlayerId = banishedId;
+          s.finaleState.eliminationCount += 1;
+          s.phase = 'FINALE_ELIMINATION';
+          s.finaleState.stage = 'ELIMINATION_OUTCOME';
+          s.latestDialogue = `The circle has closed. ${banishedPlayer?.name || 'Someone'} has been permanently eliminated. Their identity remains shrouded in mist.`;
+        }
+      }
+      break;
+    }
+
+    case 'FINALE_NEXT_CYCLE': {
+      if (!s.finaleState) break;
+      const remainingSurvivors = Object.values(room.players).filter(p => !p.isEliminated);
+
+      if (remainingSurvivors.length > 4) {
+        // Next elimination cycle
+        s.finaleState.cycleNumber += 1;
+        s.phase = 'FINALE_DISCUSSION';
+        s.finaleState.stage = 'DISCUSSION';
+        setPhaseWithTimer(
+          s,
+          'FINALE_DISCUSSION',
+          180,
+          `Discussion Cycle ${s.finaleState.cycleNumber}. ${remainingSurvivors.length} survivors remain.`
+        );
+      } else if (remainingSurvivors.length === 4) {
+        // Proceed to END or BANISH decision
+        s.phase = 'FINALE_END_OR_BANISH';
+        s.finaleState.stage = 'END_OR_BANISH';
+        s.finaleState.endOrBanishChoices = {};
+        s.finaleState.endOrBanishRevealed = false;
+        setPhaseWithTimer(
+          s,
+          'FINALE_END_OR_BANISH',
+          120,
+          'Final Four. Each survivor must privately choose: END THE GAME or BANISH AGAIN.'
+        );
+      } else if (remainingSurvivors.length <= 2) {
+        // 2 survivors auto-ends game
+        s.phase = 'FINALE_FINAL_REVEAL';
+        s.finaleState.stage = 'FINAL_REVEAL';
+        s.finaleState.revealedSurvivorIds = [];
+        s.finaleState.currentSurvivorRevealIndex = 0;
+      }
+      break;
+    }
+
+    case 'FINALE_SUBMIT_END_OR_BANISH': {
+      if (!s.finaleState || !player || player.isEliminated) break;
+      const choice = payload?.choice as 'END' | 'BANISH';
+      if (!choice) break;
+
+      s.finaleState.endOrBanishChoices[player.id] = choice;
+      const survivors = Object.values(room.players).filter(p => !p.isEliminated);
+
+      if (Object.keys(s.finaleState.endOrBanishChoices).length >= survivors.length) {
+        s.finaleState.endOrBanishRevealed = true;
+        const allEnd = survivors.every(p => s.finaleState?.endOrBanishChoices[p.id] === 'END');
+
+        if (allEnd) {
+          // Unanimous END -> proceed to Final Reveal!
+          s.phase = 'FINALE_FINAL_REVEAL';
+          s.finaleState.stage = 'FINAL_REVEAL';
+          s.finaleState.revealedSurvivorIds = [];
+          s.finaleState.currentSurvivorRevealIndex = 0;
+        } else {
+          // At least one BANISH -> hold another discussion and banishment
+          s.phase = 'FINALE_DISCUSSION';
+          s.finaleState.stage = 'DISCUSSION';
+          s.finaleState.cycleNumber += 1;
+          setPhaseWithTimer(
+            s,
+            'FINALE_DISCUSSION',
+            180,
+            'A survivor chose to BANISH AGAIN! The hunt continues. One more must be eliminated.'
+          );
+        }
+      }
+      break;
+    }
+
+    case 'FINALE_REVEAL_NEXT_SURVIVOR': {
+      if (!s.finaleState) break;
+      const survivors = Object.values(room.players).filter(p => !p.isEliminated);
+      const currIdx = s.finaleState.currentSurvivorRevealIndex;
+
+      if (currIdx < survivors.length) {
+        const survivor = survivors[currIdx];
+        s.finaleState.revealedSurvivorIds.push(survivor.id);
+        s.finaleState.currentSurvivorRevealIndex += 1;
+
+        if (s.finaleState.currentSurvivorRevealIndex >= survivors.length) {
+          s.finaleState.allSurvivorsRevealed = true;
+        }
+      }
+      break;
+    }
+
+    case 'FINALE_REVEAL_ALL_OUTCOMES': {
+      if (!s.finaleState) break;
+      const playersList = Object.values(room.players);
+      const survivors = playersList.filter(p => !p.isEliminated);
+      survivors.forEach(sP => (sP.survivedFinale = true));
+
+      const traitor = playersList.find(p => p.id === s.traitorId);
+      const isTraitorAlive = survivors.some(p => p.id === s.traitorId);
+
+      // Award Round 6 Points
+      const round6Scores: Record<string, number> = {};
+      const round6Breakdown: Record<string, PlayerScoreBreakdown> = {};
+
+      playersList.forEach(p => {
+        // 1. Mission Points (0 to 3) from Auction escape points
+        const esc = s.getawayAuctionState?.playerEscapePoints?.[p.id] || 0;
+        const missionPoints = Math.min(3, Math.max(0, Math.floor(esc / 2)));
+
+        // 2. Personal Objective (0 or 2)
+        let personalObjectivePoints = 0;
+        if (p.role === 'FAITHFUL') {
+          // Faithful gets 2 pts if their FIRST banishment ballot after auction was the Traitor
+          if (s.finaleState?.firstBanishmentVotes[p.id] === s.traitorId) {
+            personalObjectivePoints = 2;
+          }
+        } else if (p.role === 'TRAITOR') {
+          // Traitor gets 2 pts if auction assignment succeeded
+          if (s.getawayAuctionState?.traitorAssignmentSuccess) {
+            personalObjectivePoints = 2;
+          }
+        }
+
+        // 3. Round Outcome (0 or 1)
+        let roundOutcomePoints = 0;
+        if (p.role === 'FAITHFUL') {
+          // Faithful gets 1 pt if Traitor eliminated anywhere in the finale
+          if (!isTraitorAlive) {
+            roundOutcomePoints = 1;
+          }
+        } else if (p.role === 'TRAITOR') {
+          // Traitor gets 1 pt if they survived the entire finale
+          if (isTraitorAlive) {
+            roundOutcomePoints = 1;
+          }
+        }
+
+        const totalRound6 = missionPoints + personalObjectivePoints + roundOutcomePoints;
+        p.score += totalRound6;
+        p.lastRoundScore = totalRound6;
+        round6Scores[p.id] = totalRound6;
+        round6Breakdown[p.id] = {
+          missionPoints,
+          personalObjectivePoints,
+          roundOutcomePoints,
+          totalRoundPoints: totalRound6,
+        };
+      });
+
+      // Record round 6 in history
+      s.roundHistory.push({
+        roundNumber: 6,
+        traitorId: s.traitorId || '',
+        traitorName: traitor?.name || 'Unknown',
+        banishedPlayerId: s.finaleState.eliminatedPlayerIds.join(','),
+        banishedPlayerName: null,
+        wasTraitorBanished: !isTraitorAlive,
+        traitorAssignmentCompleted: !!s.getawayAuctionState?.traitorAssignmentSuccess,
+        firstBallotVotes: s.finaleState.firstBanishmentVotes,
+        scoreBreakdown: round6Breakdown,
+        roundScores: round6Scores,
+      });
+
+      // Overall Winner Determination:
+      // If Traitor survived -> Traitor wins outright regardless of score!
+      // If all survivors Faithful -> surviving Faithful with highest score wins! (Ties share victory).
+      // Banished players CANNOT win overall title even if they have highest score.
+      let overallWinnerId = '';
+      let overallWinnerName = '';
+      let isTraitorWinner = false;
+      let jointWinnerNames: string[] = [];
+
+      if (isTraitorAlive && traitor) {
+        overallWinnerId = traitor.id;
+        overallWinnerName = traitor.name;
+        isTraitorWinner = true;
       } else {
-        s.phase = 'FINAL_RESULTS';
-        const sorted = Object.values(room.players).sort((a, b) => b.score - a.score);
-        s.latestDialogue = HOST_SCRIPTS[6].finalResults(sorted[0]?.name || 'Libby');
-        setPhaseWithTimer(s, 'FINAL_RESULTS', 480, s.latestDialogue);
+        const sortedSurvivors = [...survivors].sort((a, b) => b.score - a.score);
+        const topScore = sortedSurvivors[0]?.score ?? 0;
+        const topSurvivors = sortedSurvivors.filter(sp => sp.score === topScore);
+
+        if (topSurvivors.length === 1) {
+          overallWinnerId = topSurvivors[0].id;
+          overallWinnerName = topSurvivors[0].name;
+        } else {
+          jointWinnerNames = topSurvivors.map(sp => sp.name);
+          overallWinnerName = jointWinnerNames.join(' & ');
+        }
+      }
+
+      // Loser Determination:
+      // Lowest completed six-round score across all 7 players (regardless of elimination order).
+      const sortedByScoreAsc = [...playersList].sort((a, b) => a.score - b.score);
+      const lowestScore = sortedByScoreAsc[0]?.score ?? 0;
+      const losers = sortedByScoreAsc.filter(p => p.score === lowestScore);
+
+      s.finaleState.overallWinnerId = overallWinnerId;
+      s.finaleState.overallWinnerName = overallWinnerName;
+      s.finaleState.isTraitorWinner = isTraitorWinner;
+      s.finaleState.jointWinnerNames = jointWinnerNames;
+      s.finaleState.loserPlayerId = losers[0]?.id;
+      s.finaleState.loserPlayerName = losers[0]?.name;
+      s.finaleState.jointLoserNames = losers.map(l => l.name);
+
+      s.phase = 'FINAL_RESULTS';
+      s.latestDialogue = `All six rounds and the Grand Finale are complete! Crown the Ruler of Jasmine's Castle: ${overallWinnerName}!`;
+      break;
+    }
+
+    case 'FINALE_FORFEIT_COMPLETE': {
+      if (s.finaleState) {
+        s.finaleState.forfeitCompleted = true;
       }
       break;
     }
@@ -811,7 +1519,7 @@ app.post('/api/rooms/:code/action', async (req, res) => {
     // Timer controls (Persistent)
     case 'TIMER_PLAY_PAUSE': {
       if (s.isTimerPaused) {
-        const remainingMs = s.timerPausedRemaining || (s.phaseTimeRemaining * 1000);
+        const remainingMs = s.timerPausedRemaining || s.phaseTimeRemaining * 1000;
         s.timerDeadline = Date.now() + remainingMs;
         s.isTimerPaused = false;
         s.timerPausedRemaining = undefined;
@@ -837,109 +1545,10 @@ app.post('/api/rooms/:code/action', async (req, res) => {
       break;
     }
 
-    // Mission 1: Castle Heist
-    case 'UPDATE_CASTLE_HEIST': {
-      if (s.castleHeistState && payload) {
-        s.castleHeistState = { ...s.castleHeistState, ...payload };
-      }
-      break;
-    }
-
-    // Mission 2: Birthday Majority
-    case 'UPDATE_BIRTHDAY_MAJORITY': {
-      if (s.birthdayMajorityState && payload) {
-        s.birthdayMajorityState = { ...s.birthdayMajorityState, ...payload };
-      }
-      break;
-    }
-    case 'SUBMIT_MAJORITY_INITIAL_ANSWER': {
-      if (!s.birthdayMajorityState || !player) break;
-      const { questionId, chosenName } = payload;
-      if (!s.birthdayMajorityState.initialAnswers[player.id]) {
-        s.birthdayMajorityState.initialAnswers[player.id] = {};
-      }
-      s.birthdayMajorityState.initialAnswers[player.id][questionId] = chosenName;
-      break;
-    }
-    case 'SUBMIT_MAJORITY_PREDICTION': {
-      if (!s.birthdayMajorityState || !player) break;
-      const { questionId, predictedName } = payload;
-      if (!s.birthdayMajorityState.predictions[questionId]) {
-        s.birthdayMajorityState.predictions[questionId] = {};
-      }
-      s.birthdayMajorityState.predictions[questionId][player.id] = predictedName;
-      break;
-    }
-
-    // Mission 3: Forgery Gallery
-    case 'UPDATE_FORGERY_GALLERY': {
-      if (s.forgeryGalleryState && payload) {
-        s.forgeryGalleryState = { ...s.forgeryGalleryState, ...payload };
-      }
-      break;
-    }
-
-    // Mission 4: Body Disposal
-    case 'UPDATE_BODY_DISPOSAL': {
-      if (s.bodyDisposalState && payload) {
-        s.bodyDisposalState = { ...s.bodyDisposalState, ...payload };
-      }
-      break;
-    }
-
-    // Mission 5: Counterfeit Expert
-    case 'UPDATE_COUNTERFEIT_EXPERT': {
-      if (s.counterfeitExpertState && payload) {
-        s.counterfeitExpertState = { ...s.counterfeitExpertState, ...payload };
-      }
-      break;
-    }
-
-    // Mission 6: Getaway Auction
-    case 'UPDATE_GETAWAY_AUCTION': {
-      if (s.getawayAuctionState && payload) {
-        s.getawayAuctionState = { ...s.getawayAuctionState, ...payload };
-      }
-      break;
-    }
-    case 'SUBMIT_AUCTION_BID': {
-      if (!s.getawayAuctionState || !player) break;
-      const { lotNumber, bid } = payload;
-      if (!s.getawayAuctionState.bids[lotNumber]) {
-        s.getawayAuctionState.bids[lotNumber] = {};
-      }
-      s.getawayAuctionState.bids[lotNumber][player.id] = bid;
-      break;
-    }
-    case 'RESOLVE_AUCTION_LOT': {
-      if (!s.getawayAuctionState) break;
-      const { lotNumber, winnerId, winningBid } = payload;
-      const winner = Object.values(room.players).find(p => p.id === winnerId);
-      const lot = s.getawayAuctionState.lots.find(l => l.lotNumber === lotNumber);
-      if (winner && lot) {
-        s.getawayAuctionState.lotWinners[lotNumber] = {
-          winnerId,
-          winnerName: winner.name,
-          winningBid,
-        };
-        s.getawayAuctionState.playerCoins[winnerId] = Math.max(
-          0,
-          (s.getawayAuctionState.playerCoins[winnerId] ?? 12) - winningBid
-        );
-        s.getawayAuctionState.playerEscapePoints[winnerId] =
-          (s.getawayAuctionState.playerEscapePoints[winnerId] ?? 0) + lot.escapePoints;
-        if (!s.getawayAuctionState.purchasedLots[winnerId]) {
-          s.getawayAuctionState.purchasedLots[winnerId] = [];
-        }
-        s.getawayAuctionState.purchasedLots[winnerId].push(lotNumber);
-      }
-      break;
-    }
-
     // Demo auto-simulate
     case 'DEMO_SIMULATE_VOTES': {
       if (s.isDemoRoom) {
-        const pList = Object.values(room.players);
+        const pList = Object.values(room.players).filter(p => !p.isEliminated);
         pList.forEach(p => {
           if (!p.hasLockedVote) {
             const targets = pList.filter(t => t.id !== p.id);
@@ -951,7 +1560,12 @@ app.post('/api/rooms/:code/action', async (req, res) => {
         });
         const allLocked = pList.every(p => p.hasLockedVote);
         if (allLocked) {
-          s.phase = s.isTieRevote ? 'TIE_REVEALS' : 'VOTE_REVEALS';
+          if (s.phase === 'FINALE_VOTING') {
+            s.phase = 'FINALE_VOTE_REVEALS';
+            if (s.finaleState) s.finaleState.stage = 'VOTE_REVEALS';
+          } else {
+            s.phase = s.isTieRevote ? 'TIE_REVEALS' : 'VOTE_REVEALS';
+          }
           s.currentRevealIndex = 0;
           s.latestDialogue = HOST_SCRIPTS[s.currentRound].allVotesLocked;
         }
@@ -985,7 +1599,6 @@ async function startServer() {
   });
 }
 
-// Only launch standalone HTTP server when not running in Vercel Serverless environment
 if (!process.env.VERCEL) {
   startServer();
 }

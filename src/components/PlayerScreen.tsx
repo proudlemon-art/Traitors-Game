@@ -3,10 +3,11 @@ import { ClientGameState } from '../types/game';
 import { api } from '../services/api';
 import { PrivacyShield } from './PrivacyShield';
 import { PhoneSlate } from './PhoneSlate';
-import { HeistMission } from './Missions/HeistMission';
+import { ExhibitAMission } from './Missions/ExhibitAMission';
 import { BirthdayMajorityMission } from './Missions/BirthdayMajorityMission';
 import { BodyDisposalMission } from './Missions/BodyDisposalMission';
 import { GetawayAuctionMission } from './Missions/GetawayAuctionMission';
+import { JASMINE_FORFEIT_APOLOGY } from '../data/dialogue';
 import {
   Eye,
   EyeOff,
@@ -15,9 +16,9 @@ import {
   Lock,
   CheckCircle2,
   AlertTriangle,
-  Smartphone,
-  ChevronRight,
   Flame,
+  Crown,
+  Sparkles,
 } from 'lucide-react';
 
 interface Props {
@@ -31,27 +32,35 @@ export const PlayerScreen: React.FC<Props> = ({ state, playerToken }) => {
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [isLockingVote, setIsLockingVote] = useState(false);
   const [isShowingSlate, setIsShowingSlate] = useState(false);
+  const [endOrBanishChoice, setEndOrBanishChoice] = useState<'END' | 'BANISH' | null>(null);
+  const [isSubmittingEndOrBanish, setIsSubmittingEndOrBanish] = useState(false);
 
   const me = state.players.find(p => p.id === state.myPlayerId);
   const isTraitor = state.myRole === 'TRAITOR';
+  const isEliminated = !!me?.isEliminated || !!state.isMyEliminated;
   const hasLockedVote = state.myHasLockedVote || me?.hasLockedVote;
   const isMyTurnToReveal = state.isMyTurnToReveal;
+  const finale = state.finaleState;
 
-  // Other players to vote for (cannot vote for self)
-  const availableSuspects = state.players.filter(p => p.id !== state.myPlayerId);
+  // Active voting candidates:
+  // In rounds 1-5: all other players (excluding self)
+  // In finale: only non-eliminated survivors (excluding self)
+  const availableSuspects = state.players.filter(p => p.id !== state.myPlayerId && !p.isEliminated);
 
   // If tie revote, only tied candidates can be voted for (excluding self)
-  const votingCandidates = state.isTieRevote && state.tieCandidateIds.length > 0
-    ? availableSuspects.filter(p => state.tieCandidateIds.includes(p.id))
-    : availableSuspects;
+  const votingCandidates =
+    state.isTieRevote && state.tieCandidateIds.length > 0
+      ? availableSuspects.filter(p => state.tieCandidateIds.includes(p.id))
+      : availableSuspects;
 
   const handleLockInVote = async () => {
     if (!selectedSuspectId) return;
     setIsLockingVote(true);
     try {
+      const actionName = state.phase === 'FINALE_VOTING' ? 'FINALE_LOCK_VOTE' : 'LOCK_VOTE';
       await api.sendAction(
         state.roomCode,
-        'LOCK_VOTE',
+        actionName,
         { targetPlayerId: selectedSuspectId },
         playerToken
       );
@@ -64,8 +73,25 @@ export const PlayerScreen: React.FC<Props> = ({ state, playerToken }) => {
   };
 
   const handleFinishSlateReveal = async () => {
-    await api.sendAction(state.roomCode, 'FINISH_PHONE_SLATE', null, playerToken);
+    const actionName =
+      state.phase === 'FINALE_VOTE_REVEALS' ? 'FINALE_FINISH_SLATE' : 'FINISH_PHONE_SLATE';
+    await api.sendAction(state.roomCode, actionName, null, playerToken);
     setIsShowingSlate(false);
+  };
+
+  const handleSubmitEndOrBanish = async (choice: 'END' | 'BANISH') => {
+    setIsSubmittingEndOrBanish(true);
+    setEndOrBanishChoice(choice);
+    try {
+      await api.sendAction(
+        state.roomCode,
+        'FINALE_SUBMIT_END_OR_BANISH',
+        { choice },
+        playerToken
+      );
+    } finally {
+      setIsSubmittingEndOrBanish(false);
+    }
   };
 
   // If showing phone slate, render dedicated high-contrast full-screen slate
@@ -82,6 +108,37 @@ export const PlayerScreen: React.FC<Props> = ({ state, playerToken }) => {
       />
     );
   }
+
+  // If eliminated in the finale: show spectator screen
+  if (isEliminated && state.currentRound === 6 && state.phase !== 'FINAL_RESULTS') {
+    return (
+      <PrivacyShield>
+        <div className="min-h-screen bg-castle-black text-amber-100 flex flex-col justify-between p-6 text-center select-none">
+          <div className="space-y-4 my-auto">
+            <div className="w-16 h-16 rounded-full bg-zinc-900 border border-zinc-700 mx-auto flex items-center justify-center">
+              <Skull className="w-8 h-8 text-zinc-500" />
+            </div>
+            <h2 className="text-2xl font-serif font-black text-amber-200">
+              Permanently Banished
+            </h2>
+            <p className="text-sm font-serif italic text-zinc-400 max-w-xs mx-auto leading-relaxed">
+              “You have been eliminated from Jasmine’s Castle. Your role remains secret. You may observe public events on the Host Display, but cannot vote or advise survivors.”
+            </p>
+          </div>
+          <div className="text-[11px] font-mono text-zinc-600">
+            Libby’s Birthday: Trust Nobody · Spectator Mode
+          </div>
+        </div>
+      </PrivacyShield>
+    );
+  }
+
+  const isLoser =
+    state.myPlayerId === finale?.loserPlayerId ||
+    (me && finale?.jointLoserNames?.includes(me.name));
+  const isWinner =
+    state.myPlayerId === finale?.overallWinnerId ||
+    (me && finale?.jointWinnerNames?.includes(me.name));
 
   return (
     <PrivacyShield>
@@ -107,8 +164,12 @@ export const PlayerScreen: React.FC<Props> = ({ state, playerToken }) => {
           </div>
 
           <div className="flex items-center justify-between mt-2 pt-2 border-t border-zinc-900 text-[11px] font-mono text-zinc-400">
-            <span>Player: <strong className="text-amber-300">{me?.name || 'Guest'}</strong></span>
-            <span>Round {state.currentRound} of 4</span>
+            <span>
+              Player: <strong className="text-amber-300">{me?.name || 'Guest'}</strong>
+            </span>
+            <span>
+              {state.currentRound <= 5 ? `Round ${state.currentRound} of 6` : 'Round 6: Finale'}
+            </span>
           </div>
         </header>
 
@@ -136,7 +197,7 @@ export const PlayerScreen: React.FC<Props> = ({ state, playerToken }) => {
           <div className="bg-zinc-950/90 border border-amber-900/60 rounded-xl p-5 shadow-xl relative overflow-hidden">
             <div className="flex items-center justify-between mb-3 border-b border-zinc-800 pb-2">
               <span className="text-[11px] font-mono uppercase tracking-widest text-amber-500">
-                Round {state.currentRound} Allegiance
+                {state.currentRound === 6 ? 'Final Allegiance' : `Round ${state.currentRound} Allegiance`}
               </span>
               <button
                 onClick={() => setRoleRevealed(!roleRevealed)}
@@ -160,23 +221,24 @@ export const PlayerScreen: React.FC<Props> = ({ state, playerToken }) => {
                     Your Assigned Role
                   </span>
                   <div className="text-2xl font-serif font-black tracking-widest flex items-center justify-center gap-2">
-                    {isTraitor ? <Skull className="w-6 h-6 text-rose-400" /> : <Shield className="w-6 h-6 text-emerald-400" />}
+                    {isTraitor ? (
+                      <Skull className="w-6 h-6 text-rose-400" />
+                    ) : (
+                      <Shield className="w-6 h-6 text-emerald-400" />
+                    )}
                     {isTraitor ? 'TRAITOR' : 'FAITHFUL'}
                   </div>
                 </div>
 
                 <div className="p-3 bg-zinc-900/80 border border-zinc-800 rounded text-xs text-zinc-300 font-sans leading-relaxed">
-                  <p className="font-serif font-bold text-amber-300 mb-1">
-                    Private Briefing:
-                  </p>
+                  <p className="font-serif font-bold text-amber-300 mb-1">Private Briefing:</p>
                   {state.mySecretBriefing}
                 </div>
 
-                {/* Secret Traitor Mission Assignment */}
                 {isTraitor && state.mySecretMission && (
                   <div className="p-3 bg-rose-950/50 border border-rose-800/60 rounded text-xs text-rose-200 font-sans leading-relaxed">
                     <p className="font-serif font-bold text-rose-300 mb-1 flex items-center gap-1.5">
-                      <Skull className="w-3.5 h-3.5" /> Secret Conversational Mission (+1 Pt):
+                      <Skull className="w-3.5 h-3.5" /> Secret Mission (+2 Pts):
                     </p>
                     {state.mySecretMission}
                   </div>
@@ -188,12 +250,8 @@ export const PlayerScreen: React.FC<Props> = ({ state, playerToken }) => {
                 className="py-6 px-4 bg-zinc-900/70 border border-dashed border-amber-900/60 rounded-lg text-center cursor-pointer hover:bg-zinc-900 transition-all select-none"
               >
                 <Lock className="w-6 h-6 text-amber-500 mx-auto mb-2" />
-                <p className="font-serif font-bold text-amber-200 text-sm">
-                  Role Concealed in Wax
-                </p>
-                <p className="text-[11px] text-zinc-400 mt-1">
-                  Tap to securely inspect your identity for Round {state.currentRound}
-                </p>
+                <p className="font-serif font-bold text-amber-200 text-sm">Role Concealed in Wax</p>
+                <p className="text-[11px] text-zinc-400 mt-1">Tap to securely inspect your identity</p>
               </div>
             )}
           </div>
@@ -201,9 +259,13 @@ export const PlayerScreen: React.FC<Props> = ({ state, playerToken }) => {
           {/* ACTIVE MISSION INTERACTION (When phase === 'MISSION') */}
           {state.phase === 'MISSION' && (
             <div className="bg-zinc-950/90 border border-amber-900/60 rounded-xl p-5 shadow-xl space-y-4">
-              {state.currentRound === 1 && <HeistMission state={state} isHostDisplay={false} />}
+              {state.currentRound === 1 && <ExhibitAMission state={state} isHostDisplay={false} />}
               {state.currentRound === 2 && (
-                <BirthdayMajorityMission state={state} isHostDisplay={false} playerToken={playerToken} />
+                <BirthdayMajorityMission
+                  state={state}
+                  isHostDisplay={false}
+                  playerToken={playerToken}
+                />
               )}
               {state.currentRound === 3 && (
                 <div className="space-y-3">
@@ -216,8 +278,10 @@ export const PlayerScreen: React.FC<Props> = ({ state, playerToken }) => {
                     </p>
                     <p className="text-sm font-semibold">
                       {isTraitor
-                        ? state.forgeryGalleryState?.traitorBrief || 'Libby being crowned Queen (Include: Libby on throne, jewelled crown, royal sceptre, velvet curtain, royal guards)'
-                        : state.forgeryGalleryState?.faithfulBrief || 'Libby accepting an Oscar (Include: Libby on red carpet, shiny gold statuette, microphone, red curtain, camera crew)'}
+                        ? state.forgeryGalleryState?.traitorBrief ||
+                          'Libby being crowned Queen (Include: Libby on throne, jewelled crown, royal sceptre, velvet curtain, royal guards)'
+                        : state.forgeryGalleryState?.faithfulBrief ||
+                          'Libby accepting an Oscar (Include: Libby on red carpet, shiny gold statuette, microphone, red curtain, camera crew)'}
                     </p>
                   </div>
                   <p className="text-[11px] text-zinc-400 italic">
@@ -225,7 +289,9 @@ export const PlayerScreen: React.FC<Props> = ({ state, playerToken }) => {
                   </p>
                 </div>
               )}
-              {state.currentRound === 4 && <BodyDisposalMission state={state} isHostDisplay={false} />}
+              {state.currentRound === 4 && (
+                <BodyDisposalMission state={state} isHostDisplay={false} />
+              )}
               {state.currentRound === 5 && (
                 <div className="space-y-3">
                   <span className="text-[11px] font-mono uppercase tracking-widest text-amber-500 block">
@@ -242,7 +308,10 @@ export const PlayerScreen: React.FC<Props> = ({ state, playerToken }) => {
                         </span>
                         <div className="flex gap-2">
                           {(state.counterfeitExpertState?.traitorTwoWords || ['Laser', 'Fondant']).map(w => (
-                            <span key={w} className="px-2 py-0.5 bg-zinc-900 border border-rose-500/50 rounded font-mono text-amber-300">
+                            <span
+                              key={w}
+                              className="px-2 py-0.5 bg-zinc-900 border border-rose-500/50 rounded font-mono text-amber-300"
+                            >
                               {w}
                             </span>
                           ))}
@@ -258,7 +327,10 @@ export const PlayerScreen: React.FC<Props> = ({ state, playerToken }) => {
                         </span>
                         <div className="flex gap-2">
                           {(state.counterfeitExpertState?.faithfulThreeWords || ['Laser', 'Fondant', 'Siren']).map(w => (
-                            <span key={w} className="px-2 py-0.5 bg-zinc-900 border border-emerald-500/50 rounded font-mono text-emerald-300">
+                            <span
+                              key={w}
+                              className="px-2 py-0.5 bg-zinc-900 border border-emerald-500/50 rounded font-mono text-emerald-300"
+                            >
                               {w}
                             </span>
                           ))}
@@ -274,12 +346,18 @@ export const PlayerScreen: React.FC<Props> = ({ state, playerToken }) => {
             </div>
           )}
 
-          {/* VOTING INTERFACE (When phase === VOTING or TIE_VOTING) */}
-          {(state.phase === 'VOTING' || state.phase === 'TIE_VOTING') && (
+          {/* VOTING INTERFACE (When phase === VOTING, TIE_VOTING, or FINALE_VOTING) */}
+          {(state.phase === 'VOTING' ||
+            state.phase === 'TIE_VOTING' ||
+            state.phase === 'FINALE_VOTING') && (
             <div className="bg-zinc-950/90 border border-amber-900/60 rounded-xl p-5 shadow-xl space-y-4">
               <div className="border-b border-zinc-800 pb-2">
                 <span className="text-[11px] font-mono uppercase tracking-widest text-amber-500 block">
-                  {state.isTieRevote ? 'Tie Revote Ballot' : 'The First Ballot'}
+                  {state.phase === 'FINALE_VOTING'
+                    ? 'Permanent Elimination Ballot'
+                    : state.isTieRevote
+                    ? 'Tie Revote Ballot'
+                    : 'The First Ballot'}
                 </span>
                 <h3 className="text-lg font-serif font-bold text-amber-200">
                   Select Your Accused Suspect
@@ -342,27 +420,105 @@ export const PlayerScreen: React.FC<Props> = ({ state, playerToken }) => {
             </div>
           )}
 
-          {/* WAITING FOR REVEALS OR OTHER PHASES */}
-          {state.phase === 'VOTE_REVEALS' && !isMyTurnToReveal && (
-            <div className="p-4 bg-zinc-900/60 border border-zinc-800 rounded-lg text-center space-y-1">
-              <span className="text-[11px] font-mono uppercase text-amber-500">
-                The Slates of Betrayal
+          {/* FINALE: END OR BANISH (FINAL FOUR) */}
+          {state.phase === 'FINALE_END_OR_BANISH' && (
+            <div className="bg-zinc-950/95 border-2 border-amber-500/60 rounded-xl p-5 shadow-2xl space-y-4 text-center">
+              <span className="text-[11px] font-mono uppercase tracking-widest text-amber-500 block">
+                Final Four Decision
               </span>
-              <p className="text-xs text-zinc-300 font-sans">
-                Watch the table as each guest presents their phone slate in seating order.
+              <h3 className="text-lg font-serif font-bold text-amber-100">
+                End the Game or Banish Again?
+              </h3>
+              <p className="text-xs text-zinc-300 font-serif leading-relaxed">
+                Choose privately on your phone. If all 4 choose END, the game concludes. If anyone chooses BANISH, another elimination takes place.
+              </p>
+
+              {endOrBanishChoice ? (
+                <div className="p-4 bg-zinc-900 border border-amber-500/40 rounded-lg space-y-1">
+                  <CheckCircle2 className="w-6 h-6 text-emerald-400 mx-auto" />
+                  <div className="text-xs font-mono text-amber-300 font-bold uppercase">
+                    You Chose: {endOrBanishChoice}
+                  </div>
+                  <p className="text-[11px] text-zinc-400">
+                    Awaiting remaining survivors before simultaneous reveal.
+                  </p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-2 gap-2 pt-2">
+                  <button
+                    onClick={() => handleSubmitEndOrBanish('END')}
+                    disabled={isSubmittingEndOrBanish}
+                    className="p-3 bg-emerald-950 hover:bg-emerald-900 border border-emerald-500/70 text-emerald-200 rounded-lg font-serif font-bold text-xs uppercase"
+                  >
+                    END THE GAME
+                    <span className="text-[10px] font-sans font-normal block text-emerald-400/80 mt-1">
+                      Everyone remaining is Faithful
+                    </span>
+                  </button>
+
+                  <button
+                    onClick={() => handleSubmitEndOrBanish('BANISH')}
+                    disabled={isSubmittingEndOrBanish}
+                    className="p-3 bg-rose-950 hover:bg-rose-900 border border-rose-500/70 text-rose-200 rounded-lg font-serif font-bold text-xs uppercase"
+                  >
+                    BANISH AGAIN
+                    <span className="text-[10px] font-sans font-normal block text-rose-400/80 mt-1">
+                      The Traitor is still here
+                    </span>
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* FINAL RESULTS / FORFEIT DISPLAY ON LOSER'S PHONE */}
+          {state.phase === 'FINAL_RESULTS' && isLoser && (
+            <div className="bg-zinc-950/95 border-2 border-rose-600 rounded-xl p-5 shadow-2xl space-y-4">
+              <div className="text-center space-y-1">
+                <span className="text-[11px] font-mono uppercase tracking-widest text-rose-400 block">
+                  The Solemn Forfeit
+                </span>
+                <h3 className="text-xl font-serif font-bold text-amber-100">
+                  Read Aloud to Jasmine
+                </h3>
+                <p className="text-xs text-zinc-400">
+                  You have the lowest completed score. You must read the exact text below aloud:
+                </p>
+              </div>
+
+              <div className="p-4 bg-black/80 border border-rose-800/60 rounded-lg text-xs font-serif text-amber-100 leading-relaxed whitespace-pre-line shadow">
+                {JASMINE_FORFEIT_APOLOGY}
+              </div>
+
+              <button
+                onClick={() => api.sendAction(state.roomCode, 'FINALE_FORFEIT_COMPLETE')}
+                className="w-full py-3 bg-zinc-800 hover:bg-zinc-700 border border-zinc-600 text-amber-200 font-serif font-bold text-xs uppercase rounded"
+              >
+                Forfeit Complete
+              </button>
+            </div>
+          )}
+
+          {/* FINAL RESULTS FOR WINNER */}
+          {state.phase === 'FINAL_RESULTS' && isWinner && (
+            <div className="bg-gradient-to-b from-amber-950/80 to-zinc-950 border-2 border-amber-400 rounded-xl p-5 shadow-2xl text-center space-y-3">
+              <Crown className="w-10 h-10 text-amber-400 mx-auto" />
+              <h3 className="text-2xl font-serif font-black text-amber-200">
+                RULER OF JASMINE’S CASTLE
+              </h3>
+              <p className="text-xs text-zinc-300 font-serif leading-relaxed">
+                You have triumphed! Accept your royal crown or household hat and pose for the victory photograph while your friends bow.
               </p>
             </div>
           )}
         </main>
 
-        {/* Confirmation Modal */}
+        {/* Confirmation Modal for Banishment Vote */}
         {showConfirmModal && (
           <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
             <div className="bg-zinc-950 border border-amber-500/60 rounded-lg p-6 max-w-xs w-full text-center space-y-4 shadow-2xl">
               <AlertTriangle className="w-8 h-8 text-amber-400 mx-auto" />
-              <h4 className="font-serif font-bold text-amber-200 text-base">
-                Confirm Accusation
-              </h4>
+              <h4 className="font-serif font-bold text-amber-200 text-base">Confirm Accusation</h4>
               <p className="text-xs text-zinc-300 font-sans leading-relaxed">
                 Are you certain you wish to accuse{' '}
                 <strong className="text-amber-300">

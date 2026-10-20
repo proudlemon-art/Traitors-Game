@@ -4,10 +4,10 @@ import type { AuctionLot, BirthdayMajorityQuestion, TraitorObjective } from '../
 // TRAITOR OBJECTIVES FOR ALL 6 ROUNDS
 // ----------------------------------------------------------------------
 export const ROUND_1_TRAITOR_OBJECTIVE: TraitorObjective = {
-  title: 'The Accomplice Delivery',
-  description: 'Get another player to bring a specified ordinary household object during at least one scavenger stage.',
-  conversationalGoal: 'Casually suggest or hint at an ordinary item (e.g., wooden spoon, shoe, or tea towel) to another player without disclosing your assignment.',
-  successCondition: 'Another guest brings the target ordinary household object.',
+  title: 'The Planted Exhibit',
+  description: 'Persuade the group to choose your secret planted household object as Exhibit A.',
+  conversationalGoal: 'Steer the investigation so everyone believes selecting your planted object was their own brilliant idea.',
+  successCondition: 'The Traitor’s secret planted object is chosen as the final Exhibit A.',
 };
 
 export const ROUND_2_TRAITOR_OBJECTIVE: TraitorObjective = {
@@ -54,38 +54,20 @@ export const TRAITOR_OBJECTIVES: Record<number, TraitorObjective> = {
   6: ROUND_6_TRAITOR_OBJECTIVE,
 };
 
-// MISSION 1: THE CASTLE HEIST DATA
 // ----------------------------------------------------------------------
-export const HEIST_HOUSEHOLD_ITEMS_POOL = [
+// MISSION 1: EXHIBIT A EXAMPLES & DEFAULTS
+// ----------------------------------------------------------------------
+export const EXHIBIT_A_EXAMPLES = [
   'Wooden Spoon',
   'Tea Towel',
   'Shoe or Slipper',
-  'Sofa Cushion',
+  'Screwdriver',
+  'Rubber Duck',
   'Coffee Mug',
+  'Candlestick',
   'Paperback Book',
-  'Coat Hanger',
+  'Oven Glove',
   'Bunch of Keys',
-];
-
-export const HEIST_STAGES = [
-  {
-    stage: 1 as const,
-    title: 'Stage 1: The Disguise',
-    prompt: 'Find something you could wear to avoid recognition in the corridors of Jasmine’s Castle.',
-    hint: 'Examples: An absurd hat, oversized scarf, tea towel bandana, dark sunglasses, or strange cardigan.',
-  },
-  {
-    stage: 2 as const,
-    title: 'Stage 2: The Treasure',
-    prompt: 'Find the most impressive-looking object you believe is worth less than £5.',
-    hint: 'Playful judgement only! Examples: A faux-gold trinket, an ornate coaster, a shiny spoon, or a vintage pebble.',
-  },
-  {
-    stage: 3 as const,
-    title: 'Stage 3: The Evidence',
-    prompt: 'Find something that would look deeply suspicious sitting right beside Libby’s birthday cake.',
-    hint: 'Examples: A screwdriver, a padlock, an empty envelope, rubber gloves, or a roll of duct tape.',
-  },
 ];
 
 // ----------------------------------------------------------------------
@@ -98,32 +80,25 @@ export const BIRTHDAY_MAJORITY_QUESTION_POOL: BirthdayMajorityQuestion[] = [
   { id: 4, prompt: 'Who would spend the entire castle prize fund before actually winning it?' },
   { id: 5, prompt: 'Who would deliver the most unnecessary, tearful acceptance speech?' },
   { id: 6, prompt: 'Who would survive the longest locked alone inside Jasmine’s Castle?' },
-  { id: 7, prompt: 'Who would with 100% confidence accuse the completely wrong person?' },
+  { id: 7, prompt: 'Who would pack a complete three-piece tweed suit for a casual country walk?' },
+  { id: 8, prompt: 'Who would immediately fabricate a tragic backstory at a dinner party?' },
 ];
 
 // ----------------------------------------------------------------------
-// MISSION 3: THE FORGERY GALLERY BRIEFS
+// MISSION 3: THE FORGERY GALLERY PAIRS
 // ----------------------------------------------------------------------
 export const FORGERY_BRIEF_PAIRS = [
   {
-    faithful: 'Libby accepting an Oscar (Include: Libby on red carpet, shiny gold statuette, microphone, red curtain, camera crew)',
-    traitor: 'Libby being crowned Queen (Include: Libby on throne, jewelled crown, royal sceptre, velvet curtain, royal guards)',
-    theme: 'Libby’s Grand Moment',
+    faithful: 'A smug butler serving high tea in the castle courtyard with a miniature dachshund and a grandfather clock.',
+    traitor: 'A frantic waiter balancing a wedding cake on a windy Scottish golf course with a terrier and a sundial.',
   },
   {
-    faithful: 'A disastrous birthday party (Include: Birthday cake collapsing, melted candles, popping balloon, fire extinguisher, party hat)',
-    traitor: 'A disastrous wedding (Include: Tiered wedding cake falling, burning candle, champagne fountain spilling, confetti, veil)',
-    theme: 'Catastrophic Celebration',
+    faithful: 'A Victorian sea captain wearing a monocle steering a rowing boat through thick Scottish fog with a lantern and a parrot.',
+    traitor: 'A medieval pirate wearing an eyepatch paddling a canoe near a dramatic waterfall with a torch and an owl.',
   },
   {
-    faithful: 'A lavish royal banquet in Jasmine’s Castle (Include: Roast feast, gold goblet, banquet table, candelabra, royal banner)',
-    traitor: 'An chaotic school dinner hall (Include: Slop tray, plastic cup, cafeteria table, milk carton, school chalkboard)',
-    theme: 'Feast of Deception',
-  },
-  {
-    faithful: 'A luxury cruise deck (Include: Swimming pool, deck chair, sun umbrella, captain’s bridge, cocktail glass)',
-    traitor: 'A swashbuckling pirate ship (Include: Skull flag, wooden plank, treasure chest, ship mast, rum bottle)',
-    theme: 'Seafaring Vessel',
+    faithful: 'A flamboyant aristocrat playing the grand piano inside the castle library while an owl perches on a marble bust.',
+    traitor: 'An eccentric maestro playing a harp inside an overgrown castle conservatory while a raven perches on a gargoyle.',
   },
 ];
 
@@ -131,17 +106,19 @@ export const FORGERY_BRIEF_PAIRS = [
 // MISSION 4: THE BODY DISPOSAL COMMITTEE DATA
 // ----------------------------------------------------------------------
 export const BODY_DISPOSAL_SCENARIO =
-  'The Duchess has unexpectedly expired during dessert at Jasmine’s Castle. The police inspector arrives in exactly five minutes. Your only getaway vehicle is a tandem bicycle, and somebody has already tipped off the local constabulary that all seven of you are in the parlour.';
+  'The Duchess has expired during dessert. The inspector is five minutes away, your getaway vehicle is a tandem bicycle, and the police already know you are here. Seven objects have been scavenged from Jasmine’s Castle. Together, select five objects and construct an airtight getaway story in sixty seconds.';
 
 export const BODY_DISPOSAL_OBJECTS_POOL = [
-  'A Feather Duster',
-  'An Umbrella',
-  'A Kitchen Ladle',
-  'A Roll of Toilet Paper',
-  'A Pair of Oven Gloves',
-  'A Wall Calendar',
-  'A Bed Pillow',
-  'A House Plant',
+  'Wooden Spoon',
+  'Tea Towel',
+  'Shoe or Slipper',
+  'Sofa Cushion',
+  'Coffee Mug',
+  'Coat Hanger',
+  'Bunch of Keys',
+  'Roll of Foil',
+  'Umbrella',
+  'Empty Wine Bottle',
 ];
 
 // ----------------------------------------------------------------------
@@ -149,28 +126,22 @@ export const BODY_DISPOSAL_OBJECTS_POOL = [
 // ----------------------------------------------------------------------
 export const COUNTERFEIT_INVENTIONS = [
   {
-    invention: 'A Birthday Cake Fitted with a High-Tech Security System',
-    faithfulThreeWords: ['Laser', 'Fondant', 'Siren'] as [string, string, string],
-    traitorTwoWords: ['Laser', 'Fondant'] as [string, string],
-    missingThirdWord: 'Siren',
+    invention: 'The Whispering Teapot',
+    faithfulThreeWords: ['Porcelain', 'Steam', 'Gossip'] as [string, string, string],
+    traitorTwoWords: ['Porcelain', 'Steam'] as [string, string],
+    missingThirdWord: 'Gossip',
   },
   {
-    invention: 'An Umbrella Specifically Designed for Your Shoes',
-    faithfulThreeWords: ['Puddle', 'Waterproof', 'Elastic'] as [string, string, string],
-    traitorTwoWords: ['Puddle', 'Waterproof'] as [string, string],
-    missingThirdWord: 'Elastic',
+    invention: 'The Velvet Umbrella',
+    faithfulThreeWords: ['Raindrops', 'Canopy', 'Aristocrat'] as [string, string, string],
+    traitorTwoWords: ['Raindrops', 'Canopy'] as [string, string],
+    missingThirdWord: 'Aristocrat',
   },
   {
-    invention: 'A Fully Waterproof, Submersible Teabag',
-    faithfulThreeWords: ['Submarine', 'Kettle', 'Earl Grey'] as [string, string, string],
-    traitorTwoWords: ['Submarine', 'Kettle'] as [string, string],
-    missingThirdWord: 'Earl Grey',
-  },
-  {
-    invention: 'A Self-Folding False Moustache with WiFi Capability',
-    faithfulThreeWords: ['Adhesive', 'Bluetooth', 'Whiskers'] as [string, string, string],
-    traitorTwoWords: ['Adhesive', 'Bluetooth'] as [string, string],
-    missingThirdWord: 'Whiskers',
+    invention: 'The Clockwork Snuffbox',
+    faithfulThreeWords: ['Brass', 'Spring', 'Treason'] as [string, string, string],
+    traitorTwoWords: ['Brass', 'Spring'] as [string, string],
+    missingThirdWord: 'Treason',
   },
 ];
 
@@ -180,40 +151,38 @@ export const COUNTERFEIT_INVENTIONS = [
 export const AUCTION_LOTS: AuctionLot[] = [
   {
     lotNumber: 1,
-    title: 'A Shovel. No Questions Asked.',
-    description: 'Sturdy steel spade with wooden handle. Pristine condition, zero forensic history. Essential for late-night castle gardening.',
+    title: 'The Rusty Highland Bicycle',
+    description: 'Squeaks dramatically on gravel. One flat tyre, but definitely faster than walking in formal attire.',
     escapePoints: 1,
   },
   {
     lotNumber: 2,
-    title: 'A Disguise Consisting Entirely of a False Moustache.',
-    description: 'Impeccable synthetic bristles. Transforms any suspect into an innocent French sommelier or vintage explorer.',
+    title: 'A Pair of Heavy Tweed Cloaks',
+    description: 'Smells faintly of wet sheep and ancient secrets. Ideal for blending seamlessly into a Scottish bog.',
     escapePoints: 2,
   },
   {
     lotNumber: 3,
-    title: 'A Convincing Alibi.',
-    description: 'Two verified museum receipts and a handwritten testimony swearing you were admiring 17th-century tapestries in Inverness.',
+    title: 'Forged Diplomatic Passports',
+    description: 'Stamped with the seal of a country that ceased to exist in 1912. Confident posture required at border control.',
     escapePoints: 3,
   },
   {
     lotNumber: 4,
-    title: 'A Passport in Someone Else’s Name.',
-    description: 'Clean European travel document belonging to one "Lord Archibald Dunmore-Smythe". Just practice the signature.',
+    title: 'The Castle Dungeon Master Key',
+    description: 'Opens every medieval door, wine cellar, and subterranean escape tunnel under Jasmine’s Castle.',
     escapePoints: 4,
   },
   {
     lotNumber: 5,
-    title: 'The Only Working Getaway Car (It’s a Fiat Panda).',
-    description: '1.2L engine, manual choke, one squeaky wiper blade. She doesn’t look fast, but the police won’t suspect a thing.',
+    title: 'The Estate Gamekeeper’s Land Rover',
+    description: 'Starts seven times out of ten. Half a tank of red diesel and a glove compartment full of shortbread.',
     escapePoints: 5,
   },
   {
     lotNumber: 6,
-    title: 'The CCTV Footage. All of It.',
-    description: 'A glowing red USB stick containing every second of castle security camera recordings from tonight. Absolute immunity.',
+    title: 'The Midnight Seaplane Ticket',
+    description: 'Departing Loch Ness at midnight sharp. Direct non-stop flight to an undisclosed non-extradition island.',
     escapePoints: 6,
   },
 ];
-
-export const FORGERY_SUBJECT_PAIRS = FORGERY_BRIEF_PAIRS;
