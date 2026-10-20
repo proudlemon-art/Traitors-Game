@@ -1,0 +1,6 @@
+{
+  "name": "Libby's Birthday: Trust Nobody",
+  "description": "Multiplayer Traitors-inspired party game for 7 players with digital castle host, private phone slates, and four standalone rounds.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
