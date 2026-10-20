@@ -10,9 +10,13 @@ export interface JoinResponse {
 }
 
 class ApiService {
-  private currentEventSource: EventSource | null = null;
   private stateListeners: Set<(state: ClientGameState) => void> = new Set();
   private lastState: ClientGameState | null = null;
+  private pollIntervalId: any = null;
+  private activeRoomCode: string | null = null;
+  private activePlayerToken: string | null = null;
+  private activeIsHost: boolean = false;
+  private isFetching: boolean = false;
 
   public getStoredSession(roomCode: string): { playerToken: string; playerId: string } | null {
     if (typeof localStorage === 'undefined') return null;
@@ -45,7 +49,7 @@ class ApiService {
       body: JSON.stringify({ hostName }),
     });
     if (!res.ok) {
-      const err = await res.json();
+      const err = await res.json().catch(() => ({}));
       throw new Error(err.error || 'Failed to create room');
     }
     const data = await res.json();
@@ -65,7 +69,7 @@ class ApiService {
     });
 
     if (!res.ok) {
-      const err = await res.json();
+      const err = await res.json().catch(() => ({}));
       throw new Error(err.error || 'Failed to join castle room');
     }
 
@@ -80,7 +84,7 @@ class ApiService {
       headers: { 'Content-Type': 'application/json' },
     });
     if (!res.ok) {
-      const err = await res.json();
+      const err = await res.json().catch(() => ({}));
       throw new Error(err.error || 'Failed to setup demo castle');
     }
     const data = await res.json();
@@ -95,6 +99,41 @@ class ApiService {
     };
   }
 
+  /**
+   * Fetches room state snapshot from serverless backend.
+   */
+  public async fetchState(roomCode: string, playerToken?: string, isHost?: boolean): Promise<ClientGameState | null> {
+    if (this.isFetching) return null;
+    this.isFetching = true;
+    try {
+      const code = roomCode.toUpperCase();
+      const token = playerToken || this.getStoredSession(code)?.playerToken || '';
+      const url = `/api/rooms/${code}/state?playerToken=${encodeURIComponent(token)}&isHost=${isHost ? 'true' : 'false'}&_t=${Date.now()}`;
+      
+      const res = await fetch(url, {
+        headers: { 'Cache-Control': 'no-cache' },
+      });
+
+      if (!res.ok) {
+        return null;
+      }
+
+      const state: ClientGameState = await res.json();
+      this.lastState = state;
+      this.stateListeners.forEach(listener => listener(state));
+      return state;
+    } catch (err) {
+      console.warn('State sync poll error:', err);
+      return null;
+    } finally {
+      this.isFetching = false;
+    }
+  }
+
+  /**
+   * Subscribes to real-time room state using high-frequency authenticated polling
+   * compatible with Vercel serverless multi-instance architecture.
+   */
   public subscribeToRoom(
     roomCode: string,
     playerToken?: string,
@@ -106,53 +145,78 @@ class ApiService {
       if (this.lastState) onState(this.lastState);
     }
 
-    if (this.currentEventSource) {
-      this.currentEventSource.close();
+    this.activeRoomCode = roomCode.toUpperCase();
+    this.activePlayerToken = playerToken || this.getStoredSession(this.activeRoomCode)?.playerToken || null;
+    this.activeIsHost = !!isHost;
+
+    // Immediate initial sync
+    this.fetchState(this.activeRoomCode, this.activePlayerToken || undefined, this.activeIsHost);
+
+    // Adaptive polling: 1.5s during gameplay, 2.5s in lobby
+    if (this.pollIntervalId) {
+      clearInterval(this.pollIntervalId);
     }
 
-    const token = playerToken || this.getStoredSession(roomCode)?.playerToken || '';
-    const url = `/api/rooms/${roomCode}/events?playerToken=${encodeURIComponent(token)}&isHost=${isHost ? 'true' : 'false'}`;
+    const startPolling = () => {
+      const isLobby = this.lastState?.phase === 'LOBBY';
+      const intervalMs = isLobby ? 2500 : 1500;
 
-    const es = new EventSource(url);
-    this.currentEventSource = es;
+      this.pollIntervalId = setInterval(() => {
+        if (this.activeRoomCode) {
+          this.fetchState(this.activeRoomCode, this.activePlayerToken || undefined, this.activeIsHost);
+        }
+      }, intervalMs);
+    };
 
-    es.onmessage = event => {
-      try {
-        const state: ClientGameState = JSON.parse(event.data);
-        this.lastState = state;
-        this.stateListeners.forEach(listener => listener(state));
-      } catch (err) {
-        console.warn('Error parsing SSE event:', err);
+    startPolling();
+
+    // Reconnect / re-fetch on window focus or visibility change (e.g. phone unlocked)
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible' && this.activeRoomCode) {
+        this.fetchState(this.activeRoomCode, this.activePlayerToken || undefined, this.activeIsHost);
       }
     };
 
-    es.onerror = () => {
-      // EventSource automatically reconnects on error
-      console.warn('SSE disconnected, retrying connection...');
-    };
+    if (typeof window !== 'undefined') {
+      window.addEventListener('visibilitychange', handleVisibilityChange);
+      window.addEventListener('focus', handleVisibilityChange);
+    }
 
     return () => {
       if (onState) this.stateListeners.delete(onState);
       if (this.stateListeners.size === 0) {
-        es.close();
-        this.currentEventSource = null;
+        if (this.pollIntervalId) {
+          clearInterval(this.pollIntervalId);
+          this.pollIntervalId = null;
+        }
+        if (typeof window !== 'undefined') {
+          window.removeEventListener('visibilitychange', handleVisibilityChange);
+          window.removeEventListener('focus', handleVisibilityChange);
+        }
       }
     };
   }
 
   public async sendAction(roomCode: string, action: string, payload?: any, playerToken?: string) {
-    const token = playerToken || this.getStoredSession(roomCode)?.playerToken;
-    const res = await fetch(`/api/rooms/${roomCode}/action`, {
+    const code = roomCode.toUpperCase();
+    const token = playerToken || this.getStoredSession(code)?.playerToken;
+    const res = await fetch(`/api/rooms/${code}/action`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ action, payload, playerToken: token }),
     });
 
     if (!res.ok) {
-      const err = await res.json();
+      const err = await res.json().catch(() => ({}));
       throw new Error(err.error || 'Action failed');
     }
-    return res.json();
+
+    const data = await res.json();
+    
+    // Trigger immediate instant state refresh right after action completes
+    this.fetchState(code, token, this.activeIsHost);
+    
+    return data;
   }
 
   public getLastState(): ClientGameState | null {

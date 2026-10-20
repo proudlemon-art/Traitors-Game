@@ -177,6 +177,9 @@ export interface GameState {
   phase: GamePhase;
   phaseTimeRemaining: number;
   isTimerPaused: boolean;
+  timerDeadline?: number; // timestamp in ms when phase expires
+  timerDurationSec?: number; // initial duration in seconds
+  timerPausedRemaining?: number; // remaining seconds when paused
   seatingOrder: string[]; // playerIds 1..7
   currentRevealIndex: number;
   tieCandidateIds: string[];
@@ -207,6 +210,9 @@ export interface ClientGameState {
   phase: GamePhase;
   phaseTimeRemaining: number;
   isTimerPaused: boolean;
+  timerDeadline?: number;
+  timerDurationSec?: number;
+  timerPausedRemaining?: number;
   seatingOrder: string[];
   currentRevealIndex: number;
   tieCandidateIds: string[];

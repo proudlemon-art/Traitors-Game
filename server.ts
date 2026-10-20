@@ -1,7 +1,6 @@
 import express from 'express';
 import http from 'http';
 import path from 'path';
-import fs from 'fs';
 import { createServer as createViteServer } from 'vite';
 import type {
   GamePhase,
@@ -31,6 +30,7 @@ import {
   AUCTION_LOTS,
 } from './src/data/missions.ts';
 import { HOST_SCRIPTS } from './src/data/dialogue.ts';
+import { db } from './src/server/db.ts';
 
 const app = express();
 const server = http.createServer(app);
@@ -38,53 +38,6 @@ const port = parseInt(process.env.PORT || '3000', 10);
 
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
-
-const MEDIA_CONFIG_FILE = path.resolve('admin-media-config.json');
-
-// In-memory media cache loaded from disk if present
-let savedMediaConfig: any = null;
-try {
-  if (fs.existsSync(MEDIA_CONFIG_FILE)) {
-    const raw = fs.readFileSync(MEDIA_CONFIG_FILE, 'utf-8');
-    savedMediaConfig = JSON.parse(raw);
-    console.log(`📁 Loaded saved media configuration (${Array.isArray(savedMediaConfig) ? savedMediaConfig.length : 0} scenes)`);
-  }
-} catch (e) {
-  console.warn('Could not read admin-media-config.json', e);
-}
-
-function getDialogueForPhase(phase: string, round: number): string {
-  if (Array.isArray(savedMediaConfig)) {
-    const scene = savedMediaConfig.find((s: any) =>
-      (s.id === `ROUND_${round}_${phase}` || (s.phase === phase && s.round === round)) && s.customText
-    );
-    if (scene && scene.customText) {
-      return scene.customText;
-    }
-  }
-  const roundScripts = HOST_SCRIPTS[round] || HOST_SCRIPTS[1];
-  switch (phase) {
-    case 'INTRO': return roundScripts.intro;
-    case 'ROLE_BRIEFING': return roundScripts.roleBriefing;
-    case 'MISSION': return roundScripts.missionStart;
-    case 'ROUND_TABLE': return roundScripts.roundTable;
-    case 'VOTING': return roundScripts.votingOpen;
-    case 'VOTE_REVEALS': return roundScripts.allVotesLocked;
-    default: return '';
-  }
-}
-
-// In-memory room store
-interface InternalRoom {
-  code: string;
-  creatorToken: string;
-  players: Map<string, Player>; // token -> Player
-  state: GameState;
-  sseClients: Map<string, { res: express.Response; playerToken?: string; isHost?: boolean }>;
-  timerInterval?: NodeJS.Timeout;
-}
-
-const rooms = new Map<string, InternalRoom>();
 
 function generateId(prefix: string = ''): string {
   return `${prefix}${Math.random().toString(36).substring(2, 9)}`;
@@ -101,14 +54,44 @@ function generateRoomCode(): string {
 
 const DEFAULT_OBJECTIVES: Record<number, TraitorObjective> = TRAITOR_OBJECTIVES;
 
+async function getDialogueForPhase(phase: string, round: number): Promise<string> {
+  try {
+    const saved = await db.getMediaConfig();
+    if (Array.isArray(saved)) {
+      const scene = saved.find((s: any) =>
+        (s.id === `ROUND_${round}_${phase}` || (s.phase === phase && s.round === round)) && s.customText
+      );
+      if (scene && scene.customText) {
+        return scene.customText;
+      }
+    }
+  } catch (e) {
+    console.warn('Could not read media config for dialogue:', e);
+  }
+
+  const roundScripts = HOST_SCRIPTS[round] || HOST_SCRIPTS[1];
+  switch (phase) {
+    case 'INTRO': return roundScripts.intro;
+    case 'ROLE_BRIEFING': return roundScripts.roleBriefing;
+    case 'MISSION': return roundScripts.missionStart;
+    case 'ROUND_TABLE': return roundScripts.roundTable;
+    case 'VOTING': return roundScripts.votingOpen;
+    case 'VOTE_REVEALS': return roundScripts.allVotesLocked;
+    default: return '';
+  }
+}
 
 function createInitialState(roomCode: string, isDemo = false): GameState {
+  const initialDuration = 600; // 10 mins
   return {
     roomCode,
     currentRound: 1,
     phase: 'LOBBY',
-    phaseTimeRemaining: 600,
+    phaseTimeRemaining: initialDuration,
+    timerDurationSec: initialDuration,
+    timerDeadline: Date.now() + initialDuration * 1000,
     isTimerPaused: false,
+    timerPausedRemaining: undefined,
     totalGoldPot: 0,
     roundGold: 0,
     seatingOrder: [],
@@ -120,7 +103,7 @@ function createInitialState(roomCode: string, isDemo = false): GameState {
     traitorName: null,
     traitorObjective: null,
     roundHistory: [],
-    latestDialogue: getDialogueForPhase('INTRO', 1),
+    latestDialogue: HOST_SCRIPTS[1].intro,
     isDemoRoom: isDemo,
     castleHeistState: {
       currentStage: 1,
@@ -133,22 +116,33 @@ function createInitialState(roomCode: string, isDemo = false): GameState {
   };
 }
 
-function broadcastState(room: InternalRoom) {
-  room.sseClients.forEach((client, clientId) => {
-    try {
-      const sanitized = sanitizeState(room, client.playerToken, client.isHost);
-      client.res.write(`data: ${JSON.stringify(sanitized)}\n\n`);
-    } catch (e) {
-      console.warn(`Failed writing SSE to ${clientId}`, e);
-    }
-  });
+function setPhaseWithTimer(s: GameState, phase: GamePhase, durationSec: number, dialogue: string) {
+  s.phase = phase;
+  s.phaseTimeRemaining = durationSec;
+  s.timerDurationSec = durationSec;
+  s.timerDeadline = Date.now() + durationSec * 1000;
+  s.isTimerPaused = false;
+  s.timerPausedRemaining = undefined;
+  s.latestDialogue = dialogue;
 }
 
-function sanitizeState(room: InternalRoom, playerToken?: string, isHostDisplay?: boolean): ClientGameState {
-  const s = room.state;
-  const playersList = Array.from(room.players.values());
+/**
+ * Sanitizes game state enforcing strict privacy rules:
+ * - Calling player sees ONLY their own role, secret mission, and vote.
+ * - Others' roles, secret missions, and unrevealed votes are completely stripped.
+ * - Post-banishment / end-of-round reveals the traitor and votes publicly.
+ * - Live countdown is dynamically calculated from persistent timer deadlines.
+ */
+function sanitizeState(
+  state: GameState,
+  playersMap: Record<string, Player>,
+  playerToken?: string,
+  isHostDisplay?: boolean
+): ClientGameState {
+  const s = state;
+  const playersList = Object.values(playersMap);
+  const callingPlayer = playerToken ? playersMap[playerToken] : undefined;
 
-  const callingPlayer = playerToken ? room.players.get(playerToken) : undefined;
   const isPostBanishment = [
     'BANISHMENT_OUTCOME',
     'ASSIGNMENT_VERIFICATION',
@@ -156,6 +150,15 @@ function sanitizeState(room: InternalRoom, playerToken?: string, isHostDisplay?:
     'FINAL_RESULTS',
   ].includes(s.phase);
 
+  // 1. Calculate live remaining time dynamically from deadline
+  let liveRemaining = s.phaseTimeRemaining;
+  if (s.isTimerPaused && s.timerPausedRemaining !== undefined) {
+    liveRemaining = Math.max(0, Math.round(s.timerPausedRemaining / 1000));
+  } else if (s.timerDeadline) {
+    liveRemaining = Math.max(0, Math.ceil((s.timerDeadline - Date.now()) / 1000));
+  }
+
+  // 2. Strict player privacy sanitization
   const sanitizedPlayers: SanitizedPlayer[] = playersList.map(p => {
     const isSelf = callingPlayer?.id === p.id;
     return {
@@ -180,7 +183,10 @@ function sanitizeState(room: InternalRoom, playerToken?: string, isHostDisplay?:
     roomCode: s.roomCode,
     currentRound: s.currentRound,
     phase: s.phase,
-    phaseTimeRemaining: s.phaseTimeRemaining,
+    phaseTimeRemaining: liveRemaining,
+    timerDurationSec: s.timerDurationSec,
+    timerDeadline: s.timerDeadline,
+    timerPausedRemaining: s.timerPausedRemaining,
     isTimerPaused: s.isTimerPaused,
     totalGoldPot: s.totalGoldPot,
     roundGold: s.roundGold,
@@ -195,6 +201,7 @@ function sanitizeState(room: InternalRoom, playerToken?: string, isHostDisplay?:
     isDemoRoom: s.isDemoRoom,
   };
 
+  // 3. Populate private calling player fields
   if (callingPlayer) {
     clientState.myPlayerId = callingPlayer.id;
     clientState.myRole = callingPlayer.role;
@@ -211,7 +218,7 @@ function sanitizeState(room: InternalRoom, playerToken?: string, isHostDisplay?:
     }
   }
 
-  // Reveal traitor identity and assignment only post-banishment
+  // 4. Reveal traitor identity only post-banishment
   if (isPostBanishment) {
     clientState.revealedTraitorId = s.traitorId || undefined;
     clientState.revealedTraitorName = s.traitorName || undefined;
@@ -219,50 +226,23 @@ function sanitizeState(room: InternalRoom, playerToken?: string, isHostDisplay?:
   }
 
   // Safe mission states
-  if (s.castleHeistState) {
-    clientState.castleHeistState = s.castleHeistState;
-  }
-  if (s.birthdayMajorityState) {
-    clientState.birthdayMajorityState = s.birthdayMajorityState;
-  }
-  if (s.forgeryGalleryState) {
-    clientState.forgeryGalleryState = s.forgeryGalleryState;
-  }
-  if (s.bodyDisposalState) {
-    clientState.bodyDisposalState = s.bodyDisposalState;
-  }
-  if (s.counterfeitExpertState) {
-    clientState.counterfeitExpertState = s.counterfeitExpertState;
-  }
-  if (s.getawayAuctionState) {
-    clientState.getawayAuctionState = s.getawayAuctionState;
-  }
-
+  if (s.castleHeistState) clientState.castleHeistState = s.castleHeistState;
+  if (s.birthdayMajorityState) clientState.birthdayMajorityState = s.birthdayMajorityState;
+  if (s.forgeryGalleryState) clientState.forgeryGalleryState = s.forgeryGalleryState;
+  if (s.bodyDisposalState) clientState.bodyDisposalState = s.bodyDisposalState;
+  if (s.counterfeitExpertState) clientState.counterfeitExpertState = s.counterfeitExpertState;
+  if (s.getawayAuctionState) clientState.getawayAuctionState = s.getawayAuctionState;
 
   return clientState;
 }
 
-function startRoomTicker(room: InternalRoom) {
-  if (room.timerInterval) clearInterval(room.timerInterval);
-  room.timerInterval = setInterval(() => {
-    if (!room.state.isTimerPaused && room.state.phaseTimeRemaining > 0) {
-      room.state.phaseTimeRemaining -= 1;
-      // Broadcast state update every 5 seconds or when under 10 seconds
-      if (room.state.phaseTimeRemaining % 5 === 0 || room.state.phaseTimeRemaining <= 10) {
-        broadcastState(room);
-      }
-    }
-  }, 1000);
-}
-
-function assignSecretRoles(room: InternalRoom) {
-  const players = Array.from(room.players.values());
+function assignSecretRoles(s: GameState, playersMap: Record<string, Player>) {
+  const players = Object.values(playersMap);
   if (players.length === 0) return;
 
-  // Pick 1 random Traitor, 6 Faithful
   const traitorIndex = Math.floor(Math.random() * players.length);
   const traitorPlayer = players[traitorIndex];
-  const roundNum = room.state.currentRound;
+  const roundNum = s.currentRound;
   const objective = DEFAULT_OBJECTIVES[roundNum] || DEFAULT_OBJECTIVES[1];
 
   players.forEach((p, idx) => {
@@ -279,16 +259,16 @@ function assignSecretRoles(room: InternalRoom) {
     p.votedForPlayerName = undefined;
   });
 
-  room.state.traitorId = traitorPlayer.id;
-  room.state.traitorName = traitorPlayer.name;
-  room.state.traitorObjective = objective;
-  room.state.currentRevealIndex = 0;
-  room.state.isTieRevote = false;
-  room.state.tieCandidateIds = [];
+  s.traitorId = traitorPlayer.id;
+  s.traitorName = traitorPlayer.name;
+  s.traitorObjective = objective;
+  s.currentRevealIndex = 0;
+  s.isTieRevote = false;
+  s.tieCandidateIds = [];
 
   // Reset missions for round
   if (roundNum === 1) {
-    room.state.castleHeistState = {
+    s.castleHeistState = {
       currentStage: 1,
       confirmedHouseholdItems: HEIST_HOUSEHOLD_ITEMS_POOL.slice(0, 5),
       targetObjectForTraitor: HEIST_HOUSEHOLD_ITEMS_POOL[0],
@@ -297,7 +277,7 @@ function assignSecretRoles(room: InternalRoom) {
       stageFavorites: {},
     };
   } else if (roundNum === 2) {
-    room.state.birthdayMajorityState = {
+    s.birthdayMajorityState = {
       questions: BIRTHDAY_MAJORITY_QUESTION_POOL.slice(0, 5),
       step: 'INITIAL_ANSWERS',
       activeQuestionIndex: 0,
@@ -308,14 +288,14 @@ function assignSecretRoles(room: InternalRoom) {
     };
   } else if (roundNum === 3) {
     const pair = FORGERY_BRIEF_PAIRS[(roundNum - 1) % FORGERY_BRIEF_PAIRS.length];
-    room.state.forgeryGalleryState = {
+    s.forgeryGalleryState = {
       faithfulBrief: pair.faithful,
       traitorBrief: pair.traitor,
       qualifiedMilestones: {},
       isDrawingLocked: false,
     };
   } else if (roundNum === 4) {
-    room.state.bodyDisposalState = {
+    s.bodyDisposalState = {
       scenario: BODY_DISPOSAL_SCENARIO,
       confirmedHouseholdItems: BODY_DISPOSAL_OBJECTS_POOL.slice(0, 7),
       traitorAssignedObject: BODY_DISPOSAL_OBJECTS_POOL[0],
@@ -328,12 +308,12 @@ function assignSecretRoles(room: InternalRoom) {
     };
   } else if (roundNum === 5) {
     const inv = COUNTERFEIT_INVENTIONS[(roundNum - 1) % COUNTERFEIT_INVENTIONS.length];
-    room.state.counterfeitExpertState = {
+    s.counterfeitExpertState = {
       invention: inv.invention,
       faithfulThreeWords: inv.faithfulThreeWords,
       traitorTwoWords: inv.traitorTwoWords,
       missingThirdWord: inv.missingThirdWord,
-      speakingOrder: room.state.seatingOrder,
+      speakingOrder: s.seatingOrder,
       playerMilestones: {},
     };
   } else if (roundNum === 6) {
@@ -341,7 +321,7 @@ function assignSecretRoles(room: InternalRoom) {
     players.forEach(p => {
       coinBalances[p.id] = 12;
     });
-    room.state.getawayAuctionState = {
+    s.getawayAuctionState = {
       currentLotIndex: 0,
       lots: AUCTION_LOTS,
       playerCoins: coinBalances,
@@ -357,579 +337,15 @@ function assignSecretRoles(room: InternalRoom) {
   }
 }
 
-// REST API Endpoints
-
-// Create new room
-app.post('/api/rooms', (req, res) => {
-  const hostName = req.body.hostName || 'Libby';
-  const code = generateRoomCode();
-  const playerToken = generateId('token_');
-  const playerId = generateId('p_');
-
-  const creatorPlayer: Player = {
-    id: playerId,
-    name: hostName,
-    isRoomCreator: true,
-    seatNumber: 1,
-    connected: true,
-    score: 0,
-  };
-
-  const room: InternalRoom = {
-    code,
-    creatorToken: playerToken,
-    players: new Map([[playerToken, creatorPlayer]]),
-    state: createInitialState(code),
-    sseClients: new Map(),
-  };
-
-  room.state.seatingOrder = [playerId];
-  rooms.set(code, room);
-  startRoomTicker(room);
-
-  res.json({
-    roomCode: code,
-    playerToken,
-    playerId,
-    isRoomCreator: true,
-  });
-});
-
-// Join room
-app.post('/api/rooms/:code/join', (req, res) => {
-  const code = req.params.code.toUpperCase();
-  const room = rooms.get(code);
-  if (!room) {
-    return res.status(404).json({ error: 'Castle room not found.' });
-  }
-
-  const existingToken = req.body.playerToken;
-  if (existingToken && room.players.has(existingToken)) {
-    const existingPlayer = room.players.get(existingToken)!;
-    existingPlayer.connected = true;
-    broadcastState(room);
-    return res.json({
-      roomCode: code,
-      playerToken: existingToken,
-      playerId: existingPlayer.id,
-      name: existingPlayer.name,
-      seatNumber: existingPlayer.seatNumber,
-      isRoomCreator: !!existingPlayer.isRoomCreator,
-    });
-  }
-
-  // Check seat capacity (max 7 players)
-  if (room.players.size >= 7) {
-    return res.status(400).json({ error: 'This castle room is already full (7 players seated).' });
-  }
-
-  const name = (req.body.name || '').trim();
-  if (!name) {
-    return res.status(400).json({ error: 'Please enter your display name.' });
-  }
-
-  // Ensure unique display name
-  const existingNames = Array.from(room.players.values()).map(p => p.name.toLowerCase());
-  if (existingNames.includes(name.toLowerCase())) {
-    return res.status(400).json({ error: `A player named '${name}' is already seated in this room.` });
-  }
-
-  const newToken = generateId('token_');
-  const newPlayerId = generateId('p_');
-  const seatNumber = room.players.size + 1;
-
-  const newPlayer: Player = {
-    id: newPlayerId,
-    name,
-    isRoomCreator: false,
-    seatNumber,
-    connected: true,
-    score: 0,
-  };
-
-  room.players.set(newToken, newPlayer);
-  room.state.seatingOrder.push(newPlayerId);
-  broadcastState(room);
-
-  res.json({
-    roomCode: code,
-    playerToken: newToken,
-    playerId: newPlayerId,
-    name,
-    seatNumber,
-    isRoomCreator: false,
-  });
-});
-
-// Seed Demo Castle (Instant 7-player fully functioning game)
-app.post('/api/rooms/demo-setup', (req, res) => {
-  const code = 'DEMO7';
-  const creatorToken = 'demo_token_libby';
-  const room = {
-    code,
-    creatorToken,
-    players: new Map<string, Player>(),
-    state: createInitialState(code, true),
-    sseClients: new Map(),
-  };
-
-  const demoGuestList = [
-    { name: 'Libby', isCreator: true, token: 'demo_token_libby' },
-    { name: 'Arthur', isCreator: false, token: 'demo_token_arthur' },
-    { name: 'Beatrice', isCreator: false, token: 'demo_token_beatrice' },
-    { name: 'Callum', isCreator: false, token: 'demo_token_callum' },
-    { name: 'Daphne', isCreator: false, token: 'demo_token_daphne' },
-    { name: 'Edgar', isCreator: false, token: 'demo_token_edgar' },
-    { name: 'Fiona', isCreator: false, token: 'demo_token_fiona' },
-  ];
-
-  demoGuestList.forEach((guest, idx) => {
-    const id = `p_${guest.name.toLowerCase()}`;
-    room.players.set(guest.token, {
-      id,
-      name: guest.name,
-      isRoomCreator: guest.isCreator,
-      seatNumber: idx + 1,
-      connected: true,
-      score: 0,
-    });
-    room.state.seatingOrder.push(id);
-  });
-
-  rooms.set(code, room);
-  startRoomTicker(room);
-
-  res.json({
-    roomCode: code,
-    playerToken: creatorToken,
-    playerId: 'p_libby',
-    message: 'Demo Castle created with 7 seated players.',
-  });
-});
-
-// SSE connection
-app.get('/api/rooms/:code/events', (req, res) => {
-  const code = req.params.code.toUpperCase();
-  const room = rooms.get(code);
-  if (!room) {
-    return res.status(404).send('Room not found');
-  }
-
-  const playerToken = (req.query.playerToken as string) || '';
-  const isHost = req.query.isHost === 'true';
-  const clientId = generateId('client_');
-
-  res.setHeader('Content-Type', 'text/event-stream');
-  res.setHeader('Cache-Control', 'no-cache');
-  res.setHeader('Connection', 'keep-alive');
-  res.flushHeaders();
-
-  room.sseClients.set(clientId, { res, playerToken, isHost });
-
-  // Initial event
-  const initial = sanitizeState(room, playerToken, isHost);
-  res.write(`data: ${JSON.stringify(initial)}\n\n`);
-
-  req.on('close', () => {
-    room.sseClients.delete(clientId);
-  });
-});
-
-// Admin Media Persistent Endpoints
-app.get('/api/admin/media', (req, res) => {
-  res.json({ success: true, media: savedMediaConfig });
-});
-
-app.post('/api/admin/media', async (req, res) => {
-  try {
-    const media = req.body;
-    savedMediaConfig = media;
-    await fs.promises.writeFile(MEDIA_CONFIG_FILE, JSON.stringify(media, null, 2), 'utf-8');
-    res.json({ success: true, message: 'Media configuration permanently saved to server disk.' });
-  } catch (err: any) {
-    console.error('Failed to save media config to disk:', err);
-    res.status(500).json({ error: 'Failed to write media config to disk.' });
-  }
-});
-
-app.post('/api/admin/media/reset', async (req, res) => {
-  try {
-    savedMediaConfig = null;
-    if (fs.existsSync(MEDIA_CONFIG_FILE)) {
-      await fs.promises.unlink(MEDIA_CONFIG_FILE);
-    }
-    res.json({ success: true, message: 'Media configuration reset on server.' });
-  } catch (err: any) {
-    res.status(500).json({ error: 'Failed to reset media config on disk.' });
-  }
-});
-
-// Get current state snapshot
-app.get('/api/rooms/:code/state', (req, res) => {
-  const code = req.params.code.toUpperCase();
-  const room = rooms.get(code);
-  if (!room) {
-    return res.status(404).json({ error: 'Room not found' });
-  }
-
-  const playerToken = (req.query.playerToken as string) || '';
-  const isHost = req.query.isHost === 'true';
-  res.json(sanitizeState(room, playerToken, isHost));
-});
-
-// Perform game action
-app.post('/api/rooms/:code/action', (req, res) => {
-  const code = req.params.code.toUpperCase();
-  const room = rooms.get(code);
-  if (!room) {
-    return res.status(404).json({ error: 'Room not found' });
-  }
-
-  const { action, payload, playerToken } = req.body;
-  const player = playerToken ? room.players.get(playerToken) : undefined;
-  const s = room.state;
-
-  switch (action) {
-    // Organiser / host controls
-    case 'UPDATE_SEATING_ORDER': {
-      if (payload?.seatingOrder && Array.isArray(payload.seatingOrder)) {
-        s.seatingOrder = payload.seatingOrder;
-        // Update player seatNumbers accordingly
-        s.seatingOrder.forEach((pId, idx) => {
-          const found = Array.from(room.players.values()).find(p => p.id === pId);
-          if (found) found.seatNumber = idx + 1;
-        });
-      }
-      break;
-    }
-
-    case 'START_GAME': {
-      s.phase = 'INTRO';
-      s.phaseTimeRemaining = 600; // 10 mins Introduction
-      s.latestDialogue = getDialogueForPhase('INTRO', s.currentRound);
-      break;
-    }
-
-    case 'ADVANCE_TO_ROLE_BRIEFING': {
-      assignSecretRoles(room);
-      s.phase = 'ROLE_BRIEFING';
-      s.phaseTimeRemaining = 60; // 1 min private roles & briefing
-      s.latestDialogue = getDialogueForPhase('ROLE_BRIEFING', s.currentRound);
-      break;
-    }
-
-    case 'ADVANCE_TO_MISSION': {
-      s.phase = 'MISSION';
-      s.phaseTimeRemaining = 420; // 7 mins mission instructions & play
-      s.latestDialogue = getDialogueForPhase('MISSION', s.currentRound);
-      break;
-    }
-
-    case 'ADVANCE_TO_ROUND_TABLE': {
-      s.phase = 'ROUND_TABLE';
-      s.phaseTimeRemaining = 300; // 5 mins discussion
-      s.latestDialogue = getDialogueForPhase('ROUND_TABLE', s.currentRound);
-      break;
-    }
-
-    case 'ADVANCE_TO_VOTING': {
-      s.phase = 'VOTING';
-      s.phaseTimeRemaining = 240; // 4 mins voting, phone reveals, scoring
-      s.latestDialogue = getDialogueForPhase('VOTING', s.currentRound);
-
-      // Reset lock states
-      room.players.forEach(p => {
-        p.hasLockedVote = false;
-        p.hasRevealedSlate = false;
-        p.votedForPlayerId = undefined;
-        p.votedForPlayerName = undefined;
-      });
-      break;
-    }
-
-    // Player action: Lock in vote
-    case 'LOCK_VOTE': {
-      if (!player) return res.status(401).json({ error: 'Unknown player token' });
-      const targetId = payload?.targetPlayerId;
-      if (!targetId || targetId === player.id) {
-        return res.status(400).json({ error: 'Cannot vote for yourself or invalid target.' });
-      }
-      const target = Array.from(room.players.values()).find(p => p.id === targetId);
-      if (!target) return res.status(400).json({ error: 'Target player not found.' });
-
-      player.votedForPlayerId = target.id;
-      player.votedForPlayerName = target.name;
-      player.hasLockedVote = true;
-
-      // Check if all players have locked votes
-      const allLocked = Array.from(room.players.values()).every(p => p.hasLockedVote);
-      if (allLocked) {
-        s.phase = s.isTieRevote ? 'TIE_REVEALS' : 'VOTE_REVEALS';
-        s.currentRevealIndex = 0;
-        s.latestDialogue = HOST_SCRIPTS[s.currentRound].allVotesLocked;
-      }
-      break;
-    }
-
-    // Phone slate reveals
-    case 'FINISH_PHONE_SLATE': {
-      const activePlayerId = s.seatingOrder[s.currentRevealIndex];
-      const revealingPlayer = Array.from(room.players.values()).find(p => p.id === activePlayerId);
-      if (revealingPlayer) {
-        revealingPlayer.hasRevealedSlate = true;
-        s.latestDialogue = HOST_SCRIPTS[s.currentRound].voteConfirmedSlate(
-          revealingPlayer.name,
-          revealingPlayer.votedForPlayerName || 'Unknown'
-        );
-      }
-
-      s.currentRevealIndex += 1;
-
-      // If all 7 players finished revealing
-      if (s.currentRevealIndex >= s.seatingOrder.length) {
-        // Tally votes
-        const tallies: Record<string, number> = {};
-        room.players.forEach(p => {
-          if (p.votedForPlayerId) {
-            tallies[p.votedForPlayerId] = (tallies[p.votedForPlayerId] || 0) + 1;
-          }
-        });
-
-        // Find max votes
-        let maxVotes = 0;
-        let candidatesWithMax: string[] = [];
-        Object.entries(tallies).forEach(([candId, count]) => {
-          if (count > maxVotes) {
-            maxVotes = count;
-            candidatesWithMax = [candId];
-          } else if (count === maxVotes) {
-            candidatesWithMax.push(candId);
-          }
-        });
-
-        // Check for tie
-        if (candidatesWithMax.length > 1) {
-          if (!s.isTieRevote) {
-            // First tie: trigger Tie Defence & Revote
-            s.isTieRevote = true;
-            s.tieCandidateIds = candidatesWithMax;
-            s.phase = 'TIE_DEFENCE';
-            s.phaseTimeRemaining = 60; // 60s defence
-            const candNames = candidatesWithMax.map(
-              cId => Array.from(room.players.values()).find(p => p.id === cId)?.name || 'Unknown'
-            );
-            s.latestDialogue = HOST_SCRIPTS[s.currentRound].tieOccurred(candNames);
-          } else {
-            // Double tie: No banishment! Traitor survives!
-            s.phase = 'BANISHMENT_OUTCOME';
-            s.latestDialogue = HOST_SCRIPTS[s.currentRound].tieBanishmentFailed;
-            recordRoundOutcome(room, null, false);
-          }
-        } else if (candidatesWithMax.length === 1) {
-          // Clear winner banished
-          const banishedId = candidatesWithMax[0];
-          const banishedPlayer = Array.from(room.players.values()).find(p => p.id === banishedId);
-          const wasTraitor = banishedId === s.traitorId;
-          s.phase = 'BANISHMENT_OUTCOME';
-          s.latestDialogue = HOST_SCRIPTS[s.currentRound].banishment(banishedPlayer?.name || 'Someone', wasTraitor);
-          recordRoundOutcome(room, banishedId, wasTraitor);
-        }
-      }
-      break;
-    }
-
-    case 'START_TIE_REVOTE': {
-      s.phase = 'TIE_VOTING';
-      s.phaseTimeRemaining = 90;
-      s.currentRevealIndex = 0;
-      room.players.forEach(p => {
-        p.hasLockedVote = false;
-        p.hasRevealedSlate = false;
-        p.votedForPlayerId = undefined;
-        p.votedForPlayerName = undefined;
-      });
-      break;
-    }
-
-    case 'CONFIRM_ASSIGNMENT_RESULT': {
-      const success = !!payload?.success;
-      const traitor = Array.from(room.players.values()).find(p => p.id === s.traitorId);
-      if (traitor && success) {
-        traitor.score += 1; // +1 bonus point for completing secret assignment
-      }
-      const lastHistory = s.roundHistory[s.roundHistory.length - 1];
-      if (lastHistory) {
-        lastHistory.traitorAssignmentCompleted = success;
-      }
-      s.phase = 'ROUND_SUMMARY';
-      break;
-    }
-
-    case 'ADVANCE_NEXT_ROUND': {
-      if (s.currentRound < 6) {
-        s.currentRound += 1;
-        s.latestDialogue = getDialogueForPhase('INTRO', s.currentRound);
-        s.phase = 'INTRO';
-        s.phaseTimeRemaining = 60;
-      } else {
-        s.phase = 'FINAL_RESULTS';
-        // Compute grand winner
-        const sorted = Array.from(room.players.values()).sort((a, b) => b.score - a.score);
-        s.latestDialogue = HOST_SCRIPTS[6].finalResults(sorted[0]?.name || 'Libby');
-        s.phaseTimeRemaining = 480; // 8 mins finale
-      }
-      break;
-    }
-
-    // Timer adjustments
-    case 'TIMER_PLAY_PAUSE': {
-      s.isTimerPaused = !s.isTimerPaused;
-      break;
-    }
-    case 'TIMER_ADJUST': {
-      const delta = parseInt(payload?.seconds || '0', 10);
-      s.phaseTimeRemaining = Math.max(0, s.phaseTimeRemaining + delta);
-      break;
-    }
-
-    // Mission 1: The Castle Heist actions
-    case 'UPDATE_CASTLE_HEIST': {
-      if (s.castleHeistState && payload) {
-        s.castleHeistState = { ...s.castleHeistState, ...payload };
-      }
-      break;
-    }
-
-    // Mission 2: The Birthday Majority actions
-    case 'UPDATE_BIRTHDAY_MAJORITY': {
-      if (s.birthdayMajorityState && payload) {
-        s.birthdayMajorityState = { ...s.birthdayMajorityState, ...payload };
-      }
-      break;
-    }
-    case 'SUBMIT_MAJORITY_INITIAL_ANSWER': {
-      if (!s.birthdayMajorityState || !player) break;
-      const { questionId, chosenName } = payload;
-      if (!s.birthdayMajorityState.initialAnswers[player.id]) {
-        s.birthdayMajorityState.initialAnswers[player.id] = {};
-      }
-      s.birthdayMajorityState.initialAnswers[player.id][questionId] = chosenName;
-      break;
-    }
-    case 'SUBMIT_MAJORITY_PREDICTION': {
-      if (!s.birthdayMajorityState || !player) break;
-      const { questionId, predictedName } = payload;
-      if (!s.birthdayMajorityState.predictions[questionId]) {
-        s.birthdayMajorityState.predictions[questionId] = {};
-      }
-      s.birthdayMajorityState.predictions[questionId][player.id] = predictedName;
-      break;
-    }
-
-    // Mission 3: The Forgery Gallery actions
-    case 'UPDATE_FORGERY_GALLERY': {
-      if (s.forgeryGalleryState && payload) {
-        s.forgeryGalleryState = { ...s.forgeryGalleryState, ...payload };
-      }
-      break;
-    }
-
-    // Mission 4: The Body Disposal Committee actions
-    case 'UPDATE_BODY_DISPOSAL': {
-      if (s.bodyDisposalState && payload) {
-        s.bodyDisposalState = { ...s.bodyDisposalState, ...payload };
-      }
-      break;
-    }
-
-    // Mission 5: The Counterfeit Expert actions
-    case 'UPDATE_COUNTERFEIT_EXPERT': {
-      if (s.counterfeitExpertState && payload) {
-        s.counterfeitExpertState = { ...s.counterfeitExpertState, ...payload };
-      }
-      break;
-    }
-
-    // Mission 6: The Getaway Auction actions
-    case 'UPDATE_GETAWAY_AUCTION': {
-      if (s.getawayAuctionState && payload) {
-        s.getawayAuctionState = { ...s.getawayAuctionState, ...payload };
-      }
-      break;
-    }
-    case 'SUBMIT_AUCTION_BID': {
-      if (!s.getawayAuctionState || !player) break;
-      const { lotNumber, bid } = payload;
-      if (!s.getawayAuctionState.bids[lotNumber]) {
-        s.getawayAuctionState.bids[lotNumber] = {};
-      }
-      s.getawayAuctionState.bids[lotNumber][player.id] = bid;
-      break;
-    }
-    case 'RESOLVE_AUCTION_LOT': {
-      if (!s.getawayAuctionState) break;
-      const { lotNumber, winnerId, winningBid } = payload;
-      const winner = Array.from(room.players.values()).find(p => p.id === winnerId);
-      const lot = s.getawayAuctionState.lots.find(l => l.lotNumber === lotNumber);
-      if (winner && lot) {
-        s.getawayAuctionState.lotWinners[lotNumber] = {
-          winnerId,
-          winnerName: winner.name,
-          winningBid,
-        };
-        s.getawayAuctionState.playerCoins[winnerId] = Math.max(
-          0,
-          (s.getawayAuctionState.playerCoins[winnerId] ?? 12) - winningBid
-        );
-        s.getawayAuctionState.playerEscapePoints[winnerId] =
-          (s.getawayAuctionState.playerEscapePoints[winnerId] ?? 0) + lot.escapePoints;
-        if (!s.getawayAuctionState.purchasedLots[winnerId]) {
-          s.getawayAuctionState.purchasedLots[winnerId] = [];
-        }
-        s.getawayAuctionState.purchasedLots[winnerId].push(lotNumber);
-      }
-      break;
-    }
-
-    // Demo helper: Auto-vote for simulated players to make testing instant!
-    case 'DEMO_SIMULATE_VOTES': {
-      if (s.isDemoRoom) {
-        const pList = Array.from(room.players.values());
-        pList.forEach(p => {
-          if (!p.hasLockedVote) {
-            // Pick random target other than self
-            const targets = pList.filter(t => t.id !== p.id);
-            const target = targets[Math.floor(Math.random() * targets.length)];
-            p.votedForPlayerId = target.id;
-            p.votedForPlayerName = target.name;
-            p.hasLockedVote = true;
-          }
-        });
-        const allLocked = pList.every(p => p.hasLockedVote);
-        if (allLocked) {
-          s.phase = s.isTieRevote ? 'TIE_REVEALS' : 'VOTE_REVEALS';
-          s.currentRevealIndex = 0;
-          s.latestDialogue = HOST_SCRIPTS[s.currentRound].allVotesLocked;
-        }
-      }
-      break;
-    }
-  }
-
-  broadcastState(room);
-  res.json({ success: true, phase: s.phase });
-});
-
-function recordRoundOutcome(room: InternalRoom, banishedId: string | null, wasTraitor: boolean) {
-  const s = room.state;
-  const traitor = Array.from(room.players.values()).find(p => p.id === s.traitorId);
-  const banished = banishedId ? Array.from(room.players.values()).find(p => p.id === banishedId) : null;
+function recordRoundOutcome(s: GameState, playersMap: Record<string, Player>, banishedId: string | null, wasTraitor: boolean) {
+  const players = Object.values(playersMap);
+  const traitor = players.find(p => p.id === s.traitorId);
+  const banished = banishedId ? players.find(p => p.id === banishedId) : null;
   const roundScores: Record<string, number> = {};
-  const scoreBreakdown: Record<string, { missionPoints: number; mainObjectivePoints: number; bonusPoints: number; totalRoundPoints: number }> = {};
+  const scoreBreakdown: Record<string, any> = {};
   const firstBallotVotes: Record<string, string> = {};
 
-  // Compute 0-6 score breakdown per player
-  room.players.forEach(p => {
+  players.forEach(p => {
     if (p.votedForPlayerId) {
       firstBallotVotes[p.id] = p.votedForPlayerId;
     }
@@ -960,15 +376,14 @@ function recordRoundOutcome(room: InternalRoom, banishedId: string | null, wasTr
     let mainObjectivePoints = 0;
     if (p.role === 'FAITHFUL') {
       if (p.votedForPlayerId === s.traitorId) {
-        mainObjectivePoints = 2; // +2 for voting for the Traitor on first ballot
+        mainObjectivePoints = 2;
       }
     } else if (p.role === 'TRAITOR') {
       if (banishedId !== s.traitorId) {
-        mainObjectivePoints = 2; // +2 for surviving banishment (or tied revote)
+        mainObjectivePoints = 2;
       }
     }
 
-    // 3. Bonus Points (0 or 1, added post-reveal verification)
     const bonusPoints = 0;
     const totalRoundPoints = missionPoints + mainObjectivePoints + bonusPoints;
 
@@ -989,7 +404,7 @@ function recordRoundOutcome(room: InternalRoom, banishedId: string | null, wasTr
     banishedPlayerId: banishedId,
     banishedPlayerName: banished?.name || null,
     wasTraitorBanished: wasTraitor,
-    traitorAssignmentCompleted: false, // confirmed in assignment verification
+    traitorAssignmentCompleted: false,
     firstBallotVotes,
     scoreBreakdown,
     roundScores,
@@ -998,7 +413,543 @@ function recordRoundOutcome(room: InternalRoom, banishedId: string | null, wasTr
   s.roundHistory.push(history);
 }
 
-// Development vs Production
+// ----------------------------------------------------
+// REST API Endpoints (Vercel Serverless & Local Node)
+// ----------------------------------------------------
+
+// Admin Media Storage
+app.get('/api/admin/media', async (req, res) => {
+  const media = await db.getMediaConfig();
+  res.json({ success: true, media });
+});
+
+app.post('/api/admin/media', async (req, res) => {
+  try {
+    await db.saveMediaConfig(req.body);
+    res.json({ success: true, message: 'Media configuration saved.' });
+  } catch (err: any) {
+    res.status(500).json({ error: 'Failed to write media config.' });
+  }
+});
+
+app.post('/api/admin/media/reset', async (req, res) => {
+  try {
+    await db.resetMediaConfig();
+    res.json({ success: true, message: 'Media configuration reset.' });
+  } catch (err: any) {
+    res.status(500).json({ error: 'Failed to reset media config.' });
+  }
+});
+
+// Create new room
+app.post('/api/rooms', async (req, res) => {
+  const hostName = (req.body.hostName || 'Libby').trim();
+  const code = generateRoomCode();
+  const playerToken = generateId('token_');
+  const playerId = generateId('p_');
+
+  const creatorPlayer: Player = {
+    id: playerId,
+    name: hostName,
+    isRoomCreator: true,
+    seatNumber: 1,
+    connected: true,
+    score: 0,
+  };
+
+  const state = createInitialState(code);
+  state.seatingOrder = [playerId];
+  state.latestDialogue = await getDialogueForPhase('INTRO', 1);
+
+  const players: Record<string, Player> = {
+    [playerToken]: creatorPlayer,
+  };
+
+  await db.saveRoom({
+    code,
+    creatorToken: playerToken,
+    state,
+    players,
+  });
+
+  res.json({
+    roomCode: code,
+    playerToken,
+    playerId,
+    isRoomCreator: true,
+  });
+});
+
+// Join room
+app.post('/api/rooms/:code/join', async (req, res) => {
+  const code = req.params.code.toUpperCase();
+  const room = await db.getRoom(code);
+  if (!room) {
+    return res.status(404).json({ error: 'Castle room not found.' });
+  }
+
+  const existingToken = req.body.playerToken;
+  if (existingToken && room.players[existingToken]) {
+    const existingPlayer = room.players[existingToken];
+    existingPlayer.connected = true;
+    await db.saveRoom(room);
+    return res.json({
+      roomCode: code,
+      playerToken: existingToken,
+      playerId: existingPlayer.id,
+      name: existingPlayer.name,
+      seatNumber: existingPlayer.seatNumber,
+      isRoomCreator: !!existingPlayer.isRoomCreator,
+    });
+  }
+
+  const playersList = Object.values(room.players);
+  if (playersList.length >= 7) {
+    return res.status(400).json({ error: 'This castle room is already full (7 players seated).' });
+  }
+
+  const name = (req.body.name || '').trim();
+  if (!name) {
+    return res.status(400).json({ error: 'Please enter your display name.' });
+  }
+
+  const existingNames = playersList.map(p => p.name.toLowerCase());
+  if (existingNames.includes(name.toLowerCase())) {
+    return res.status(400).json({ error: `A player named '${name}' is already seated in this room.` });
+  }
+
+  const newToken = generateId('token_');
+  const newPlayerId = generateId('p_');
+  const seatNumber = playersList.length + 1;
+
+  const newPlayer: Player = {
+    id: newPlayerId,
+    name,
+    isRoomCreator: false,
+    seatNumber,
+    connected: true,
+    score: 0,
+  };
+
+  room.players[newToken] = newPlayer;
+  room.state.seatingOrder.push(newPlayerId);
+  await db.saveRoom(room);
+
+  res.json({
+    roomCode: code,
+    playerToken: newToken,
+    playerId: newPlayerId,
+    name,
+    seatNumber,
+    isRoomCreator: false,
+  });
+});
+
+// Seed Instant Demo Castle (7-player test room)
+app.post('/api/rooms/demo-setup', async (req, res) => {
+  const code = 'DEMO7';
+  const creatorToken = 'demo_token_libby';
+  const state = createInitialState(code, true);
+  state.latestDialogue = await getDialogueForPhase('INTRO', 1);
+
+  const players: Record<string, Player> = {};
+  const demoGuestList = [
+    { name: 'Libby', isCreator: true, token: 'demo_token_libby' },
+    { name: 'Arthur', isCreator: false, token: 'demo_token_arthur' },
+    { name: 'Beatrice', isCreator: false, token: 'demo_token_beatrice' },
+    { name: 'Callum', isCreator: false, token: 'demo_token_callum' },
+    { name: 'Daphne', isCreator: false, token: 'demo_token_daphne' },
+    { name: 'Edgar', isCreator: false, token: 'demo_token_edgar' },
+    { name: 'Fiona', isCreator: false, token: 'demo_token_fiona' },
+  ];
+
+  state.seatingOrder = [];
+  demoGuestList.forEach((guest, idx) => {
+    const id = `p_${guest.name.toLowerCase()}`;
+    players[guest.token] = {
+      id,
+      name: guest.name,
+      isRoomCreator: guest.isCreator,
+      seatNumber: idx + 1,
+      connected: true,
+      score: 0,
+    };
+    state.seatingOrder.push(id);
+  });
+
+  await db.saveRoom({
+    code,
+    creatorToken,
+    state,
+    players,
+  });
+
+  res.json({
+    roomCode: code,
+    playerToken: creatorToken,
+    playerId: 'p_libby',
+    message: 'Demo Castle created with 7 seated players.',
+  });
+});
+
+// Get current state snapshot
+app.get('/api/rooms/:code/state', async (req, res) => {
+  const code = req.params.code.toUpperCase();
+  const room = await db.getRoom(code);
+  if (!room) {
+    return res.status(404).json({ error: 'Room not found' });
+  }
+
+  const playerToken = (req.query.playerToken as string) || '';
+  const isHost = req.query.isHost === 'true';
+
+  res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+  res.json(sanitizeState(room.state, room.players, playerToken, isHost));
+});
+
+// Perform game action
+app.post('/api/rooms/:code/action', async (req, res) => {
+  const code = req.params.code.toUpperCase();
+  const room = await db.getRoom(code);
+  if (!room) {
+    return res.status(404).json({ error: 'Room not found' });
+  }
+
+  const { action, payload, playerToken } = req.body;
+  const player = playerToken ? room.players[playerToken] : undefined;
+  const s = room.state;
+
+  switch (action) {
+    case 'UPDATE_SEATING_ORDER': {
+      if (payload?.seatingOrder && Array.isArray(payload.seatingOrder)) {
+        s.seatingOrder = payload.seatingOrder;
+        s.seatingOrder.forEach((pId, idx) => {
+          const found = Object.values(room.players).find(p => p.id === pId);
+          if (found) found.seatNumber = idx + 1;
+        });
+      }
+      break;
+    }
+
+    case 'START_GAME': {
+      const dialogue = await getDialogueForPhase('INTRO', s.currentRound);
+      setPhaseWithTimer(s, 'INTRO', 600, dialogue);
+      break;
+    }
+
+    case 'ADVANCE_TO_ROLE_BRIEFING': {
+      assignSecretRoles(s, room.players);
+      const dialogue = await getDialogueForPhase('ROLE_BRIEFING', s.currentRound);
+      setPhaseWithTimer(s, 'ROLE_BRIEFING', 60, dialogue);
+      break;
+    }
+
+    case 'ADVANCE_TO_MISSION': {
+      const dialogue = await getDialogueForPhase('MISSION', s.currentRound);
+      setPhaseWithTimer(s, 'MISSION', 420, dialogue);
+      break;
+    }
+
+    case 'ADVANCE_TO_ROUND_TABLE': {
+      const dialogue = await getDialogueForPhase('ROUND_TABLE', s.currentRound);
+      setPhaseWithTimer(s, 'ROUND_TABLE', 300, dialogue);
+      break;
+    }
+
+    case 'ADVANCE_TO_VOTING': {
+      const dialogue = await getDialogueForPhase('VOTING', s.currentRound);
+      setPhaseWithTimer(s, 'VOTING', 240, dialogue);
+
+      Object.values(room.players).forEach(p => {
+        p.hasLockedVote = false;
+        p.hasRevealedSlate = false;
+        p.votedForPlayerId = undefined;
+        p.votedForPlayerName = undefined;
+      });
+      break;
+    }
+
+    case 'LOCK_VOTE': {
+      if (!player) return res.status(401).json({ error: 'Unknown player token' });
+      const targetId = payload?.targetPlayerId;
+      if (!targetId || targetId === player.id) {
+        return res.status(400).json({ error: 'Cannot vote for yourself or invalid target.' });
+      }
+      const target = Object.values(room.players).find(p => p.id === targetId);
+      if (!target) return res.status(400).json({ error: 'Target player not found.' });
+
+      player.votedForPlayerId = target.id;
+      player.votedForPlayerName = target.name;
+      player.hasLockedVote = true;
+
+      const allLocked = Object.values(room.players).every(p => p.hasLockedVote);
+      if (allLocked) {
+        s.phase = s.isTieRevote ? 'TIE_REVEALS' : 'VOTE_REVEALS';
+        s.currentRevealIndex = 0;
+        s.latestDialogue = HOST_SCRIPTS[s.currentRound].allVotesLocked;
+      }
+      break;
+    }
+
+    case 'FINISH_PHONE_SLATE': {
+      const activePlayerId = s.seatingOrder[s.currentRevealIndex];
+      const revealingPlayer = Object.values(room.players).find(p => p.id === activePlayerId);
+      if (revealingPlayer) {
+        revealingPlayer.hasRevealedSlate = true;
+        s.latestDialogue = HOST_SCRIPTS[s.currentRound].voteConfirmedSlate(
+          revealingPlayer.name,
+          revealingPlayer.votedForPlayerName || 'Unknown'
+        );
+      }
+
+      s.currentRevealIndex += 1;
+
+      if (s.currentRevealIndex >= s.seatingOrder.length) {
+        const tallies: Record<string, number> = {};
+        Object.values(room.players).forEach(p => {
+          if (p.votedForPlayerId) {
+            tallies[p.votedForPlayerId] = (tallies[p.votedForPlayerId] || 0) + 1;
+          }
+        });
+
+        let maxVotes = 0;
+        let candidatesWithMax: string[] = [];
+        Object.entries(tallies).forEach(([candId, count]) => {
+          if (count > maxVotes) {
+            maxVotes = count;
+            candidatesWithMax = [candId];
+          } else if (count === maxVotes) {
+            candidatesWithMax.push(candId);
+          }
+        });
+
+        if (candidatesWithMax.length > 1) {
+          if (!s.isTieRevote) {
+            s.isTieRevote = true;
+            s.tieCandidateIds = candidatesWithMax;
+            s.phase = 'TIE_DEFENCE';
+            s.phaseTimeRemaining = 60;
+            s.timerDurationSec = 60;
+            s.timerDeadline = Date.now() + 60000;
+            s.isTimerPaused = false;
+            const candNames = candidatesWithMax.map(
+              cId => Object.values(room.players).find(p => p.id === cId)?.name || 'Unknown'
+            );
+            s.latestDialogue = HOST_SCRIPTS[s.currentRound].tieOccurred(candNames);
+          } else {
+            s.phase = 'BANISHMENT_OUTCOME';
+            s.latestDialogue = HOST_SCRIPTS[s.currentRound].tieBanishmentFailed;
+            recordRoundOutcome(s, room.players, null, false);
+          }
+        } else if (candidatesWithMax.length === 1) {
+          const banishedId = candidatesWithMax[0];
+          const banishedPlayer = Object.values(room.players).find(p => p.id === banishedId);
+          const wasTraitor = banishedId === s.traitorId;
+          s.phase = 'BANISHMENT_OUTCOME';
+          s.latestDialogue = HOST_SCRIPTS[s.currentRound].banishment(banishedPlayer?.name || 'Someone', wasTraitor);
+          recordRoundOutcome(s, room.players, banishedId, wasTraitor);
+        }
+      }
+      break;
+    }
+
+    case 'START_TIE_REVOTE': {
+      setPhaseWithTimer(s, 'TIE_VOTING', 90, s.latestDialogue);
+      s.currentRevealIndex = 0;
+      Object.values(room.players).forEach(p => {
+        p.hasLockedVote = false;
+        p.hasRevealedSlate = false;
+        p.votedForPlayerId = undefined;
+        p.votedForPlayerName = undefined;
+      });
+      break;
+    }
+
+    case 'CONFIRM_ASSIGNMENT_RESULT': {
+      const success = !!payload?.success;
+      const traitor = Object.values(room.players).find(p => p.id === s.traitorId);
+      if (traitor && success) {
+        traitor.score += 1;
+      }
+      const lastHistory = s.roundHistory[s.roundHistory.length - 1];
+      if (lastHistory) {
+        lastHistory.traitorAssignmentCompleted = success;
+      }
+      s.phase = 'ROUND_SUMMARY';
+      break;
+    }
+
+    case 'ADVANCE_NEXT_ROUND': {
+      if (s.currentRound < 6) {
+        s.currentRound += 1;
+        const dialogue = await getDialogueForPhase('INTRO', s.currentRound);
+        setPhaseWithTimer(s, 'INTRO', 60, dialogue);
+      } else {
+        s.phase = 'FINAL_RESULTS';
+        const sorted = Object.values(room.players).sort((a, b) => b.score - a.score);
+        s.latestDialogue = HOST_SCRIPTS[6].finalResults(sorted[0]?.name || 'Libby');
+        setPhaseWithTimer(s, 'FINAL_RESULTS', 480, s.latestDialogue);
+      }
+      break;
+    }
+
+    // Timer controls (Persistent)
+    case 'TIMER_PLAY_PAUSE': {
+      if (s.isTimerPaused) {
+        const remainingMs = s.timerPausedRemaining || (s.phaseTimeRemaining * 1000);
+        s.timerDeadline = Date.now() + remainingMs;
+        s.isTimerPaused = false;
+        s.timerPausedRemaining = undefined;
+      } else {
+        const remainingMs = Math.max(0, (s.timerDeadline || Date.now()) - Date.now());
+        s.timerPausedRemaining = remainingMs;
+        s.phaseTimeRemaining = Math.round(remainingMs / 1000);
+        s.isTimerPaused = true;
+      }
+      break;
+    }
+
+    case 'TIMER_ADJUST': {
+      const deltaSeconds = parseInt(payload?.seconds || '0', 10);
+      const deltaMs = deltaSeconds * 1000;
+      if (s.isTimerPaused) {
+        s.timerPausedRemaining = Math.max(0, (s.timerPausedRemaining || 0) + deltaMs);
+        s.phaseTimeRemaining = Math.round(s.timerPausedRemaining / 1000);
+      } else {
+        s.timerDeadline = Math.max(Date.now(), (s.timerDeadline || Date.now()) + deltaMs);
+        s.phaseTimeRemaining = Math.max(0, Math.ceil((s.timerDeadline - Date.now()) / 1000));
+      }
+      break;
+    }
+
+    // Mission 1: Castle Heist
+    case 'UPDATE_CASTLE_HEIST': {
+      if (s.castleHeistState && payload) {
+        s.castleHeistState = { ...s.castleHeistState, ...payload };
+      }
+      break;
+    }
+
+    // Mission 2: Birthday Majority
+    case 'UPDATE_BIRTHDAY_MAJORITY': {
+      if (s.birthdayMajorityState && payload) {
+        s.birthdayMajorityState = { ...s.birthdayMajorityState, ...payload };
+      }
+      break;
+    }
+    case 'SUBMIT_MAJORITY_INITIAL_ANSWER': {
+      if (!s.birthdayMajorityState || !player) break;
+      const { questionId, chosenName } = payload;
+      if (!s.birthdayMajorityState.initialAnswers[player.id]) {
+        s.birthdayMajorityState.initialAnswers[player.id] = {};
+      }
+      s.birthdayMajorityState.initialAnswers[player.id][questionId] = chosenName;
+      break;
+    }
+    case 'SUBMIT_MAJORITY_PREDICTION': {
+      if (!s.birthdayMajorityState || !player) break;
+      const { questionId, predictedName } = payload;
+      if (!s.birthdayMajorityState.predictions[questionId]) {
+        s.birthdayMajorityState.predictions[questionId] = {};
+      }
+      s.birthdayMajorityState.predictions[questionId][player.id] = predictedName;
+      break;
+    }
+
+    // Mission 3: Forgery Gallery
+    case 'UPDATE_FORGERY_GALLERY': {
+      if (s.forgeryGalleryState && payload) {
+        s.forgeryGalleryState = { ...s.forgeryGalleryState, ...payload };
+      }
+      break;
+    }
+
+    // Mission 4: Body Disposal
+    case 'UPDATE_BODY_DISPOSAL': {
+      if (s.bodyDisposalState && payload) {
+        s.bodyDisposalState = { ...s.bodyDisposalState, ...payload };
+      }
+      break;
+    }
+
+    // Mission 5: Counterfeit Expert
+    case 'UPDATE_COUNTERFEIT_EXPERT': {
+      if (s.counterfeitExpertState && payload) {
+        s.counterfeitExpertState = { ...s.counterfeitExpertState, ...payload };
+      }
+      break;
+    }
+
+    // Mission 6: Getaway Auction
+    case 'UPDATE_GETAWAY_AUCTION': {
+      if (s.getawayAuctionState && payload) {
+        s.getawayAuctionState = { ...s.getawayAuctionState, ...payload };
+      }
+      break;
+    }
+    case 'SUBMIT_AUCTION_BID': {
+      if (!s.getawayAuctionState || !player) break;
+      const { lotNumber, bid } = payload;
+      if (!s.getawayAuctionState.bids[lotNumber]) {
+        s.getawayAuctionState.bids[lotNumber] = {};
+      }
+      s.getawayAuctionState.bids[lotNumber][player.id] = bid;
+      break;
+    }
+    case 'RESOLVE_AUCTION_LOT': {
+      if (!s.getawayAuctionState) break;
+      const { lotNumber, winnerId, winningBid } = payload;
+      const winner = Object.values(room.players).find(p => p.id === winnerId);
+      const lot = s.getawayAuctionState.lots.find(l => l.lotNumber === lotNumber);
+      if (winner && lot) {
+        s.getawayAuctionState.lotWinners[lotNumber] = {
+          winnerId,
+          winnerName: winner.name,
+          winningBid,
+        };
+        s.getawayAuctionState.playerCoins[winnerId] = Math.max(
+          0,
+          (s.getawayAuctionState.playerCoins[winnerId] ?? 12) - winningBid
+        );
+        s.getawayAuctionState.playerEscapePoints[winnerId] =
+          (s.getawayAuctionState.playerEscapePoints[winnerId] ?? 0) + lot.escapePoints;
+        if (!s.getawayAuctionState.purchasedLots[winnerId]) {
+          s.getawayAuctionState.purchasedLots[winnerId] = [];
+        }
+        s.getawayAuctionState.purchasedLots[winnerId].push(lotNumber);
+      }
+      break;
+    }
+
+    // Demo auto-simulate
+    case 'DEMO_SIMULATE_VOTES': {
+      if (s.isDemoRoom) {
+        const pList = Object.values(room.players);
+        pList.forEach(p => {
+          if (!p.hasLockedVote) {
+            const targets = pList.filter(t => t.id !== p.id);
+            const target = targets[Math.floor(Math.random() * targets.length)];
+            p.votedForPlayerId = target.id;
+            p.votedForPlayerName = target.name;
+            p.hasLockedVote = true;
+          }
+        });
+        const allLocked = pList.every(p => p.hasLockedVote);
+        if (allLocked) {
+          s.phase = s.isTieRevote ? 'TIE_REVEALS' : 'VOTE_REVEALS';
+          s.currentRevealIndex = 0;
+          s.latestDialogue = HOST_SCRIPTS[s.currentRound].allVotesLocked;
+        }
+      }
+      break;
+    }
+  }
+
+  await db.saveRoom(room);
+  res.json({ success: true, phase: s.phase });
+});
+
+// Development vs Production Server Entry
 async function startServer() {
   if (process.env.NODE_ENV === 'production') {
     app.use(express.static('dist'));
@@ -1018,4 +969,9 @@ async function startServer() {
   });
 }
 
-startServer();
+// Only launch standalone HTTP server when not running in Vercel Serverless environment
+if (!process.env.VERCEL) {
+  startServer();
+}
+
+export default app;
