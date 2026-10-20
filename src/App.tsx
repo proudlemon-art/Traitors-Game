@@ -210,11 +210,13 @@ export default function App() {
           isOpen={showGuide}
           onClose={() => setShowGuide(false)}
         />
-        <AdminStudioModal
-          isOpen={showAdminStudio}
-          onClose={() => setShowAdminStudio(false)}
-          initialSceneId={adminStudioSceneId}
-        />
+        {showAdminStudio && (
+          <AdminStudioModal
+            isOpen={showAdminStudio}
+            onClose={() => setShowAdminStudio(false)}
+            initialSceneId={adminStudioSceneId}
+          />
+        )}
       </div>
     );
   }
@@ -437,11 +439,13 @@ export default function App() {
         isOpen={showGuide}
         onClose={() => setShowGuide(false)}
       />
-      <AdminStudioModal
-        isOpen={showAdminStudio}
-        onClose={() => setShowAdminStudio(false)}
-        initialSceneId={adminStudioSceneId}
-      />
+      {showAdminStudio && (
+        <AdminStudioModal
+          isOpen={showAdminStudio}
+          onClose={() => setShowAdminStudio(false)}
+          initialSceneId={adminStudioSceneId}
+        />
+      )}
     </div>
   );
 }

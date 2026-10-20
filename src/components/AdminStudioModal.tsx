@@ -60,6 +60,32 @@ export const AdminStudioModal: React.FC<Props> = ({
   const audioChunksRef = useRef<Blob[]>([]);
   const recordingTimerRef = useRef<NodeJS.Timeout | null>(null);
 
+  const stopAudioPreview = () => {
+    if (audioPreviewRef.current) {
+      audioPreviewRef.current.pause();
+      audioPreviewRef.current.currentTime = 0;
+      audioPreviewRef.current = null;
+    }
+    setIsPlayingCurrentClip(false);
+  };
+
+  const stopRecordingCleanup = () => {
+    if (mediaRecorderRef.current) {
+      try {
+        if (mediaRecorderRef.current.state !== 'inactive') {
+          mediaRecorderRef.current.stop();
+        }
+      } catch (e) {
+        // ignore
+      }
+    }
+    setIsRecording(false);
+    if (recordingTimerRef.current) {
+      clearInterval(recordingTimerRef.current);
+      recordingTimerRef.current = null;
+    }
+  };
+
   // Subscribe to changes in adminMediaService
   useEffect(() => {
     const update = () => {
@@ -77,12 +103,16 @@ export const AdminStudioModal: React.FC<Props> = ({
     }
   }, [initialSceneId]);
 
-  // Clean up audio & recording when modal closes
+  // Clean up audio & recording when modal closes or unmounts
   useEffect(() => {
     if (!isOpen) {
       stopAudioPreview();
       stopRecordingCleanup();
     }
+    return () => {
+      stopAudioPreview();
+      stopRecordingCleanup();
+    };
   }, [isOpen]);
 
   if (!isOpen) return null;
@@ -115,15 +145,6 @@ export const AdminStudioModal: React.FC<Props> = ({
         console.warn('Playback error', e);
       });
     }
-  };
-
-  const stopAudioPreview = () => {
-    if (audioPreviewRef.current) {
-      audioPreviewRef.current.pause();
-      audioPreviewRef.current.currentTime = 0;
-      audioPreviewRef.current = null;
-    }
-    setIsPlayingCurrentClip(false);
   };
 
   // ----------------------------------------------------
@@ -187,18 +208,6 @@ export const AdminStudioModal: React.FC<Props> = ({
   const cancelRecording = () => {
     stopRecordingCleanup();
     showNotification('Recording cancelled.');
-  };
-
-  const stopRecordingCleanup = () => {
-    if (mediaRecorderRef.current && isRecording) {
-      try {
-        mediaRecorderRef.current.stop();
-      } catch (e) {
-        // ignore
-      }
-    }
-    setIsRecording(false);
-    if (recordingTimerRef.current) clearInterval(recordingTimerRef.current);
   };
 
   // ----------------------------------------------------
