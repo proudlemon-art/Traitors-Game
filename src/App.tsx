@@ -180,12 +180,23 @@ export default function App() {
   };
 
   // Demo player view switcher
-  const handleSelectDemoView = (view: 'HOST' | string) => {
+  const handleSelectDemoView = async (view: 'HOST' | string) => {
+    const code = currentRoomCode || 'DEMO7';
     if (view === 'HOST') {
       setViewMode('HOST');
+      api.setActivePlayerToken('demo_token_libby', true);
+      const hostState = await api.fetchState(code, 'demo_token_libby', true);
+      if (hostState) setGameState(hostState);
     } else {
       setPlayerToken(view);
       setViewMode('PLAYER');
+      const found = DEMO_PLAYERS.find(p => p.token === view);
+      if (found) {
+        api.saveSession(code, view, found.id);
+        api.setActivePlayerToken(view, false);
+        const playerState = await api.fetchState(code, view, false);
+        if (playerState) setGameState(playerState);
+      }
     }
   };
 

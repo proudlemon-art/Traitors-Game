@@ -15,15 +15,19 @@ import {
   ArrowRight,
   Eye,
 } from 'lucide-react';
+import { DEMO_PLAYERS } from '../DemoSwitcher';
 
 interface Props {
   state: ClientGameState;
   isHostDisplay?: boolean;
+  playerToken?: string;
 }
 
-export const ExhibitAMission: React.FC<Props> = ({ state, isHostDisplay }) => {
+export const ExhibitAMission: React.FC<Props> = ({ state, isHostDisplay, playerToken }) => {
   const exhibitState = state.exhibitAState;
-  const myPlayerId = state.myPlayerId;
+  const demoPlayer = DEMO_PLAYERS.find(p => p.token === playerToken);
+  const myPlayerId = demoPlayer?.id || state.myPlayerId;
+  const currentContenderName = demoPlayer?.name || state.players.find(p => p.id === myPlayerId)?.name || 'Contender';
   const isTraitor = state.myRole === 'TRAITOR';
 
   // Local state for registering/editing object
@@ -54,9 +58,15 @@ export const ExhibitAMission: React.FC<Props> = ({ state, isHostDisplay }) => {
     if (!objectNameInput.trim()) return;
     setIsSubmitting(true);
     try {
-      await api.sendAction(state.roomCode, 'EXHIBIT_A_SUBMIT_OBJECT', {
-        objectName: objectNameInput.trim(),
-      });
+      await api.sendAction(
+        state.roomCode,
+        'EXHIBIT_A_SUBMIT_OBJECT',
+        {
+          objectName: objectNameInput.trim(),
+          targetPlayerId: myPlayerId,
+        },
+        playerToken
+      );
       setIsEditing(false);
       setObjectNameInput('');
     } finally {
@@ -77,7 +87,12 @@ export const ExhibitAMission: React.FC<Props> = ({ state, isHostDisplay }) => {
   const handleAcknowledge = async () => {
     setIsSubmitting(true);
     try {
-      await api.sendAction(state.roomCode, 'EXHIBIT_A_ACKNOWLEDGE');
+      await api.sendAction(
+        state.roomCode,
+        'EXHIBIT_A_ACKNOWLEDGE',
+        { targetPlayerId: myPlayerId },
+        playerToken
+      );
     } finally {
       setIsSubmitting(false);
     }
@@ -102,7 +117,15 @@ export const ExhibitAMission: React.FC<Props> = ({ state, isHostDisplay }) => {
     if (!selectedObjectId) return;
     setIsSubmitting(true);
     try {
-      await api.sendAction(state.roomCode, 'EXHIBIT_A_CAST_VOTE', { objectId: selectedObjectId });
+      await api.sendAction(
+        state.roomCode,
+        'EXHIBIT_A_CAST_VOTE',
+        {
+          objectId: selectedObjectId,
+          targetPlayerId: myPlayerId,
+        },
+        playerToken
+      );
     } finally {
       setIsSubmitting(false);
     }
@@ -435,6 +458,14 @@ export const ExhibitAMission: React.FC<Props> = ({ state, isHostDisplay }) => {
   // -------------------------------------------------------------------
   return (
     <div className="space-y-5 animate-fadeIn">
+      {/* Contender badge if demo mode */}
+      {state.isDemoRoom && (
+        <div className="flex items-center justify-between bg-zinc-900/90 border border-amber-500/50 px-3.5 py-2 rounded-lg text-xs font-mono shadow-sm">
+          <span className="text-zinc-400">Contender Slate:</span>
+          <span className="text-amber-300 font-bold">{currentContenderName} (Seat #{demoPlayer?.seat || '?'})</span>
+        </div>
+      )}
+
       {/* STAGE 1: COLLECTION (PHONE) */}
       {exhibitState.stage === 'COLLECTION' && (
         <div className="bg-zinc-950 border border-amber-900/50 rounded-xl p-5 space-y-4">
@@ -454,7 +485,7 @@ export const ExhibitAMission: React.FC<Props> = ({ state, isHostDisplay }) => {
             <div className="p-4 bg-zinc-900/90 border border-emerald-500/40 rounded-lg space-y-3">
               <div className="flex items-center justify-between text-xs">
                 <span className="text-emerald-400 font-bold flex items-center gap-1.5 font-mono">
-                  <CheckCircle2 className="w-4 h-4" /> Registered
+                  <CheckCircle2 className="w-4 h-4" /> Registered for {currentContenderName}
                 </span>
                 <button
                   onClick={() => {
@@ -475,7 +506,7 @@ export const ExhibitAMission: React.FC<Props> = ({ state, isHostDisplay }) => {
             <form onSubmit={handleSubmitObject} className="space-y-3">
               <div>
                 <label className="text-xs font-mono uppercase text-amber-400/80 block mb-1">
-                  Object Name
+                  Object Name for {currentContenderName}
                 </label>
                 <input
                   type="text"
@@ -493,7 +524,7 @@ export const ExhibitAMission: React.FC<Props> = ({ state, isHostDisplay }) => {
                 disabled={isSubmitting || !objectNameInput.trim()}
                 className="w-full py-3 bg-amber-500 hover:bg-amber-400 text-black font-serif font-bold text-xs uppercase tracking-wider rounded-lg shadow transition disabled:opacity-50"
               >
-                {isSubmitting ? 'Registering...' : 'Register My Evidence'}
+                {isSubmitting ? 'Registering...' : `Register ${currentContenderName}’s Evidence`}
               </button>
             </form>
           )}

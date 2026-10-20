@@ -102,13 +102,29 @@ class ApiService {
   /**
    * Fetches room state snapshot from serverless backend.
    */
+  public setActivePlayerToken(token: string | null, isHost: boolean = false) {
+    this.activePlayerToken = token;
+    this.activeIsHost = isHost;
+  }
+
+  public getActivePlayerToken(): string | null {
+    return this.activePlayerToken;
+  }
+
+  /**
+   * Fetches room state snapshot from serverless backend.
+   */
   public async fetchState(roomCode: string, playerToken?: string, isHost?: boolean): Promise<ClientGameState | null> {
     if (this.isFetching) return null;
     this.isFetching = true;
     try {
       const code = roomCode.toUpperCase();
-      const token = playerToken || this.getStoredSession(code)?.playerToken || '';
-      const url = `/api/rooms/${code}/state?playerToken=${encodeURIComponent(token)}&isHost=${isHost ? 'true' : 'false'}&_t=${Date.now()}`;
+      const token =
+        playerToken !== undefined
+          ? playerToken
+          : this.activePlayerToken || this.getStoredSession(code)?.playerToken || '';
+      const hostFlag = typeof isHost === 'boolean' ? isHost : this.activeIsHost;
+      const url = `/api/rooms/${code}/state?playerToken=${encodeURIComponent(token)}&isHost=${hostFlag ? 'true' : 'false'}&_t=${Date.now()}`;
       
       const res = await fetch(url, {
         headers: { 'Cache-Control': 'no-cache' },
@@ -146,7 +162,11 @@ class ApiService {
     }
 
     this.activeRoomCode = roomCode.toUpperCase();
-    this.activePlayerToken = playerToken || this.getStoredSession(this.activeRoomCode)?.playerToken || null;
+    if (playerToken !== undefined) {
+      this.activePlayerToken = playerToken;
+    } else if (!this.activePlayerToken) {
+      this.activePlayerToken = this.getStoredSession(this.activeRoomCode)?.playerToken || null;
+    }
     this.activeIsHost = !!isHost;
 
     // Immediate initial sync
@@ -199,7 +219,10 @@ class ApiService {
 
   public async sendAction(roomCode: string, action: string, payload?: any, playerToken?: string) {
     const code = roomCode.toUpperCase();
-    const token = playerToken || this.getStoredSession(code)?.playerToken;
+    const token =
+      playerToken !== undefined
+        ? playerToken
+        : this.activePlayerToken || this.getStoredSession(code)?.playerToken || '';
     const res = await fetch(`/api/rooms/${code}/action`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },

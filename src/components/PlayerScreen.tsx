@@ -259,7 +259,9 @@ export const PlayerScreen: React.FC<Props> = ({ state, playerToken }) => {
           {/* ACTIVE MISSION INTERACTION (When phase === 'MISSION') */}
           {state.phase === 'MISSION' && (
             <div className="bg-zinc-950/90 border border-amber-900/60 rounded-xl p-5 shadow-xl space-y-4">
-              {state.currentRound === 1 && <ExhibitAMission state={state} isHostDisplay={false} />}
+              {state.currentRound === 1 && (
+                <ExhibitAMission state={state} isHostDisplay={false} playerToken={playerToken} />
+              )}
               {state.currentRound === 2 && (
                 <BirthdayMajorityMission
                   state={state}

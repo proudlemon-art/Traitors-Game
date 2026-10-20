@@ -784,8 +784,12 @@ app.post('/api/rooms/:code/action', async (req, res) => {
   }
 
   const { action, payload, playerToken } = req.body;
-  const player = playerToken ? room.players[playerToken] : undefined;
   const s = room.state;
+  let player = playerToken ? room.players[playerToken] : undefined;
+  if (!player && s.isDemoRoom && (payload?.targetPlayerId || payload?.playerId)) {
+    const targetId = payload.targetPlayerId || payload.playerId;
+    player = Object.values(room.players).find(p => p.id === targetId);
+  }
 
   switch (action) {
     case 'UPDATE_SEATING_ORDER': {
@@ -822,18 +826,23 @@ app.post('/api/rooms/:code/action', async (req, res) => {
     // MISSION 1: EXHIBIT A ACTIONS
     // -------------------------------------------------------------------
     case 'EXHIBIT_A_SUBMIT_OBJECT': {
-      if (!s.exhibitAState || !player) break;
+      if (!s.exhibitAState) break;
+      const actingPlayer =
+        (s.isDemoRoom && payload?.targetPlayerId
+          ? Object.values(room.players).find(p => p.id === payload.targetPlayerId)
+          : null) || player;
+      if (!actingPlayer) break;
       const objectName = (payload?.objectName || '').trim();
       if (!objectName) break;
 
-      const existingIdx = s.exhibitAState.objects.findIndex(o => o.contributorId === player.id);
+      const existingIdx = s.exhibitAState.objects.findIndex(o => o.contributorId === actingPlayer.id);
       if (existingIdx >= 0) {
         s.exhibitAState.objects[existingIdx].name = objectName;
       } else {
         s.exhibitAState.objects.push({
-          id: `obj_${player.id}`,
-          contributorId: player.id,
-          contributorName: player.name,
+          id: `obj_${actingPlayer.id}`,
+          contributorId: actingPlayer.id,
+          contributorName: actingPlayer.name,
           name: objectName,
           hasPresented: false,
         });
@@ -863,9 +872,14 @@ app.post('/api/rooms/:code/action', async (req, res) => {
     }
 
     case 'EXHIBIT_A_ACKNOWLEDGE': {
-      if (!s.exhibitAState || !player) break;
-      if (!s.exhibitAState.acknowledgedPlayerIds.includes(player.id)) {
-        s.exhibitAState.acknowledgedPlayerIds.push(player.id);
+      if (!s.exhibitAState) break;
+      const actingPlayer =
+        (s.isDemoRoom && payload?.targetPlayerId
+          ? Object.values(room.players).find(p => p.id === payload.targetPlayerId)
+          : null) || player;
+      if (!actingPlayer) break;
+      if (!s.exhibitAState.acknowledgedPlayerIds.includes(actingPlayer.id)) {
+        s.exhibitAState.acknowledgedPlayerIds.push(actingPlayer.id);
       }
       break;
     }
@@ -896,8 +910,13 @@ app.post('/api/rooms/:code/action', async (req, res) => {
     }
 
     case 'EXHIBIT_A_CAST_VOTE': {
-      if (!s.exhibitAState || !player || !payload?.objectId) break;
-      s.exhibitAState.evidenceVotes[player.id] = payload.objectId;
+      if (!s.exhibitAState || !payload?.objectId) break;
+      const actingPlayer =
+        (s.isDemoRoom && payload?.targetPlayerId
+          ? Object.values(room.players).find(p => p.id === payload.targetPlayerId)
+          : null) || player;
+      if (!actingPlayer) break;
+      s.exhibitAState.evidenceVotes[actingPlayer.id] = payload.objectId;
 
       const totalPlayersCount = Object.keys(room.players).length;
       const votesCount = Object.keys(s.exhibitAState.evidenceVotes).length;
@@ -1569,6 +1588,70 @@ app.post('/api/rooms/:code/action', async (req, res) => {
           s.currentRevealIndex = 0;
           s.latestDialogue = HOST_SCRIPTS[s.currentRound].allVotesLocked;
         }
+      }
+      break;
+    }
+
+    case 'DEMO_AUTO_SUBMIT_ALL_OBJECTS': {
+      if (s.isDemoRoom && s.exhibitAState) {
+        const defaultPool = [
+          'Wooden Spoon',
+          'Single Sock',
+          'Tea Towel',
+          'Screwdriver',
+          'Rubber Duck',
+          'Coffee Mug',
+          'Candlestick',
+        ];
+        Object.values(room.players).forEach((p, idx) => {
+          const existing = s.exhibitAState?.objects.find(o => o.contributorId === p.id);
+          const objName = existing?.name?.trim() ? existing.name : (defaultPool[idx] || `Curious Artifact ${idx + 1}`);
+          if (existing) {
+            existing.name = objName;
+          } else {
+            s.exhibitAState?.objects.push({
+              id: `obj_${p.id}`,
+              contributorId: p.id,
+              contributorName: p.name,
+              name: objName,
+              hasPresented: false,
+            });
+          }
+        });
+      }
+      break;
+    }
+
+    case 'DEMO_ACKNOWLEDGE_ALL': {
+      if (s.isDemoRoom && s.exhibitAState) {
+        s.exhibitAState.acknowledgedPlayerIds = Object.values(room.players).map(p => p.id);
+      }
+      break;
+    }
+
+    case 'DEMO_SIMULATE_EVIDENCE_VOTES': {
+      if (s.isDemoRoom && s.exhibitAState && s.exhibitAState.objects.length > 0) {
+        const objs = s.exhibitAState.objects;
+        Object.values(room.players).forEach(p => {
+          if (!s.exhibitAState?.evidenceVotes[p.id]) {
+            const randomObj = objs[Math.floor(Math.random() * objs.length)];
+            s.exhibitAState!.evidenceVotes[p.id] = randomObj.id;
+          }
+        });
+        s.exhibitAState.isEvidenceVoteLocked = true;
+      }
+      break;
+    }
+
+    case 'DEMO_SIMULATE_END_OR_BANISH': {
+      if (s.isDemoRoom && s.finaleState) {
+        const survivors = Object.values(room.players).filter(p => !p.isEliminated);
+        survivors.forEach(p => {
+          if (!s.finaleState?.endOrBanishChoices[p.id]) {
+            s.finaleState!.endOrBanishChoices[p.id] = Math.random() > 0.5 ? 'END' : 'BANISH';
+          }
+        });
+        s.finaleState.endOrBanishRevealed = true;
       }
       break;
     }

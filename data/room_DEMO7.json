@@ -2,15 +2,15 @@
   "code": "DEMO7",
   "creatorToken": "demo_token_libby",
   "state": {
-    "roomCode": "DEMO7",
-    "currentRound": 1,
     "phase": "LOBBY",
-    "phaseTimeRemaining": 600,
-    "timerDurationSec": 600,
-    "timerDeadline": 1792510362366,
-    "isTimerPaused": false,
-    "totalGoldPot": 0,
+    "roomCode": "DEMO7",
     "roundGold": 0,
+    "traitorId": null,
+    "isDemoRoom": true,
+    "isTieRevote": false,
+    "traitorName": null,
+    "currentRound": 1,
+    "roundHistory": [],
     "seatingOrder": [
       "p_libby",
       "p_arthur",
@@ -20,95 +20,142 @@
       "p_edgar",
       "p_fiona"
     ],
-    "currentRevealIndex": 0,
-    "tieCandidateIds": [],
-    "tieRevealIndex": 0,
-    "isTieRevote": false,
-    "traitorId": null,
-    "traitorName": null,
-    "traitorObjective": null,
-    "roundHistory": [],
-    "latestDialogue": "Welcome to Jasmine’s Castle.\n\nSeven of you have arrived. All alive. Lovely. Let’s not get attached.\n\nWe’re celebrating Libby’s birthday, and nothing says friendship quite like Murder, Merlot and Manipulation.\n\nAmong you is a Traitor. They’ll smile at you. Agree with you. Possibly offer to get you another drink while actively planning your demise.\n\nAnd you’ll defend them. That’s my favourite bit.\n\nThere will be accusations. There will be betrayal. Someone will say, ‘I swear on my life.’\n\nDo listen carefully when that happens. They’ve usually overvalued it.\n\nNow. Phones out. Secrets to yourselves.\n\nLet’s make this uncomfortable.",
-    "isDemoRoom": true,
-    "castleHeistState": {
-      "currentStage": 1,
-      "confirmedHouseholdItems": [
-        "Wooden Spoon",
-        "Tea Towel",
-        "Shoe or Slipper",
-        "Sofa Cushion",
-        "Coffee Mug"
+    "totalGoldPot": 0,
+    "exhibitAState": {
+      "stage": "COLLECTION",
+      "objects": [
+        {
+          "id": "obj_p_libby",
+          "name": "Wooden Spoon",
+          "hasPresented": true,
+          "contributorId": "p_libby",
+          "contributorName": "Libby"
+        },
+        {
+          "id": "obj_p_arthur",
+          "name": "Arthur Antique Pocket Watch",
+          "hasPresented": true,
+          "contributorId": "p_arthur",
+          "contributorName": "Arthur"
+        },
+        {
+          "id": "obj_p_beatrice",
+          "name": "Beatrice Vintage Silk Scarf",
+          "hasPresented": true,
+          "contributorId": "p_beatrice",
+          "contributorName": "Beatrice"
+        },
+        {
+          "id": "obj_p_callum",
+          "name": "Screwdriver",
+          "hasPresented": true,
+          "contributorId": "p_callum",
+          "contributorName": "Callum"
+        },
+        {
+          "id": "obj_p_daphne",
+          "name": "Rubber Duck",
+          "hasPresented": true,
+          "contributorId": "p_daphne",
+          "contributorName": "Daphne"
+        },
+        {
+          "id": "obj_p_edgar",
+          "name": "Coffee Mug",
+          "hasPresented": true,
+          "contributorId": "p_edgar",
+          "contributorName": "Edgar"
+        },
+        {
+          "id": "obj_p_fiona",
+          "name": "Candlestick",
+          "hasPresented": true,
+          "contributorId": "p_fiona",
+          "contributorName": "Fiona"
+        }
       ],
-      "targetObjectForTraitor": "Wooden Spoon",
-      "qualifyingPlayers": {
-        "1": [],
-        "2": [],
-        "3": []
-      },
-      "stageVotes": {
-        "1": {},
-        "2": {},
-        "3": {}
-      },
-      "stageFavorites": {}
-    }
+      "isListLocked": false,
+      "evidenceVotes": {},
+      "tiedObjectIds": [],
+      "isEvidenceTieRevote": false,
+      "evidenceVoteRevealed": false,
+      "isEvidenceVoteLocked": false,
+      "acknowledgedPlayerIds": [
+        "p_edgar",
+        "p_fiona",
+        "p_libby",
+        "p_arthur",
+        "p_callum",
+        "p_daphne",
+        "p_beatrice"
+      ]
+    },
+    "isTimerPaused": false,
+    "timerDeadline": 1792511082964,
+    "latestDialogue": "Welcome to Jasmine’s Castle.\n\nSeven of you have arrived. All alive. Lovely. Let’s not get attached.\n\nWe’re celebrating Libby’s birthday, and nothing says friendship quite like Murder, Merlot and Manipulation.\n\nYour allegiance changes each round. Your points stay with you. But to win, you must survive the final banishments. A surviving Traitor steals the victory. Otherwise, the highest-scoring Faithful still standing takes the crown.\n\nNow. Phones out. Secrets to yourselves.\n\nLet’s make this uncomfortable.",
+    "tieRevealIndex": 0,
+    "tieCandidateIds": [],
+    "timerDurationSec": 480,
+    "traitorObjective": null,
+    "currentRevealIndex": 0,
+    "phaseTimeRemaining": 480
   },
   "players": {
-    "demo_token_libby": {
-      "id": "p_libby",
-      "name": "Libby",
-      "isRoomCreator": true,
-      "seatNumber": 1,
-      "connected": true,
-      "score": 0
-    },
-    "demo_token_arthur": {
-      "id": "p_arthur",
-      "name": "Arthur",
-      "isRoomCreator": false,
-      "seatNumber": 2,
-      "connected": true,
-      "score": 0
-    },
-    "demo_token_beatrice": {
-      "id": "p_beatrice",
-      "name": "Beatrice",
-      "isRoomCreator": false,
-      "seatNumber": 3,
-      "connected": true,
-      "score": 0
-    },
-    "demo_token_callum": {
-      "id": "p_callum",
-      "name": "Callum",
-      "isRoomCreator": false,
-      "seatNumber": 4,
-      "connected": true,
-      "score": 0
-    },
-    "demo_token_daphne": {
-      "id": "p_daphne",
-      "name": "Daphne",
-      "isRoomCreator": false,
-      "seatNumber": 5,
-      "connected": true,
-      "score": 0
-    },
     "demo_token_edgar": {
       "id": "p_edgar",
       "name": "Edgar",
-      "isRoomCreator": false,
-      "seatNumber": 6,
+      "score": 0,
       "connected": true,
-      "score": 0
+      "seatNumber": 6,
+      "isRoomCreator": false
     },
     "demo_token_fiona": {
       "id": "p_fiona",
       "name": "Fiona",
-      "isRoomCreator": false,
-      "seatNumber": 7,
+      "score": 0,
       "connected": true,
-      "score": 0
+      "seatNumber": 7,
+      "isRoomCreator": false
+    },
+    "demo_token_libby": {
+      "id": "p_libby",
+      "name": "Libby",
+      "score": 0,
+      "connected": true,
+      "seatNumber": 1,
+      "isRoomCreator": true
+    },
+    "demo_token_arthur": {
+      "id": "p_arthur",
+      "name": "Arthur",
+      "score": 0,
+      "connected": true,
+      "seatNumber": 2,
+      "isRoomCreator": false
+    },
+    "demo_token_callum": {
+      "id": "p_callum",
+      "name": "Callum",
+      "score": 0,
+      "connected": true,
+      "seatNumber": 4,
+      "isRoomCreator": false
+    },
+    "demo_token_daphne": {
+      "id": "p_daphne",
+      "name": "Daphne",
+      "score": 0,
+      "connected": true,
+      "seatNumber": 5,
+      "isRoomCreator": false
+    },
+    "demo_token_beatrice": {
+      "id": "p_beatrice",
+      "name": "Beatrice",
+      "score": 0,
+      "connected": true,
+      "seatNumber": 3,
+      "isRoomCreator": false
     }
   }
 }
