@@ -38,6 +38,10 @@ export const DemoSwitcher: React.FC<Props> = ({ state, currentRoleView, onSelect
     await api.sendAction(state.roomCode, 'DEMO_SIMULATE_EVIDENCE_VOTES');
   };
 
+  const handleSimulateMajorityAnswers = async () => {
+    await api.sendAction(state.roomCode, 'DEMO_SIMULATE_MAJORITY_ANSWERS');
+  };
+
   const handleSimulateEndOrBanish = async () => {
     await api.sendAction(state.roomCode, 'DEMO_SIMULATE_END_OR_BANISH');
   };

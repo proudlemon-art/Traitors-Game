@@ -74,14 +74,11 @@ export const EXHIBIT_A_EXAMPLES = [
 // MISSION 2: THE BIRTHDAY MAJORITY QUESTION BANK
 // ----------------------------------------------------------------------
 export const BIRTHDAY_MAJORITY_QUESTION_POOL: BirthdayMajorityQuestion[] = [
-  { id: 1, prompt: 'Who would accidentally reveal they were the Traitor within 30 seconds?' },
-  { id: 2, prompt: 'Who would flourish the most as an extremely minor, eccentric royal?' },
-  { id: 3, prompt: 'Who would mistakenly befriend the murderer in a Scottish horror film?' },
-  { id: 4, prompt: 'Who would spend the entire castle prize fund before actually winning it?' },
-  { id: 5, prompt: 'Who would deliver the most unnecessary, tearful acceptance speech?' },
-  { id: 6, prompt: 'Who would survive the longest locked alone inside Jasmine’s Castle?' },
-  { id: 7, prompt: 'Who would pack a complete three-piece tweed suit for a casual country walk?' },
-  { id: 8, prompt: 'Who would immediately fabricate a tragic backstory at a dinner party?' },
+  { id: 1, prompt: 'Who would say “I’m absolutely fine” while putting their key into the wrong front door?' },
+  { id: 2, prompt: 'Who would spend £70 on a night out and decide the £3 delivery fee on a kebab was taking the piss?' },
+  { id: 3, prompt: 'Who would rehearse saying “here” before a roll call and still say it fucking weirdly?' },
+  { id: 4, prompt: 'Who would say “you too” when a waiter says “enjoy your meal” and still be thinking about it at bedtime?' },
+  { id: 5, prompt: 'Who would hear “last orders” and buy enough drinks to turn going home into tomorrow’s problem?' },
 ];
 
 // ----------------------------------------------------------------------

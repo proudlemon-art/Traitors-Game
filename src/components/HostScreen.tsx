@@ -4,6 +4,7 @@ import { ClientGameState } from '../types/game';
 import { api } from '../services/api';
 import { audioHost } from '../services/audioHost';
 import { ClaudiaBroadcastVideo } from './ClaudiaBroadcastVideo';
+import { PreviousRoundsLeaderboard } from './PreviousRoundsLeaderboard';
 import { ExhibitAMission } from './Missions/ExhibitAMission';
 import { BirthdayMajorityMission } from './Missions/BirthdayMajorityMission';
 import { BodyDisposalMission } from './Missions/BodyDisposalMission';

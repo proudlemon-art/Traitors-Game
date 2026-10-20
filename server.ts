@@ -90,6 +90,65 @@ async function getDialogueForPhase(phase: string, round: number): Promise<string
   }
 }
 
+function recalculateMajorityResults(s: GameState, playersMap: Record<string, Player>) {
+  if (!s.birthdayMajorityState) return;
+
+  const bState = s.birthdayMajorityState;
+  const initialAnswers = bState.initialAnswers || {};
+  const questionResults: Record<number, { topNames: string[]; votesCount: Record<string, number> }> = {};
+  const correctCounts: Record<string, number> = {};
+
+  Object.values(playersMap).forEach(p => {
+    correctCounts[p.id] = 0;
+  });
+
+  bState.questions.forEach(q => {
+    const qId = q.id;
+    const votesCount: Record<string, number> = {};
+
+    Object.entries(initialAnswers).forEach(([_, answers]) => {
+      const chosen = answers[qId];
+      if (chosen) {
+        votesCount[chosen] = (votesCount[chosen] || 0) + 1;
+      }
+    });
+
+    let maxVotes = 0;
+    let topNames: string[] = [];
+    Object.entries(votesCount).forEach(([name, count]) => {
+      if (count > maxVotes) {
+        maxVotes = count;
+        topNames = [name];
+      } else if (count === maxVotes && maxVotes > 0) {
+        topNames.push(name);
+      }
+    });
+
+    questionResults[qId] = { topNames, votesCount };
+
+    if (maxVotes > 0 && topNames.length > 0) {
+      Object.entries(initialAnswers).forEach(([pId, answers]) => {
+        const chosen = answers[qId];
+        if (chosen && topNames.includes(chosen)) {
+          correctCounts[pId] = (correctCounts[pId] || 0) + 1;
+        }
+      });
+    }
+  });
+
+  bState.questionResults = questionResults;
+  bState.playerCorrectCount = correctCounts;
+
+  if (bState.traitorTargetFaithfulId && bState.traitorAssignedQuestionId) {
+    const targetAnswers = initialAnswers[bState.traitorTargetFaithfulId];
+    const targetChoice = targetAnswers?.[bState.traitorAssignedQuestionId];
+    const qResult = questionResults[bState.traitorAssignedQuestionId];
+    if (targetChoice && qResult && qResult.topNames.length > 0) {
+      bState.traitorAssignmentSuccess = !qResult.topNames.includes(targetChoice);
+    }
+  }
+}
+
 function createInitialState(roomCode: string, isDemo = false): GameState {
   const initialDuration = 480; // 8 mins for opening
   return {
@@ -270,6 +329,10 @@ function sanitizeState(
           clientState.mySecretBriefing =
             'You are the Traitor. Everyone will bring an object to the table, including you. Once all contenders are submitted and locked, the app will secretly tell you which object you planted. Your job will be to get that object chosen as Exhibit A. For now, bring an ordinary object and act innocent.';
         }
+      } else if (s.currentRound === 2) {
+        const targetName = s.birthdayMajorityState?.traitorTargetFaithfulName || 'a Faithful';
+        const qNum = s.birthdayMajorityState?.traitorAssignedQuestionId || 1;
+        clientState.mySecretBriefing = `You are THE TRAITOR for Round 2. The castle plays The Birthday Majority. Your secret target is "${targetName}". During discussion, casually steer them so they pick an answer on Question ${qNum} that is NOT the room's majority consensus!`;
       } else if (s.currentRound === 6) {
         clientState.mySecretBriefing =
           'The Traitor chosen for this round stays the Traitor until the game ends. Maintain your composure through the auction and survive the final banishments to steal victory outright.';
@@ -280,6 +343,9 @@ function sanitizeState(
       if (s.currentRound === 1) {
         clientState.mySecretBriefing =
           'Bring one ordinary household object to the table and register it on your phone. Once everyone has submitted, the Traitor will secretly receive the object they must persuade you to choose as Exhibit A. Watch who tries to steer the investigation.';
+      } else if (s.currentRound === 2) {
+        clientState.mySecretBriefing =
+          'You are FAITHFUL for Round 2. Sworn to protect Libby’s birthday honour! For each question, vote for the guest who genuinely fits best. Earn +1 pt for each question where you match the room’s majority consensus (up to 3 pts)! Beware of anyone trying to persuade you away from your gut.';
       } else if (s.currentRound === 6) {
         clientState.mySecretBriefing =
           'You are FAITHFUL for Round 6 and the Grand Finale. From this moment, if you are banished, you are permanently eliminated. Stay alert and banish the Traitor.';
@@ -377,6 +443,10 @@ function assignSecretRoles(s: GameState, playersMap: Record<string, Player>) {
       tiedObjectIds: [],
     };
   } else if (roundNum === 2) {
+    const faithfulList = players.filter(p => p.id !== traitorPlayer.id);
+    const targetFaithful = faithfulList.length > 0 ? faithfulList[Math.floor(Math.random() * faithfulList.length)] : undefined;
+    const assignedQ = BIRTHDAY_MAJORITY_QUESTION_POOL[0];
+
     s.birthdayMajorityState = {
       questions: BIRTHDAY_MAJORITY_QUESTION_POOL.slice(0, 5),
       step: 'INITIAL_ANSWERS',
@@ -385,7 +455,15 @@ function assignSecretRoles(s: GameState, playersMap: Record<string, Player>) {
       allInitialAnswersLocked: false,
       predictions: {},
       playerCorrectCount: {},
+      traitorTargetFaithfulId: targetFaithful?.id,
+      traitorTargetFaithfulName: targetFaithful?.name,
+      traitorAssignedQuestionId: assignedQ?.id || 1,
+      traitorAssignmentSuccess: false,
     };
+
+    if (traitorPlayer && targetFaithful) {
+      traitorPlayer.secretMission = `The Deliberate Detour: Your secret target Faithful is "${targetFaithful.name}". On Question ${assignedQ?.id || 1}, convince them to vote for someone other than the room's majority consensus!`;
+    }
   } else if (roundNum === 3) {
     const pair = FORGERY_BRIEF_PAIRS[(roundNum - 1) % FORGERY_BRIEF_PAIRS.length];
     s.forgeryGalleryState = {
@@ -1062,6 +1140,49 @@ app.post('/api/rooms/:code/action', async (req, res) => {
     }
 
     // -------------------------------------------------------------------
+    // MISSION 2: BIRTHDAY MAJORITY ACTIONS
+    // -------------------------------------------------------------------
+    case 'SUBMIT_MAJORITY_INITIAL_ANSWER':
+    case 'SUBMIT_MAJORITY_ANSWER': {
+      if (!s.birthdayMajorityState) break;
+      const actingPlayer =
+        (s.isDemoRoom && (payload?.targetPlayerId || payload?.playerId)
+          ? Object.values(room.players).find(p => p.id === (payload.targetPlayerId || payload.playerId))
+          : null) || player;
+      if (!actingPlayer) break;
+
+      const qId = parseInt(payload?.questionId, 10);
+      const chosenName = (payload?.chosenName || payload?.name || '').trim();
+      if (!qId || !chosenName) break;
+
+      if (!s.birthdayMajorityState.initialAnswers) {
+        s.birthdayMajorityState.initialAnswers = {};
+      }
+      if (!s.birthdayMajorityState.initialAnswers[actingPlayer.id]) {
+        s.birthdayMajorityState.initialAnswers[actingPlayer.id] = {};
+      }
+
+      s.birthdayMajorityState.initialAnswers[actingPlayer.id][qId] = chosenName;
+      recalculateMajorityResults(s, room.players);
+      break;
+    }
+
+    case 'UPDATE_BIRTHDAY_MAJORITY': {
+      if (!s.birthdayMajorityState) break;
+      if (typeof payload?.activeQuestionIndex === 'number') {
+        s.birthdayMajorityState.activeQuestionIndex = Math.max(
+          0,
+          Math.min(s.birthdayMajorityState.questions.length - 1, payload.activeQuestionIndex)
+        );
+      }
+      if (payload?.step) {
+        s.birthdayMajorityState.step = payload.step;
+      }
+      recalculateMajorityResults(s, room.players);
+      break;
+    }
+
+    // -------------------------------------------------------------------
     // ROUND TABLE & BANISHMENT (ROUNDS 1 TO 5)
     // -------------------------------------------------------------------
     case 'ADVANCE_TO_ROUND_TABLE': {
@@ -1720,6 +1841,28 @@ app.post('/api/rooms/:code/action', async (req, res) => {
           }
         });
         s.exhibitAState.isEvidenceVoteLocked = true;
+      }
+      break;
+    }
+
+    case 'DEMO_SIMULATE_MAJORITY_ANSWERS': {
+      if (s.isDemoRoom && s.birthdayMajorityState) {
+        const qIndex = s.birthdayMajorityState.activeQuestionIndex || 0;
+        const qId = s.birthdayMajorityState.questions[qIndex]?.id || (qIndex + 1);
+        const pList = Object.values(room.players);
+        if (!s.birthdayMajorityState.initialAnswers) {
+          s.birthdayMajorityState.initialAnswers = {};
+        }
+
+        pList.forEach(p => {
+          if (!s.birthdayMajorityState!.initialAnswers[p.id]) {
+            s.birthdayMajorityState!.initialAnswers[p.id] = {};
+          }
+          const randomCandidate = pList[Math.floor(Math.random() * pList.length)];
+          s.birthdayMajorityState!.initialAnswers[p.id][qId] = randomCandidate.name;
+        });
+
+        recalculateMajorityResults(s, room.players);
       }
       break;
     }
