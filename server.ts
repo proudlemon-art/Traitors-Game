@@ -2,7 +2,7 @@ import express from 'express';
 import http from 'http';
 import path from 'path';
 import { createServer as createViteServer } from 'vite';
-import {
+import type {
   GamePhase,
   GameState,
   ClientGameState,
@@ -17,7 +17,7 @@ import {
   BodyDisposalState,
   CounterfeitExpertState,
   GetawayAuctionState,
-} from './src/types/game.js';
+} from './src/types/game.ts';
 import {
   TRAITOR_OBJECTIVES,
   HEIST_HOUSEHOLD_ITEMS_POOL,
@@ -28,8 +28,8 @@ import {
   BODY_DISPOSAL_OBJECTS_POOL,
   COUNTERFEIT_INVENTIONS,
   AUCTION_LOTS,
-} from './src/data/missions.js';
-import { HOST_SCRIPTS } from './src/data/dialogue.js';
+} from './src/data/missions.ts';
+import { HOST_SCRIPTS } from './src/data/dialogue.ts';
 
 const app = express();
 const server = http.createServer(app);

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { audioHost } from '../services/audioHost';
+import { adminMediaService, SceneMediaConfig } from '../services/adminMediaService';
 import {
   Volume2,
   VolumeX,
@@ -10,30 +11,35 @@ import {
   Flame,
   Radio,
   Sparkles,
+  Mic,
+  MicOff,
+  Edit3,
+  ImageIcon,
 } from 'lucide-react';
 
 interface Props {
   caption: string;
   phase: string;
+  currentRound?: number;
   isHostAudioUnlocked: boolean;
   onUnlockAudio: () => void;
+  onOpenAdminStudio?: (sceneId?: string) => void;
 }
-
-const PROLOGUE_CLAUDIA_IMAGE = '/assets/aistudio/Screenshot_2026-10-20_at_11.50.13_adceafb3.png';
-const CLAUDIA_SMILE_IMAGE = '/src/assets/images/claudia_host_castle_1792491589363.jpg';
-const CLAUDIA_POINT_IMAGE = '/src/assets/images/claudia_cloak_reveal_1792491590255.jpg';
-const CASTLE_MIST_IMAGE = '/src/assets/images/traitors_castle_mist_1792491571213.jpg';
-const ROUND_TABLE_IMAGE = '/src/assets/images/round_table_chamber_1792491572609.jpg';
 
 export const ClaudiaBroadcastVideo: React.FC<Props> = ({
   caption,
   phase,
+  currentRound = 1,
   isHostAudioUnlocked,
   onUnlockAudio,
+  onOpenAdminStudio,
 }) => {
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [isExpanded, setIsExpanded] = useState(false);
   const [activeMoodIndex, setActiveMoodIndex] = useState(0);
+  const [activeScene, setActiveScene] = useState<SceneMediaConfig | undefined>(
+    adminMediaService.getActiveScene(phase, currentRound)
+  );
 
   const CLAUDIA_MOODS = [
     'Jasmine’s Castle: Murder, Merlot & Manipulation',
@@ -43,6 +49,7 @@ export const ClaudiaBroadcastVideo: React.FC<Props> = ({
     'Suspicion: Look at Libby’s face',
   ];
 
+  // Subscribe to audio playback state
   useEffect(() => {
     const unsub = audioHost.subscribeSpeaking(speaking => {
       setIsSpeaking(speaking);
@@ -50,6 +57,18 @@ export const ClaudiaBroadcastVideo: React.FC<Props> = ({
     return unsub;
   }, []);
 
+  // Subscribe to admin media changes
+  useEffect(() => {
+    const updateScene = () => {
+      const scene = adminMediaService.getActiveScene(phase, currentRound);
+      setActiveScene(scene);
+    };
+    updateScene();
+    const unsub = adminMediaService.subscribe(updateScene);
+    return unsub;
+  }, [phase, currentRound]);
+
+  // Mood rotator
   useEffect(() => {
     const interval = setInterval(() => {
       setActiveMoodIndex(prev => (prev + 1) % CLAUDIA_MOODS.length);
@@ -57,26 +76,12 @@ export const ClaudiaBroadcastVideo: React.FC<Props> = ({
     return () => clearInterval(interval);
   }, []);
 
-  // Determine active visual image based on game phase
-  let activeImage = PROLOGUE_CLAUDIA_IMAGE;
-  let sceneTitle = 'Claudia Winkleman · Jasmine’s Castle Prologue';
-
-  if (phase === 'INTRO' || phase === 'LOBBY') {
-    activeImage = PROLOGUE_CLAUDIA_IMAGE;
-    sceneTitle = 'Claudia Winkleman · Welcome to Jasmine’s Castle';
-  } else if (['VOTING', 'VOTE_REVEALS', 'BANISHMENT_OUTCOME', 'TIE_DEFENCE', 'TIE_REVEALS'].includes(phase)) {
-    activeImage = CLAUDIA_POINT_IMAGE;
-    sceneTitle = 'Claudia Winkleman · The Accusation Crypt';
-  } else if (phase === 'ROUND_TABLE') {
-    activeImage = isSpeaking ? CLAUDIA_POINT_IMAGE : ROUND_TABLE_IMAGE;
-    sceneTitle = 'The Round Table Chamber · Jasmine’s Castle';
-  } else if (phase === 'MISSION') {
-    activeImage = isSpeaking ? CLAUDIA_SMILE_IMAGE : CASTLE_MIST_IMAGE;
-    sceneTitle = 'Jasmine’s Castle · Scottish Highlands';
-  } else {
-    activeImage = isSpeaking ? PROLOGUE_CLAUDIA_IMAGE : CLAUDIA_SMILE_IMAGE;
-    sceneTitle = 'Claudia Winkleman · Jasmine’s Castle Great Hall';
-  }
+  // Determine active visual image:
+  // Custom image from admin takes top priority, then default scene image
+  const displayImage = activeScene?.customImageUrl || activeScene?.defaultImageUrl || '/assets/aistudio/Screenshot_2026-10-20_at_11.50.13_adceafb3.png';
+  const sceneTitle = activeScene?.title || `Jasmine’s Castle · Round ${currentRound}`;
+  const displayText = activeScene?.customText || caption || activeScene?.defaultText || 'Welcome to Jasmine’s Castle. Trust absolutely nobody.';
+  const hasCustomVoiceClip = !!activeScene?.voiceClip?.audioUrl;
 
   return (
     <div
@@ -86,9 +91,9 @@ export const ClaudiaBroadcastVideo: React.FC<Props> = ({
     >
       {/* 1. BROADCAST VIDEO CANVAS / SCREEN */}
       <div className={`relative overflow-hidden w-full ${isExpanded ? 'h-[440px] md:h-[520px]' : 'h-64 sm:h-80 md:h-96'}`}>
-        {/* Cinematic Background Image with Ken Burns Television Slow Zoom */}
+        {/* Cinematic Background Image with Slow Zoom & Lighting Effects */}
         <img
-          src={activeImage}
+          src={displayImage}
           alt={sceneTitle}
           referrerPolicy="no-referrer"
           className={`w-full h-full object-cover transition-transform duration-[12000ms] ease-out ${
@@ -100,20 +105,47 @@ export const ClaudiaBroadcastVideo: React.FC<Props> = ({
         <div className="absolute inset-0 bg-gradient-to-t from-black via-black/30 to-black/60 pointer-events-none" />
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,transparent_20%,rgba(0,0,0,0.7)_100%)] pointer-events-none" />
 
-        {/* Top TV Broadcast Badges */}
+        {/* Top TV Broadcast Badges & Controls */}
         <div className="absolute top-3 left-3 right-3 flex items-center justify-between z-10">
           <div className="flex items-center gap-2">
             <div className="flex items-center gap-1.5 px-2.5 py-1 bg-red-900/90 text-white rounded text-[10px] font-mono font-bold tracking-widest uppercase shadow">
               <span className={`w-2 h-2 rounded-full bg-red-400 ${isSpeaking ? 'animate-ping' : ''}`} />
-              <span>{isSpeaking ? 'CLAUDIA SPEAKING' : 'CASTLE FEED'}</span>
+              <span>{isSpeaking ? 'VOICE PLAYING' : 'CASTLE STAGE'}</span>
             </div>
-            <div className="hidden sm:flex items-center gap-1 px-2 py-1 bg-black/70 border border-amber-900/40 text-amber-300 rounded text-[10px] font-mono">
-              <Sparkles className="w-3 h-3 text-amber-400" />
-              <span>{CLAUDIA_MOODS[activeMoodIndex]}</span>
-            </div>
+
+            {hasCustomVoiceClip ? (
+              <div className="flex items-center gap-1 px-2 py-0.5 bg-emerald-950/80 border border-emerald-600/50 text-emerald-300 rounded text-[10px] font-mono">
+                <Mic className="w-3 h-3 text-emerald-400" />
+                <span className="hidden sm:inline">Custom Voice Active</span>
+              </div>
+            ) : (
+              <div className="flex items-center gap-1 px-2 py-0.5 bg-black/60 border border-zinc-800 text-zinc-400 rounded text-[10px] font-mono">
+                <MicOff className="w-3 h-3 text-zinc-500" />
+                <span className="hidden sm:inline">Voice Removed (Subtitles)</span>
+              </div>
+            )}
+
+            {activeScene?.customImageUrl && (
+              <div className="hidden sm:flex items-center gap-1 px-2 py-0.5 bg-amber-950/80 border border-amber-600/50 text-amber-300 rounded text-[10px] font-mono">
+                <ImageIcon className="w-3 h-3" />
+                <span>Custom Image</span>
+              </div>
+            )}
           </div>
 
           <div className="flex items-center gap-1.5">
+            {/* Quick Admin Edit Button */}
+            {onOpenAdminStudio && (
+              <button
+                onClick={() => onOpenAdminStudio(activeScene?.id)}
+                className="px-2.5 py-1 bg-zinc-900/80 hover:bg-amber-600 text-zinc-300 hover:text-black border border-amber-900/50 rounded text-[11px] font-mono font-bold flex items-center gap-1.5 transition-all shadow"
+                title="Edit this scene's voice clip, text, or image"
+              >
+                <Edit3 className="w-3 h-3" />
+                <span className="hidden sm:inline">Edit Voice & Visual</span>
+              </button>
+            )}
+
             <button
               onClick={() => setIsExpanded(!isExpanded)}
               className="p-1.5 bg-black/70 hover:bg-black text-amber-300 border border-amber-900/50 rounded transition-all"
@@ -124,15 +156,18 @@ export const ClaudiaBroadcastVideo: React.FC<Props> = ({
           </div>
         </div>
 
-        {/* Center Pulsing Audio Visualizer when Claudia is reading aloud */}
+        {/* Center Pulsing Audio Visualizer when audio is playing */}
         {isSpeaking && (
-          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 flex items-center gap-1.5 z-10 pointer-events-none bg-black/40 backdrop-blur-sm px-4 py-2 rounded-full border border-amber-500/40">
+          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 flex items-center gap-1.5 z-10 pointer-events-none bg-black/50 backdrop-blur-md px-5 py-2.5 rounded-full border border-amber-500/50 shadow-2xl">
             <div className="w-1.5 h-6 bg-amber-400 animate-bounce rounded-full" />
             <div className="w-1.5 h-10 bg-amber-300 animate-pulse rounded-full" />
             <div className="w-1.5 h-8 bg-amber-400 animate-bounce rounded-full" />
             <div className="w-1.5 h-12 bg-amber-200 animate-pulse rounded-full" />
             <div className="w-1.5 h-7 bg-amber-400 animate-bounce rounded-full" />
             <div className="w-1.5 h-4 bg-amber-500 animate-pulse rounded-full" />
+            <span className="ml-2 font-mono text-xs uppercase tracking-wider text-amber-300 font-bold">
+              Voice Clip Playing
+            </span>
           </div>
         )}
 
@@ -143,25 +178,35 @@ export const ClaudiaBroadcastVideo: React.FC<Props> = ({
               <Flame className="w-3.5 h-3.5 text-amber-500" />
               {sceneTitle}
             </span>
-            {!isHostAudioUnlocked ? (
-              <button
-                onClick={onUnlockAudio}
-                className="px-2.5 py-0.5 bg-amber-500 text-black font-bold rounded animate-pulse"
-              >
-                Tap to Enable Audio
-              </button>
-            ) : (
-              <button
-                onClick={() => audioHost.replay()}
-                className="hover:underline flex items-center gap-1 text-zinc-300 hover:text-amber-300"
-              >
-                <Play className="w-3 h-3 text-amber-400" /> Replay Voice
-              </button>
-            )}
+
+            <div className="flex items-center gap-2">
+              {!isHostAudioUnlocked ? (
+                <button
+                  onClick={onUnlockAudio}
+                  className="px-2.5 py-0.5 bg-amber-500 text-black font-bold rounded animate-pulse"
+                >
+                  Enable Audio
+                </button>
+              ) : hasCustomVoiceClip ? (
+                <button
+                  onClick={() => audioHost.replay()}
+                  className="hover:underline flex items-center gap-1 text-zinc-300 hover:text-amber-300"
+                >
+                  <Play className="w-3 h-3 text-amber-400" /> Play Voice Clip
+                </button>
+              ) : onOpenAdminStudio ? (
+                <button
+                  onClick={() => onOpenAdminStudio(activeScene?.id)}
+                  className="hover:underline flex items-center gap-1 text-zinc-400 hover:text-amber-300 text-[10px]"
+                >
+                  <Mic className="w-3 h-3 text-amber-400" /> + Add Voice Clip
+                </button>
+              ) : null}
+            </div>
           </div>
 
           <div className="font-serif italic text-sm sm:text-base md:text-lg text-amber-100 font-medium drop-shadow-md leading-relaxed whitespace-pre-line max-h-40 md:max-h-52 overflow-y-auto pr-2 custom-scrollbar">
-            “{caption || 'Welcome to Jasmine’s Castle. Trust absolutely nobody.'}”
+            “{displayText}”
           </div>
         </div>
       </div>

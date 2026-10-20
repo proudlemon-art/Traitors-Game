@@ -1,4 +1,4 @@
-import { AuctionLot, BirthdayMajorityQuestion, TraitorObjective } from '../types/game';
+import type { AuctionLot, BirthdayMajorityQuestion, TraitorObjective } from '../types/game.ts';
 
 // ----------------------------------------------------------------------
 // TRAITOR OBJECTIVES FOR ALL 6 ROUNDS

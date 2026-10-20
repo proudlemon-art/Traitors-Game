@@ -37,7 +37,7 @@ export const PartyGuideModal: React.FC<Props> = ({ isOpen, onClose }) => {
             </h4>
             <div className="space-y-2 text-xs text-zinc-300 font-sans leading-relaxed">
               <p>
-                <strong>The Public Host (Laptop or TV):</strong> One screen connected to the living room TV or laptop. This screen acts as Claudia’s digital stage. It speaks all voiced announcements, displays mission puzzles, runs the Round Table discussion clock, and shows the live voting board.
+                <strong>The Public Host (Laptop or TV):</strong> One screen connected to the living room TV or laptop. This screen acts as the castle digital stage. It presents all scripted announcements, plays your custom voice clips, displays mission puzzles, runs the Round Table discussion clock, and shows the live voting board.
               </p>
               <p>
                 <strong>The 7 Player Phones:</strong> Libby and all 6 guests join from their mobile phones. Each player’s phone displays ONLY their private role, personal briefing, voting controls, and their dramatic <em>Phone Slate</em> during reveals.
@@ -128,7 +128,7 @@ export const PartyGuideModal: React.FC<Props> = ({ isOpen, onClose }) => {
             <div className="space-y-2 text-xs text-zinc-300">
               <label className="flex items-start gap-2 cursor-pointer">
                 <input type="checkbox" className="mt-0.5 accent-amber-500" defaultChecked />
-                <span>Laptop or TV display connected to the room. Tap “Enable Host Audio” once so speech plays freely.</span>
+                <span>Laptop or TV display connected to the room. Use the Admin Studio to record or upload voice clips and customize scripts & visuals.</span>
               </label>
               <label className="flex items-start gap-2 cursor-pointer">
                 <input type="checkbox" className="mt-0.5 accent-amber-500" defaultChecked />

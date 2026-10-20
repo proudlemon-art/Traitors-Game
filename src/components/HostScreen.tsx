@@ -31,15 +31,17 @@ import {
   ArrowUp,
   ArrowDown,
   Sparkles,
+  Film,
 } from 'lucide-react';
 
 interface Props {
   state: ClientGameState;
   onOpenSettings: () => void;
   onOpenGuide: () => void;
+  onOpenAdminStudio?: (sceneId?: string) => void;
 }
 
-export const HostScreen: React.FC<Props> = ({ state, onOpenSettings, onOpenGuide }) => {
+export const HostScreen: React.FC<Props> = ({ state, onOpenSettings, onOpenGuide, onOpenAdminStudio }) => {
   const [qrDataUrl, setQrDataUrl] = useState<string>('');
   const [caption, setCaption] = useState<string>(state.latestDialogue || '');
   const [audioUnlocked, setAudioUnlocked] = useState<boolean>(audioHost.isAudioUnlocked());
@@ -72,10 +74,10 @@ export const HostScreen: React.FC<Props> = ({ state, onOpenSettings, onOpenGuide
     if (state.latestDialogue) {
       setCaption(state.latestDialogue);
       if (audioUnlocked) {
-        audioHost.speak(state.latestDialogue, state.phase);
+        audioHost.speak(state.latestDialogue, state.phase, state.currentRound);
       }
     }
-  }, [state.latestDialogue, state.phase, audioUnlocked]);
+  }, [state.latestDialogue, state.phase, state.currentRound, audioUnlocked]);
 
   // Trigger celebration confetti on final results
   useEffect(() => {
@@ -103,7 +105,7 @@ export const HostScreen: React.FC<Props> = ({ state, onOpenSettings, onOpenGuide
     audioHost.unlockAudio();
     setAudioUnlocked(true);
     if (state.latestDialogue) {
-      audioHost.speak(state.latestDialogue, state.phase);
+      audioHost.speak(state.latestDialogue, state.phase, state.currentRound);
     }
   };
 
@@ -192,6 +194,17 @@ export const HostScreen: React.FC<Props> = ({ state, onOpenSettings, onOpenGuide
               </div>
             )}
 
+            {onOpenAdminStudio && (
+              <button
+                onClick={() => onOpenAdminStudio()}
+                className="py-1 px-2.5 bg-burgundy-950 hover:bg-burgundy-900 text-amber-300 hover:text-amber-100 border border-amber-600/50 rounded text-xs font-mono font-bold flex items-center gap-1.5 transition-all shadow"
+                title="Castle Media & Host Studio: Custom Voice Clips, Script & Images"
+              >
+                <Film className="w-3.5 h-3.5 text-amber-400" />
+                <span className="hidden sm:inline">Admin Studio</span>
+              </button>
+            )}
+
             <button
               onClick={onOpenSettings}
               className="p-1.5 text-zinc-400 hover:text-amber-200 bg-zinc-900 rounded border border-zinc-800"
@@ -224,8 +237,10 @@ export const HostScreen: React.FC<Props> = ({ state, onOpenSettings, onOpenGuide
         <ClaudiaBroadcastVideo
           caption={caption}
           phase={state.phase}
+          currentRound={state.currentRound}
           isHostAudioUnlocked={audioUnlocked}
           onUnlockAudio={handleUnlockAudio}
+          onOpenAdminStudio={onOpenAdminStudio}
         />
 
         {/* PHASE: LOBBY */}

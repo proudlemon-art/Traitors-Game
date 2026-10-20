@@ -5,6 +5,7 @@ import { HostScreen } from './components/HostScreen';
 import { PlayerScreen } from './components/PlayerScreen';
 import { AudioSettingsModal } from './components/AudioSettingsModal';
 import { PartyGuideModal } from './components/PartyGuideModal';
+import { AdminStudioModal } from './components/AdminStudioModal';
 import { DemoSwitcher, DEMO_PLAYERS } from './components/DemoSwitcher';
 import {
   Flame,
@@ -18,6 +19,7 @@ import {
   Tv,
   ArrowRight,
   Lock,
+  Film,
 } from 'lucide-react';
 
 export default function App() {
@@ -29,6 +31,13 @@ export default function App() {
   // Modals
   const [showSettings, setShowSettings] = useState(false);
   const [showGuide, setShowGuide] = useState(false);
+  const [showAdminStudio, setShowAdminStudio] = useState(false);
+  const [adminStudioSceneId, setAdminStudioSceneId] = useState<string | undefined>(undefined);
+
+  const handleOpenAdminStudio = (sceneId?: string) => {
+    setAdminStudioSceneId(sceneId);
+    setShowAdminStudio(true);
+  };
 
   // Form states for Lobby
   const [hostName, setHostName] = useState('Libby');
@@ -184,20 +193,27 @@ export default function App() {
               state={gameState}
               onOpenSettings={() => setShowSettings(true)}
               onOpenGuide={() => setShowGuide(true)}
+              onOpenAdminStudio={handleOpenAdminStudio}
             />
           ) : (
             <PlayerScreen state={gameState} playerToken={playerToken} />
           )}
         </div>
 
-        {/* Settings & Guide Modals */}
+        {/* Settings, Guide & Admin Modals */}
         <AudioSettingsModal
           isOpen={showSettings}
           onClose={() => setShowSettings(false)}
+          onOpenAdminStudio={handleOpenAdminStudio}
         />
         <PartyGuideModal
           isOpen={showGuide}
           onClose={() => setShowGuide(false)}
+        />
+        <AdminStudioModal
+          isOpen={showAdminStudio}
+          onClose={() => setShowAdminStudio(false)}
+          initialSceneId={adminStudioSceneId}
         />
       </div>
     );
@@ -223,6 +239,13 @@ export default function App() {
         </div>
 
         <div className="flex items-center gap-2">
+          <button
+            onClick={() => handleOpenAdminStudio()}
+            className="py-1.5 px-3 bg-burgundy-950 hover:bg-burgundy-900 text-amber-300 border border-amber-600/50 text-xs font-mono uppercase rounded flex items-center gap-1.5 transition-all shadow"
+            title="Castle Media & Host Studio: Custom Voice Clips, Script & Images"
+          >
+            <Film className="w-3.5 h-3.5 text-amber-400" /> Admin Studio
+          </button>
           <button
             onClick={() => setShowGuide(true)}
             className="py-1.5 px-3 bg-zinc-900 hover:bg-zinc-800 text-zinc-300 border border-zinc-800 text-xs font-mono uppercase rounded flex items-center gap-1.5"
@@ -408,10 +431,16 @@ export default function App() {
       <AudioSettingsModal
         isOpen={showSettings}
         onClose={() => setShowSettings(false)}
+        onOpenAdminStudio={handleOpenAdminStudio}
       />
       <PartyGuideModal
         isOpen={showGuide}
         onClose={() => setShowGuide(false)}
+      />
+      <AdminStudioModal
+        isOpen={showAdminStudio}
+        onClose={() => setShowAdminStudio(false)}
+        initialSceneId={adminStudioSceneId}
       />
     </div>
   );
