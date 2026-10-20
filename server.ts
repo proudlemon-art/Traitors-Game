@@ -1,7 +1,6 @@
 import express from 'express';
 import http from 'http';
 import path from 'path';
-import { createServer as createViteServer } from 'vite';
 import type {
   GamePhase,
   GameState,
@@ -957,7 +956,8 @@ async function startServer() {
       res.sendFile(path.resolve('dist', 'index.html'));
     });
   } else {
-    const vite = await createViteServer({
+    const { createServer } = await import('vite');
+    const vite = await createServer({
       server: { middlewareMode: true },
       appType: 'spa',
     });
