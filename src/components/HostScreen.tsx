@@ -51,8 +51,10 @@ export const HostScreen: React.FC<Props> = ({ state, onOpenSettings, onOpenGuide
   // Generate QR code for mobile joining
   useEffect(() => {
     if (typeof window !== 'undefined' && state.roomCode) {
-      const storedPasscode = localStorage.getItem('traitors_castle_passcode') || 'libby';
-      const joinUrl = `${window.location.origin}?room=${state.roomCode}&pwd=${encodeURIComponent(storedPasscode)}`;
+      const storedPasscode = localStorage.getItem('traitors_castle_passcode') || '';
+      const joinUrl = storedPasscode
+        ? `${window.location.origin}?room=${state.roomCode}&pwd=${encodeURIComponent(storedPasscode)}`
+        : `${window.location.origin}?room=${state.roomCode}`;
       QRCode.toDataURL(joinUrl, {
         width: 200,
         margin: 1,

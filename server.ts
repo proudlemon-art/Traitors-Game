@@ -419,7 +419,12 @@ function recordRoundOutcome(s: GameState, playersMap: Record<string, Player>, ba
 // Gatekeeper Passcode Verification
 app.post('/api/auth/verify-passcode', (req, res) => {
   const entered = (req.body?.password || '').trim().toLowerCase();
-  const configured = (process.env.CASTLE_PASSWORD || 'libby').trim().toLowerCase();
+  const configured = (
+    process.env.CASTLE_PASSWORD ||
+    process.env.castle_password ||
+    process.env.Castle_Password ||
+    'libby'
+  ).trim().toLowerCase();
 
   if (entered && entered === configured) {
     return res.json({ success: true, message: 'Passcode verified' });

@@ -3,12 +3,13 @@ import { Lock, KeyRound, ShieldAlert, Sparkles, Eye, EyeOff, ArrowRight } from '
 
 interface CastleGatekeeperProps {
   onUnlock: () => void;
+  initialMessage?: string | null;
 }
 
-export function CastleGatekeeper({ onUnlock }: CastleGatekeeperProps) {
+export function CastleGatekeeper({ onUnlock, initialMessage }: CastleGatekeeperProps) {
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(initialMessage || null);
   const [isVerifying, setIsVerifying] = useState(false);
 
   // Check URL query parameters for auto-unlock (?pwd=... or ?passcode=...)
@@ -46,24 +47,12 @@ export function CastleGatekeeper({ onUnlock }: CastleGatekeeperProps) {
         localStorage.setItem('traitors_castle_passcode', trimmed);
         onUnlock();
       } else {
-        // Fallback check if default is 'libby'
-        if (trimmed.toLowerCase() === 'libby') {
-          localStorage.setItem('traitors_castle_unlocked', 'true');
-          localStorage.setItem('traitors_castle_passcode', trimmed);
-          onUnlock();
-          return;
-        }
+        localStorage.removeItem('traitors_castle_unlocked');
+        localStorage.removeItem('traitors_castle_passcode');
         setError(data.error || 'Incorrect passcode. Only trusted guests may enter.');
       }
     } catch {
-      // Offline / network fallback
-      if (trimmed.toLowerCase() === 'libby') {
-        localStorage.setItem('traitors_castle_unlocked', 'true');
-        localStorage.setItem('traitors_castle_passcode', trimmed);
-        onUnlock();
-      } else {
-        setError('Incorrect passcode. Please verify with the host.');
-      }
+      setError('Unable to verify passcode right now. Please check your connection.');
     } finally {
       setIsVerifying(false);
     }
@@ -103,7 +92,7 @@ export function CastleGatekeeper({ onUnlock }: CastleGatekeeperProps) {
           </div>
 
           <div className="bg-burgundy-950/60 border border-burgundy-800/60 rounded-xl p-3.5 mb-6 text-xs text-amber-200/90 leading-relaxed text-center">
-            This castle is locked for a private celebration. Enter the password to access the round table, host screen, and party missions.
+            This castle is locked for a private celebration. Enter the secret passcode to access the round table, host screen, and party missions.
           </div>
 
           {/* Form */}
@@ -125,7 +114,7 @@ export function CastleGatekeeper({ onUnlock }: CastleGatekeeperProps) {
                     setPassword(e.target.value);
                     if (error) setError(null);
                   }}
-                  placeholder="Enter passcode (e.g. libby)"
+                  placeholder="Enter passcode"
                   autoFocus
                   required
                   className="w-full pl-10 pr-10 py-3 bg-black/60 border border-amber-900/60 focus:border-amber-400 rounded-lg text-sm text-amber-100 placeholder-zinc-600 focus:outline-none focus:ring-1 focus:ring-amber-400 transition"
@@ -164,13 +153,6 @@ export function CastleGatekeeper({ onUnlock }: CastleGatekeeperProps) {
               )}
             </button>
           </form>
-
-          {/* Footer note */}
-          <div className="mt-6 pt-4 border-t border-zinc-900 text-center">
-            <span className="text-[11px] font-mono text-zinc-500">
-              Default party passcode: <code className="text-amber-400/90 font-bold">libby</code>
-            </span>
-          </div>
         </div>
       </div>
     </div>

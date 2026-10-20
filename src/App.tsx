@@ -27,17 +27,40 @@ import {
 export default function App() {
   const [isCastleUnlocked, setIsCastleUnlocked] = useState<boolean>(() => {
     if (typeof window !== 'undefined') {
-      const params = new URLSearchParams(window.location.search);
-      const urlPwd = params.get('pwd') || params.get('passcode') || params.get('auth');
-      if (urlPwd && urlPwd.toLowerCase() === 'libby') {
-        localStorage.setItem('traitors_castle_unlocked', 'true');
-        localStorage.setItem('traitors_castle_passcode', urlPwd);
-        return true;
-      }
       return localStorage.getItem('traitors_castle_unlocked') === 'true';
     }
     return false;
   });
+
+  // Verify cached passcode with server on mount so changes to CASTLE_PASSWORD are immediately enforced
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const stored = localStorage.getItem('traitors_castle_passcode');
+    if (!stored) {
+      setIsCastleUnlocked(false);
+      localStorage.removeItem('traitors_castle_unlocked');
+      return;
+    }
+
+    fetch('/api/auth/verify-passcode', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ password: stored }),
+    })
+      .then(res => res.json())
+      .then(data => {
+        if (!data.success) {
+          localStorage.removeItem('traitors_castle_unlocked');
+          localStorage.removeItem('traitors_castle_passcode');
+          setIsCastleUnlocked(false);
+        } else {
+          setIsCastleUnlocked(true);
+        }
+      })
+      .catch(() => {
+        // Ignore offline network error
+      });
+  }, []);
 
   const [gameState, setGameState] = useState<ClientGameState | null>(null);
   const [currentRoomCode, setCurrentRoomCode] = useState<string>('');
