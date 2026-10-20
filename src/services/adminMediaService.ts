@@ -60,179 +60,87 @@ const STORAGE_KEY = 'traitors_castle_admin_media_v2';
 function buildInitialScenes(): SceneMediaConfig[] {
   const scenes: SceneMediaConfig[] = [];
 
-  // Round 1
-  scenes.push({
-    id: 'ROUND_1_INTRO',
-    title: 'Round 1: Welcome & Prologue',
-    subtitle: 'Opening speech welcoming the 7 guests to Jasmine’s Castle',
-    round: 1,
-    phase: 'INTRO',
-    defaultText: HOST_SCRIPTS[1].intro,
-    defaultImageUrl: PRESET_CASTLE_IMAGES[0].url,
-  });
-  scenes.push({
-    id: 'ROUND_1_ROLE_BRIEFING',
-    title: 'Round 1: Role Briefing',
-    subtitle: 'Instructions to check phones for Traitor / Faithful identities',
-    round: 1,
-    phase: 'ROLE_BRIEFING',
-    defaultText: HOST_SCRIPTS[1].roleBriefing,
-    defaultImageUrl: PRESET_CASTLE_IMAGES[2].url,
-  });
-  scenes.push({
-    id: 'ROUND_1_MISSION',
-    title: 'Round 1: Mission 1 (The Castle Heist)',
-    subtitle: 'Instructions for the 3-stage scavenger heist across the house',
-    round: 1,
-    phase: 'MISSION',
-    defaultText: HOST_SCRIPTS[1].missionStart,
-    defaultImageUrl: PRESET_CASTLE_IMAGES[3].url,
-  });
-  scenes.push({
-    id: 'ROUND_1_ROUND_TABLE',
-    title: 'Round 1: The Round Table',
-    subtitle: 'Calling players to the table to begin the first debate',
-    round: 1,
-    phase: 'ROUND_TABLE',
-    defaultText: HOST_SCRIPTS[1].roundTable,
-    defaultImageUrl: PRESET_CASTLE_IMAGES[1].url,
-  });
-  scenes.push({
-    id: 'ROUND_1_VOTING',
-    title: 'Round 1: Voting Slates Open',
-    subtitle: 'Opening secret voting on player phone slates',
-    round: 1,
-    phase: 'VOTING',
-    defaultText: HOST_SCRIPTS[1].votingOpen,
-    defaultImageUrl: PRESET_CASTLE_IMAGES[2].url,
-  });
-  scenes.push({
-    id: 'ROUND_1_ALL_LOCKED',
-    title: 'Round 1: All Votes Locked',
-    subtitle: 'All 7 slates sealed in wax, preparing for reveals',
-    round: 1,
-    phase: 'VOTE_REVEALS',
-    defaultText: HOST_SCRIPTS[1].allVotesLocked,
-    defaultImageUrl: PRESET_CASTLE_IMAGES[2].url,
-  });
+  // ROUNDS 1 TO 6 COMPLETE CATALOG
+  for (let r = 1; r <= 6; r++) {
+    const s = HOST_SCRIPTS[r] || HOST_SCRIPTS[1];
+    const roundImg = r === 1 ? PRESET_CASTLE_IMAGES[0].url : (r % 2 === 0 ? PRESET_CASTLE_IMAGES[4].url : PRESET_CASTLE_IMAGES[3].url);
 
-  // Round 2
-  scenes.push({
-    id: 'ROUND_2_INTRO',
-    title: 'Round 2: Prologue',
-    subtitle: 'Fresh cloaks dealt in the dark for round two',
-    round: 2,
-    phase: 'INTRO',
-    defaultText: HOST_SCRIPTS[2].intro,
-    defaultImageUrl: PRESET_CASTLE_IMAGES[4].url,
-  });
-  scenes.push({
-    id: 'ROUND_2_MISSION',
-    title: 'Round 2: Mission 2 (The Birthday Majority)',
-    subtitle: 'Instructions for voting on the 5 majority questions',
-    round: 2,
-    phase: 'MISSION',
-    defaultText: HOST_SCRIPTS[2].missionStart,
-    defaultImageUrl: PRESET_CASTLE_IMAGES[3].url,
-  });
-  scenes.push({
-    id: 'ROUND_2_ROUND_TABLE',
-    title: 'Round 2: The Round Table',
-    subtitle: 'Debating who steered the birthday majority consensus',
-    round: 2,
-    phase: 'ROUND_TABLE',
-    defaultText: HOST_SCRIPTS[2].roundTable,
-    defaultImageUrl: PRESET_CASTLE_IMAGES[1].url,
-  });
+    // 1. Prologue / Intro
+    scenes.push({
+      id: `ROUND_${r}_INTRO`,
+      title: `Round ${r}: Prologue`,
+      subtitle: r === 1 ? 'Opening speech welcoming the 7 guests to Jasmine’s Castle' : `Round ${r} morning prologue & cloaks dealt in the dark`,
+      round: r,
+      phase: 'INTRO',
+      defaultText: s.intro,
+      defaultImageUrl: r === 1 || r === 6 ? PRESET_CASTLE_IMAGES[0].url : PRESET_CASTLE_IMAGES[4].url,
+    });
 
-  // Round 3
-  scenes.push({
-    id: 'ROUND_3_INTRO',
-    title: 'Round 3: Prologue',
-    subtitle: 'Paranoia setting in, tea is cold, glances are frosty',
-    round: 3,
-    phase: 'INTRO',
-    defaultText: HOST_SCRIPTS[3].intro,
-    defaultImageUrl: PRESET_CASTLE_IMAGES[4].url,
-  });
-  scenes.push({
-    id: 'ROUND_3_MISSION',
-    title: 'Round 3: Mission 3 (The Forgery Gallery)',
-    subtitle: 'Paper and sketch pens ready for secret drawing brief',
-    round: 3,
-    phase: 'MISSION',
-    defaultText: HOST_SCRIPTS[3].missionStart,
-    defaultImageUrl: PRESET_CASTLE_IMAGES[3].url,
-  });
+    // 2. Role Briefing
+    scenes.push({
+      id: `ROUND_${r}_ROLE_BRIEFING`,
+      title: `Round ${r}: Role Briefing`,
+      subtitle: `Instructions for players to check phones for secret roles in Round ${r}`,
+      round: r,
+      phase: 'ROLE_BRIEFING',
+      defaultText: s.roleBriefing,
+      defaultImageUrl: PRESET_CASTLE_IMAGES[2].url,
+    });
 
-  // Round 4
-  scenes.push({
-    id: 'ROUND_4_INTRO',
-    title: 'Round 4: Prologue',
-    subtitle: 'Friendships fraying at the seams in round four',
-    round: 4,
-    phase: 'INTRO',
-    defaultText: HOST_SCRIPTS[4].intro,
-    defaultImageUrl: PRESET_CASTLE_IMAGES[4].url,
-  });
-  scenes.push({
-    id: 'ROUND_4_MISSION',
-    title: 'Round 4: Mission 4 (Body Disposal Committee)',
-    subtitle: 'Absurd storytelling crisis with 5 household objects',
-    round: 4,
-    phase: 'MISSION',
-    defaultText: HOST_SCRIPTS[4].missionStart,
-    defaultImageUrl: PRESET_CASTLE_IMAGES[3].url,
-  });
+    // 3. Mission
+    const missionNames: Record<number, string> = {
+      1: 'Mission 1: The Castle Heist',
+      2: 'Mission 2: The Birthday Majority',
+      3: 'Mission 3: The Forgery Gallery',
+      4: 'Mission 4: Body Disposal Committee',
+      5: 'Mission 5: The Counterfeit Expert',
+      6: 'Mission 6: The Getaway Auction',
+    };
+    scenes.push({
+      id: `ROUND_${r}_MISSION`,
+      title: `Round ${r}: ${missionNames[r] || `Mission ${r}`}`,
+      subtitle: `Instructions and rules for Round ${r} mission play`,
+      round: r,
+      phase: 'MISSION',
+      defaultText: s.missionStart,
+      defaultImageUrl: PRESET_CASTLE_IMAGES[3].url,
+    });
 
-  // Round 5
-  scenes.push({
-    id: 'ROUND_5_INTRO',
-    title: 'Round 5: Prologue',
-    subtitle: 'Penultimate chapter, paranoia at boiling point',
-    round: 5,
-    phase: 'INTRO',
-    defaultText: HOST_SCRIPTS[5].intro,
-    defaultImageUrl: PRESET_CASTLE_IMAGES[4].url,
-  });
-  scenes.push({
-    id: 'ROUND_5_MISSION',
-    title: 'Round 5: Mission 5 (Counterfeit Expert)',
-    subtitle: 'Pitching ridiculous inventions with secret smuggler words',
-    round: 5,
-    phase: 'MISSION',
-    defaultText: HOST_SCRIPTS[5].missionStart,
-    defaultImageUrl: PRESET_CASTLE_IMAGES[3].url,
-  });
+    // 4. Round Table Debate
+    scenes.push({
+      id: `ROUND_${r}_ROUND_TABLE`,
+      title: `Round ${r}: The Round Table`,
+      subtitle: `Convening the council to interrogate suspects for Round ${r}`,
+      round: r,
+      phase: 'ROUND_TABLE',
+      defaultText: s.roundTable,
+      defaultImageUrl: PRESET_CASTLE_IMAGES[1].url,
+    });
 
-  // Round 6
-  scenes.push({
-    id: 'ROUND_6_INTRO',
-    title: 'Round 6: The Grand Finale Prologue',
-    subtitle: 'Final round of Libby’s Birthday: Trust Nobody',
-    round: 6,
-    phase: 'INTRO',
-    defaultText: HOST_SCRIPTS[6].intro,
-    defaultImageUrl: PRESET_CASTLE_IMAGES[0].url,
-  });
-  scenes.push({
-    id: 'ROUND_6_MISSION',
-    title: 'Round 6: Mission 6 (The Getaway Auction)',
-    subtitle: 'Bidding 12 auction coins on 6 getaway lots',
-    round: 6,
-    phase: 'MISSION',
-    defaultText: HOST_SCRIPTS[6].missionStart,
-    defaultImageUrl: PRESET_CASTLE_IMAGES[3].url,
-  });
-  scenes.push({
-    id: 'ROUND_6_ROUND_TABLE',
-    title: 'Round 6: The Final Round Table',
-    subtitle: 'Everything comes down to this final confrontation',
-    round: 6,
-    phase: 'ROUND_TABLE',
-    defaultText: HOST_SCRIPTS[6].roundTable,
-    defaultImageUrl: PRESET_CASTLE_IMAGES[1].url,
-  });
+    // 5. Voting Slates Open
+    scenes.push({
+      id: `ROUND_${r}_VOTING`,
+      title: `Round ${r}: Voting Slates Open`,
+      subtitle: `Opening secret phone voting for Round ${r}`,
+      round: r,
+      phase: 'VOTING',
+      defaultText: s.votingOpen,
+      defaultImageUrl: PRESET_CASTLE_IMAGES[2].url,
+    });
+
+    // 6. All Votes Locked
+    scenes.push({
+      id: `ROUND_${r}_ALL_LOCKED`,
+      title: `Round ${r}: All Votes Locked`,
+      subtitle: `All 7 accusations sealed in wax, commencing reveals`,
+      round: r,
+      phase: 'VOTE_REVEALS',
+      defaultText: s.allVotesLocked,
+      defaultImageUrl: PRESET_CASTLE_IMAGES[2].url,
+    });
+  }
+
+  // Finale & General Ceremony Scenes
   scenes.push({
     id: 'ROUND_6_FINAL_RESULTS',
     title: 'Grand Awards & Champion Ceremony',
@@ -243,7 +151,6 @@ function buildInitialScenes(): SceneMediaConfig[] {
     defaultImageUrl: PRESET_CASTLE_IMAGES[4].url,
   });
 
-  // General Banishment and Tie Scenes
   scenes.push({
     id: 'SCENE_BANISHMENT_OUTCOME',
     title: 'Banishment Reveal Ceremony',
@@ -252,6 +159,7 @@ function buildInitialScenes(): SceneMediaConfig[] {
     defaultText: "The castle has spoken! Step into the circle of fire. Look into my eyes... Was this soul a Traitor or Faithful?",
     defaultImageUrl: PRESET_CASTLE_IMAGES[2].url,
   });
+
   scenes.push({
     id: 'SCENE_TIE_DEFENCE',
     title: 'Deadlock & Tie Defence',
@@ -267,49 +175,89 @@ function buildInitialScenes(): SceneMediaConfig[] {
 class AdminMediaService {
   private scenes: Map<string, SceneMediaConfig> = new Map();
   private listeners: Set<() => void> = new Set();
+  private isServerLoaded: boolean = false;
 
   constructor() {
     this.init();
   }
 
-  private init() {
+  private async init() {
     const defaults = buildInitialScenes();
     defaults.forEach(s => this.scenes.set(s.id, s));
 
+    // 1. Load from localStorage cache immediately
     if (typeof localStorage !== 'undefined') {
       try {
         const stored = localStorage.getItem(STORAGE_KEY);
         if (stored) {
           const parsed: SceneMediaConfig[] = JSON.parse(stored);
-          parsed.forEach(saved => {
-            const existing = this.scenes.get(saved.id);
-            if (existing) {
-              this.scenes.set(saved.id, {
-                ...existing,
-                customText: saved.customText,
-                customImageUrl: saved.customImageUrl,
-                voiceClip: saved.voiceClip,
-              });
-            } else {
-              this.scenes.set(saved.id, saved);
-            }
-          });
+          this.applySavedScenes(parsed);
         }
       } catch (err) {
         console.warn('Failed to load admin media from localStorage', err);
       }
     }
+
+    // 2. Fetch authoritative permanent storage from server API
+    if (typeof window !== 'undefined') {
+      try {
+        const res = await fetch('/api/admin/media');
+        if (res.ok) {
+          const data = await res.json();
+          if (data.success && Array.isArray(data.media)) {
+            this.applySavedScenes(data.media);
+            this.isServerLoaded = true;
+            if (typeof localStorage !== 'undefined') {
+              localStorage.setItem(STORAGE_KEY, JSON.stringify(Array.from(this.scenes.values())));
+            }
+            this.notify();
+          }
+        }
+      } catch (err) {
+        console.warn('Could not fetch server admin media', err);
+      }
+    }
+  }
+
+  private applySavedScenes(savedList: SceneMediaConfig[]) {
+    savedList.forEach(saved => {
+      const existing = this.scenes.get(saved.id);
+      if (existing) {
+        this.scenes.set(saved.id, {
+          ...existing,
+          customText: saved.customText,
+          customImageUrl: saved.customImageUrl,
+          voiceClip: saved.voiceClip,
+        });
+      } else {
+        this.scenes.set(saved.id, saved);
+      }
+    });
   }
 
   private save() {
+    const data = Array.from(this.scenes.values());
+
+    // 1. Save to localStorage
     if (typeof localStorage !== 'undefined') {
       try {
-        const data = Array.from(this.scenes.values());
         localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
       } catch (err) {
         console.warn('Failed to save admin media to localStorage', err);
       }
     }
+
+    // 2. Save permanently to server disk via REST API
+    if (typeof window !== 'undefined') {
+      fetch('/api/admin/media', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      }).catch(err => {
+        console.warn('Could not permanently persist media to server disk', err);
+      });
+    }
+
     this.notify();
   }
 
@@ -330,9 +278,6 @@ class AdminMediaService {
     return this.scenes.get(id);
   }
 
-  /**
-   * Resolves the matching SceneMediaConfig for the current phase and round.
-   */
   public getActiveScene(phase: string, round: number = 1): SceneMediaConfig | undefined {
     // 1. Try round-specific exact match
     const roundSpecificId = `ROUND_${round}_${phase}`;
@@ -354,8 +299,8 @@ class AdminMediaService {
       }
     }
 
-    // 4. Default to first scene
-    return this.scenes.get('ROUND_1_INTRO');
+    // 4. Default to round intro
+    return this.scenes.get(`ROUND_${round}_INTRO`) || this.scenes.get('ROUND_1_INTRO');
   }
 
   public updateSceneText(id: string, customText: string) {
@@ -416,6 +361,9 @@ class AdminMediaService {
     if (typeof localStorage !== 'undefined') {
       localStorage.removeItem(STORAGE_KEY);
     }
+    if (typeof window !== 'undefined') {
+      fetch('/api/admin/media/reset', { method: 'POST' }).catch(() => {});
+    }
     this.notify();
   }
 
@@ -428,21 +376,7 @@ class AdminMediaService {
     try {
       const parsed: SceneMediaConfig[] = JSON.parse(jsonStr);
       if (!Array.isArray(parsed)) return false;
-      parsed.forEach(scene => {
-        if (scene.id) {
-          const existing = this.scenes.get(scene.id);
-          if (existing) {
-            this.scenes.set(scene.id, {
-              ...existing,
-              customText: scene.customText,
-              customImageUrl: scene.customImageUrl,
-              voiceClip: scene.voiceClip,
-            });
-          } else {
-            this.scenes.set(scene.id, scene);
-          }
-        }
-      });
+      this.applySavedScenes(parsed);
       this.save();
       return true;
     } catch (e) {

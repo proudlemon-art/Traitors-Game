@@ -144,7 +144,7 @@ export const PartyGuideModal: React.FC<Props> = ({ isOpen, onClose }) => {
               </label>
               <label className="flex items-start gap-2 cursor-pointer">
                 <input type="checkbox" className="mt-0.5 accent-amber-500" defaultChecked />
-                <span>Try the “Instant Demo Castle” button first to see all 4 missions in action before guests arrive!</span>
+                <span>Try the “Instant Demo Castle” button first to see all 6 missions in action before guests arrive!</span>
               </label>
             </div>
           </div>

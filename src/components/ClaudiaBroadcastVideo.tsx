@@ -12,7 +12,6 @@ import {
   Radio,
   Sparkles,
   Mic,
-  MicOff,
   Edit3,
   ImageIcon,
 } from 'lucide-react';
@@ -23,6 +22,7 @@ interface Props {
   currentRound?: number;
   isHostAudioUnlocked: boolean;
   onUnlockAudio: () => void;
+  isAdminModeOn?: boolean;
   onOpenAdminStudio?: (sceneId?: string) => void;
 }
 
@@ -32,6 +32,7 @@ export const ClaudiaBroadcastVideo: React.FC<Props> = ({
   currentRound = 1,
   isHostAudioUnlocked,
   onUnlockAudio,
+  isAdminModeOn = false,
   onOpenAdminStudio,
 }) => {
   const [isSpeaking, setIsSpeaking] = useState(false);
@@ -77,7 +78,6 @@ export const ClaudiaBroadcastVideo: React.FC<Props> = ({
   }, []);
 
   // Determine active visual image:
-  // Custom image from admin takes top priority, then default scene image
   const displayImage = activeScene?.customImageUrl || activeScene?.defaultImageUrl || '/assets/aistudio/Screenshot_2026-10-20_at_11.50.13_adceafb3.png';
   const sceneTitle = activeScene?.title || `Jasmine’s Castle · Round ${currentRound}`;
   const displayText = activeScene?.customText || caption || activeScene?.defaultText || 'Welcome to Jasmine’s Castle. Trust absolutely nobody.';
@@ -113,19 +113,15 @@ export const ClaudiaBroadcastVideo: React.FC<Props> = ({
               <span>{isSpeaking ? 'VOICE PLAYING' : 'CASTLE STAGE'}</span>
             </div>
 
-            {hasCustomVoiceClip ? (
+            {hasCustomVoiceClip && (
               <div className="flex items-center gap-1 px-2 py-0.5 bg-emerald-950/80 border border-emerald-600/50 text-emerald-300 rounded text-[10px] font-mono">
                 <Mic className="w-3 h-3 text-emerald-400" />
-                <span className="hidden sm:inline">Custom Voice Active</span>
-              </div>
-            ) : (
-              <div className="flex items-center gap-1 px-2 py-0.5 bg-black/60 border border-zinc-800 text-zinc-400 rounded text-[10px] font-mono">
-                <MicOff className="w-3 h-3 text-zinc-500" />
-                <span className="hidden sm:inline">Voice Removed (Subtitles)</span>
+                <span className="hidden sm:inline">Voice Clip Active</span>
               </div>
             )}
 
-            {activeScene?.customImageUrl && (
+            {/* Admin-only badges */}
+            {isAdminModeOn && activeScene?.customImageUrl && (
               <div className="hidden sm:flex items-center gap-1 px-2 py-0.5 bg-amber-950/80 border border-amber-600/50 text-amber-300 rounded text-[10px] font-mono">
                 <ImageIcon className="w-3 h-3" />
                 <span>Custom Image</span>
@@ -134,15 +130,15 @@ export const ClaudiaBroadcastVideo: React.FC<Props> = ({
           </div>
 
           <div className="flex items-center gap-1.5">
-            {/* Quick Admin Edit Button */}
-            {onOpenAdminStudio && (
+            {/* Quick Admin Edit Button ONLY shown when Admin Mode is ON */}
+            {isAdminModeOn && onOpenAdminStudio && (
               <button
                 onClick={() => onOpenAdminStudio(activeScene?.id)}
-                className="px-2.5 py-1 bg-zinc-900/80 hover:bg-amber-600 text-zinc-300 hover:text-black border border-amber-900/50 rounded text-[11px] font-mono font-bold flex items-center gap-1.5 transition-all shadow"
+                className="px-2.5 py-1 bg-amber-500 hover:bg-amber-400 text-black border border-amber-600 rounded text-[11px] font-mono font-bold flex items-center gap-1.5 transition-all shadow"
                 title="Edit this scene's voice clip, text, or image"
               >
                 <Edit3 className="w-3 h-3" />
-                <span className="hidden sm:inline">Edit Voice & Visual</span>
+                <span>Edit Scene Media</span>
               </button>
             )}
 
@@ -193,13 +189,6 @@ export const ClaudiaBroadcastVideo: React.FC<Props> = ({
                   className="hover:underline flex items-center gap-1 text-zinc-300 hover:text-amber-300"
                 >
                   <Play className="w-3 h-3 text-amber-400" /> Play Voice Clip
-                </button>
-              ) : onOpenAdminStudio ? (
-                <button
-                  onClick={() => onOpenAdminStudio(activeScene?.id)}
-                  className="hover:underline flex items-center gap-1 text-zinc-400 hover:text-amber-300 text-[10px]"
-                >
-                  <Mic className="w-3 h-3 text-amber-400" /> + Add Voice Clip
                 </button>
               ) : null}
             </div>

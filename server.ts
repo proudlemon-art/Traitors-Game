@@ -1,6 +1,7 @@
 import express from 'express';
 import http from 'http';
 import path from 'path';
+import fs from 'fs';
 import { createServer as createViteServer } from 'vite';
 import type {
   GamePhase,
@@ -35,7 +36,43 @@ const app = express();
 const server = http.createServer(app);
 const port = parseInt(process.env.PORT || '3000', 10);
 
-app.use(express.json());
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ extended: true, limit: '50mb' }));
+
+const MEDIA_CONFIG_FILE = path.resolve('admin-media-config.json');
+
+// In-memory media cache loaded from disk if present
+let savedMediaConfig: any = null;
+try {
+  if (fs.existsSync(MEDIA_CONFIG_FILE)) {
+    const raw = fs.readFileSync(MEDIA_CONFIG_FILE, 'utf-8');
+    savedMediaConfig = JSON.parse(raw);
+    console.log(`📁 Loaded saved media configuration (${Array.isArray(savedMediaConfig) ? savedMediaConfig.length : 0} scenes)`);
+  }
+} catch (e) {
+  console.warn('Could not read admin-media-config.json', e);
+}
+
+function getDialogueForPhase(phase: string, round: number): string {
+  if (Array.isArray(savedMediaConfig)) {
+    const scene = savedMediaConfig.find((s: any) =>
+      (s.id === `ROUND_${round}_${phase}` || (s.phase === phase && s.round === round)) && s.customText
+    );
+    if (scene && scene.customText) {
+      return scene.customText;
+    }
+  }
+  const roundScripts = HOST_SCRIPTS[round] || HOST_SCRIPTS[1];
+  switch (phase) {
+    case 'INTRO': return roundScripts.intro;
+    case 'ROLE_BRIEFING': return roundScripts.roleBriefing;
+    case 'MISSION': return roundScripts.missionStart;
+    case 'ROUND_TABLE': return roundScripts.roundTable;
+    case 'VOTING': return roundScripts.votingOpen;
+    case 'VOTE_REVEALS': return roundScripts.allVotesLocked;
+    default: return '';
+  }
+}
 
 // In-memory room store
 interface InternalRoom {
@@ -83,7 +120,7 @@ function createInitialState(roomCode: string, isDemo = false): GameState {
     traitorName: null,
     traitorObjective: null,
     roundHistory: [],
-    latestDialogue: HOST_SCRIPTS[1].intro,
+    latestDialogue: getDialogueForPhase('INTRO', 1),
     isDemoRoom: isDemo,
     castleHeistState: {
       currentStage: 1,
@@ -498,6 +535,35 @@ app.get('/api/rooms/:code/events', (req, res) => {
   });
 });
 
+// Admin Media Persistent Endpoints
+app.get('/api/admin/media', (req, res) => {
+  res.json({ success: true, media: savedMediaConfig });
+});
+
+app.post('/api/admin/media', async (req, res) => {
+  try {
+    const media = req.body;
+    savedMediaConfig = media;
+    await fs.promises.writeFile(MEDIA_CONFIG_FILE, JSON.stringify(media, null, 2), 'utf-8');
+    res.json({ success: true, message: 'Media configuration permanently saved to server disk.' });
+  } catch (err: any) {
+    console.error('Failed to save media config to disk:', err);
+    res.status(500).json({ error: 'Failed to write media config to disk.' });
+  }
+});
+
+app.post('/api/admin/media/reset', async (req, res) => {
+  try {
+    savedMediaConfig = null;
+    if (fs.existsSync(MEDIA_CONFIG_FILE)) {
+      await fs.promises.unlink(MEDIA_CONFIG_FILE);
+    }
+    res.json({ success: true, message: 'Media configuration reset on server.' });
+  } catch (err: any) {
+    res.status(500).json({ error: 'Failed to reset media config on disk.' });
+  }
+});
+
 // Get current state snapshot
 app.get('/api/rooms/:code/state', (req, res) => {
   const code = req.params.code.toUpperCase();
@@ -540,7 +606,7 @@ app.post('/api/rooms/:code/action', (req, res) => {
     case 'START_GAME': {
       s.phase = 'INTRO';
       s.phaseTimeRemaining = 600; // 10 mins Introduction
-      s.latestDialogue = HOST_SCRIPTS[s.currentRound].intro;
+      s.latestDialogue = getDialogueForPhase('INTRO', s.currentRound);
       break;
     }
 
@@ -548,28 +614,28 @@ app.post('/api/rooms/:code/action', (req, res) => {
       assignSecretRoles(room);
       s.phase = 'ROLE_BRIEFING';
       s.phaseTimeRemaining = 60; // 1 min private roles & briefing
-      s.latestDialogue = HOST_SCRIPTS[s.currentRound].roleBriefing;
+      s.latestDialogue = getDialogueForPhase('ROLE_BRIEFING', s.currentRound);
       break;
     }
 
     case 'ADVANCE_TO_MISSION': {
       s.phase = 'MISSION';
       s.phaseTimeRemaining = 420; // 7 mins mission instructions & play
-      s.latestDialogue = HOST_SCRIPTS[s.currentRound].missionStart;
+      s.latestDialogue = getDialogueForPhase('MISSION', s.currentRound);
       break;
     }
 
     case 'ADVANCE_TO_ROUND_TABLE': {
       s.phase = 'ROUND_TABLE';
       s.phaseTimeRemaining = 300; // 5 mins discussion
-      s.latestDialogue = HOST_SCRIPTS[s.currentRound].roundTable;
+      s.latestDialogue = getDialogueForPhase('ROUND_TABLE', s.currentRound);
       break;
     }
 
     case 'ADVANCE_TO_VOTING': {
       s.phase = 'VOTING';
       s.phaseTimeRemaining = 240; // 4 mins voting, phone reveals, scoring
-      s.latestDialogue = HOST_SCRIPTS[s.currentRound].votingOpen;
+      s.latestDialogue = getDialogueForPhase('VOTING', s.currentRound);
 
       // Reset lock states
       room.players.forEach(p => {
@@ -702,7 +768,7 @@ app.post('/api/rooms/:code/action', (req, res) => {
     case 'ADVANCE_NEXT_ROUND': {
       if (s.currentRound < 6) {
         s.currentRound += 1;
-        s.latestDialogue = HOST_SCRIPTS[s.currentRound].intro;
+        s.latestDialogue = getDialogueForPhase('INTRO', s.currentRound);
         s.phase = 'INTRO';
         s.phaseTimeRemaining = 60;
       } else {

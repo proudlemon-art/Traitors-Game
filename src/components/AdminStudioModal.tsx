@@ -43,7 +43,7 @@ export const AdminStudioModal: React.FC<Props> = ({
   onClose,
   initialSceneId,
 }) => {
-  const [scenes, setScenes] = useState<SceneMediaConfig[]>([]);
+  const [scenes, setScenes] = useState<SceneMediaConfig[]>(() => adminMediaService.getAllScenes());
   const [selectedSceneId, setSelectedSceneId] = useState<string>(initialSceneId || 'ROUND_1_INTRO');
   const [filterCategory, setFilterCategory] = useState<string>('ALL');
   const [searchQuery, setSearchQuery] = useState<string>('');
@@ -117,7 +117,10 @@ export const AdminStudioModal: React.FC<Props> = ({
 
   if (!isOpen) return null;
 
-  const selectedScene = scenes.find(s => s.id === selectedSceneId) || scenes[0];
+  const allAvailableScenes = scenes.length > 0 ? scenes : adminMediaService.getAllScenes();
+  const selectedScene = allAvailableScenes.find(s => s.id === selectedSceneId) || allAvailableScenes[0];
+
+  if (!selectedScene) return null;
 
   const showNotification = (msg: string) => {
     setStatusMessage(msg);
@@ -328,15 +331,15 @@ export const AdminStudioModal: React.FC<Props> = ({
 
     const matchesSearch =
       searchQuery.trim() === '' ||
-      s.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      s.subtitle.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (s.customText || s.defaultText).toLowerCase().includes(searchQuery.toLowerCase());
+      s.title?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      s.subtitle?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (s.customText || s.defaultText || '').toLowerCase().includes(searchQuery.toLowerCase());
 
     return matchesFilter && matchesSearch;
   });
 
-  const activeDisplayText = selectedScene.customText ?? selectedScene.defaultText;
-  const activeDisplayImage = selectedScene.customImageUrl || selectedScene.defaultImageUrl;
+  const activeDisplayText = selectedScene?.customText ?? selectedScene?.defaultText ?? '';
+  const activeDisplayImage = selectedScene?.customImageUrl || selectedScene?.defaultImageUrl || '';
 
   return (
     <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-2 sm:p-4 md:p-6 animate-fadeIn">

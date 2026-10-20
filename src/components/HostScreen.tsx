@@ -45,6 +45,7 @@ export const HostScreen: React.FC<Props> = ({ state, onOpenSettings, onOpenGuide
   const [qrDataUrl, setQrDataUrl] = useState<string>('');
   const [caption, setCaption] = useState<string>(state.latestDialogue || '');
   const [audioUnlocked, setAudioUnlocked] = useState<boolean>(audioHost.isAudioUnlocked());
+  const [isAdminMode, setIsAdminMode] = useState<boolean>(false);
   const [promptIndex, setPromptIndex] = useState(0);
 
   // Generate QR code for mobile joining
@@ -196,12 +197,22 @@ export const HostScreen: React.FC<Props> = ({ state, onOpenSettings, onOpenGuide
 
             {onOpenAdminStudio && (
               <button
-                onClick={() => onOpenAdminStudio()}
-                className="py-1 px-2.5 bg-burgundy-950 hover:bg-burgundy-900 text-amber-300 hover:text-amber-100 border border-amber-600/50 rounded text-xs font-mono font-bold flex items-center gap-1.5 transition-all shadow"
-                title="Castle Media & Host Studio: Custom Voice Clips, Script & Images"
+                onClick={() => {
+                  const next = !isAdminMode;
+                  setIsAdminMode(next);
+                  if (next) {
+                    onOpenAdminStudio();
+                  }
+                }}
+                className={`py-1 px-2.5 rounded text-xs font-mono font-bold flex items-center gap-1.5 transition-all shadow ${
+                  isAdminMode
+                    ? 'bg-amber-500 text-black border border-amber-400'
+                    : 'bg-zinc-900 hover:bg-zinc-800 text-zinc-300 border border-zinc-800'
+                }`}
+                title="Toggle Admin View & Studio"
               >
-                <Film className="w-3.5 h-3.5 text-amber-400" />
-                <span className="hidden sm:inline">Admin Studio</span>
+                <Film className="w-3.5 h-3.5" />
+                <span>Admin Studio {isAdminMode ? '(Active)' : ''}</span>
               </button>
             )}
 
@@ -240,6 +251,7 @@ export const HostScreen: React.FC<Props> = ({ state, onOpenSettings, onOpenGuide
           currentRound={state.currentRound}
           isHostAudioUnlocked={audioUnlocked}
           onUnlockAudio={handleUnlockAudio}
+          isAdminModeOn={isAdminMode}
           onOpenAdminStudio={onOpenAdminStudio}
         />
 
