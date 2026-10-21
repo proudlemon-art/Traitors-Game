@@ -61,10 +61,25 @@ class DatabaseService {
 
   private loadLocalData() {
     try {
-      const mediaPath = this.getMediaFilePath();
-      if (fs.existsSync(mediaPath)) {
-        const raw = fs.readFileSync(mediaPath, 'utf-8');
-        this.localMediaConfig = JSON.parse(raw);
+      const candidates = [
+        path.resolve('data', 'admin_media_config.json'),
+        path.resolve('admin-media-config.json'),
+        this.getMediaFilePath(),
+      ];
+      for (const candidate of candidates) {
+        if (fs.existsSync(candidate)) {
+          try {
+            const raw = fs.readFileSync(candidate, 'utf-8');
+            const parsed = JSON.parse(raw);
+            if (Array.isArray(parsed) && parsed.length > 0) {
+              this.localMediaConfig = parsed;
+              console.log(`Loaded ${parsed.length} media scenes from persistent file: ${candidate}`);
+              break;
+            }
+          } catch {
+            // continue
+          }
+        }
       }
     } catch (e) {
       console.warn('Could not load local media config:', e);
@@ -169,7 +184,33 @@ class DatabaseService {
   // Media Config Operations
   // ----------------------------------------------------
   public async getMediaConfig(): Promise<any[] | null> {
-    // 1. Try Supabase
+    // 1. Check in-memory store first
+    if (this.localMediaConfig && Array.isArray(this.localMediaConfig) && this.localMediaConfig.length > 0) {
+      return this.localMediaConfig;
+    }
+
+    // 2. Check local persistent disk files
+    const candidates = [
+      path.resolve('data', 'admin_media_config.json'),
+      path.resolve('admin-media-config.json'),
+      this.getMediaFilePath(),
+    ];
+    for (const candidate of candidates) {
+      if (fs.existsSync(candidate)) {
+        try {
+          const raw = fs.readFileSync(candidate, 'utf-8');
+          const parsed = JSON.parse(raw);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            this.localMediaConfig = parsed;
+            return parsed;
+          }
+        } catch (e) {
+          console.warn(`Error reading media config from ${candidate}:`, e);
+        }
+      }
+    }
+
+    // 3. Check Supabase
     if (this.supabase) {
       try {
         const { data, error } = await this.supabase
@@ -182,7 +223,12 @@ class DatabaseService {
           if (error.code !== 'PGRST116') {
             console.warn('Supabase getMediaConfig error:', error.message);
           }
-        } else if (data && Array.isArray(data.scenes)) {
+        } else if (data && Array.isArray(data.scenes) && data.scenes.length > 0) {
+          this.localMediaConfig = data.scenes;
+          // Cache to local file so offline/restarts are instant
+          try {
+            fs.writeFileSync(path.resolve('data', 'admin_media_config.json'), JSON.stringify(data.scenes, null, 2), 'utf-8');
+          } catch {}
           return data.scenes;
         }
       } catch (err) {
@@ -190,54 +236,49 @@ class DatabaseService {
       }
     }
 
-    // 2. Fallback to Local Storage / Memory
-    if (this.localMediaConfig) {
-      return this.localMediaConfig;
-    }
-
-    const legacyFile = path.resolve('admin-media-config.json');
-    if (fs.existsSync(legacyFile)) {
-      try {
-        const raw = fs.readFileSync(legacyFile, 'utf-8');
-        const parsed = JSON.parse(raw);
-        this.localMediaConfig = parsed;
-        return parsed;
-      } catch (e) {
-        console.warn('Error reading legacy media config:', e);
-      }
-    }
-
     return null;
   }
 
   public async saveMediaConfig(media: any[]): Promise<void> {
+    if (!Array.isArray(media)) return;
     this.localMediaConfig = media;
 
-    // 1. Save to Supabase
+    // 1. Always write immediately to local persistent disk files
+    try {
+      const dataDir = path.resolve('data');
+      if (!fs.existsSync(dataDir)) {
+        fs.mkdirSync(dataDir, { recursive: true });
+      }
+      const dataFilePath = path.resolve('data', 'admin_media_config.json');
+      const rootFilePath = path.resolve('admin-media-config.json');
+      const jsonContent = JSON.stringify(media, null, 2);
+      fs.writeFileSync(dataFilePath, jsonContent, 'utf-8');
+      fs.writeFileSync(rootFilePath, jsonContent, 'utf-8');
+    } catch (diskErr) {
+      console.error('Failed to write media config to disk:', diskErr);
+    }
+
+    // 2. Also save to Supabase asynchronously (non-blocking)
     if (this.supabase) {
       try {
-        const { error } = await this.supabase
+        this.supabase
           .from('traitors_media_configs')
           .upsert({
             id: 'global_config',
             scenes: media,
             updated_at: new Date().toISOString(),
-          }, { onConflict: 'id' });
-
-        if (error) {
-          console.error('Supabase saveMediaConfig error:', error.message);
-        }
+          }, { onConflict: 'id' })
+          .then(({ error }) => {
+            if (error) {
+              console.warn('Supabase saveMediaConfig async error:', error.message);
+            }
+          })
+          .catch(err => {
+            console.warn('Supabase saveMediaConfig exception:', err);
+          });
       } catch (err) {
-        console.error('Supabase saveMediaConfig exception:', err);
+        console.warn('Supabase saveMediaConfig exception:', err);
       }
-    }
-
-    // 2. Save to local fallback
-    try {
-      const legacyFile = path.resolve('admin-media-config.json');
-      fs.writeFileSync(legacyFile, JSON.stringify(media, null, 2), 'utf-8');
-    } catch {
-      // ignore
     }
   }
 
@@ -255,13 +296,19 @@ class DatabaseService {
       }
     }
 
-    try {
-      const legacyFile = path.resolve('admin-media-config.json');
-      if (fs.existsSync(legacyFile)) {
-        fs.unlinkSync(legacyFile);
+    const filesToRemove = [
+      path.resolve('data', 'admin_media_config.json'),
+      path.resolve('admin-media-config.json'),
+      this.getMediaFilePath(),
+    ];
+    for (const f of filesToRemove) {
+      try {
+        if (fs.existsSync(f)) {
+          fs.unlinkSync(f);
+        }
+      } catch {
+        // ignore
       }
-    } catch {
-      // ignore
     }
   }
 }

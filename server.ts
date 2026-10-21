@@ -1,6 +1,7 @@
 import express from 'express';
 import http from 'http';
 import path from 'path';
+import fs from 'fs';
 import type {
   GamePhase,
   GameState,
@@ -39,6 +40,49 @@ const port = parseInt(process.env.PORT || '3000', 10);
 
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
+
+// Persistent uploads directory for images and voice clips
+const UPLOADS_DIR = path.resolve('public/uploads');
+if (!fs.existsSync(UPLOADS_DIR)) {
+  fs.mkdirSync(UPLOADS_DIR, { recursive: true });
+}
+app.use('/uploads', express.static(UPLOADS_DIR));
+
+function saveBase64MediaToFile(dataUrl: string, prefix: string): string {
+  if (!dataUrl || typeof dataUrl !== 'string' || !dataUrl.startsWith('data:')) {
+    return dataUrl;
+  }
+  try {
+    const matches = dataUrl.match(/^data:([A-Za-z0-9-+/]+);base64,(.+)$/);
+    if (!matches || matches.length !== 3) {
+      return dataUrl;
+    }
+    const mimeType = matches[1];
+    const base64Data = matches[2];
+    let ext = 'bin';
+    if (mimeType.includes('audio/webm')) ext = 'webm';
+    else if (mimeType.includes('audio/mp3') || mimeType.includes('audio/mpeg')) ext = 'mp3';
+    else if (mimeType.includes('audio/wav')) ext = 'wav';
+    else if (mimeType.includes('audio/m4a') || mimeType.includes('audio/mp4') || mimeType.includes('audio/x-m4a')) ext = 'm4a';
+    else if (mimeType.includes('audio/aac')) ext = 'aac';
+    else if (mimeType.includes('audio/ogg')) ext = 'ogg';
+    else if (mimeType.includes('image/png')) ext = 'png';
+    else if (mimeType.includes('image/jpeg') || mimeType.includes('image/jpg')) ext = 'jpg';
+    else if (mimeType.includes('image/webp')) ext = 'webp';
+    else if (mimeType.includes('image/gif')) ext = 'gif';
+
+    const safePrefix = prefix.replace(/[^a-zA-Z0-9_-]/g, '_');
+    const fileName = `${safePrefix}_${Date.now()}_${Math.random().toString(36).substring(2, 7)}.${ext}`;
+    const filePath = path.join(UPLOADS_DIR, fileName);
+    const buffer = Buffer.from(base64Data, 'base64');
+    fs.writeFileSync(filePath, buffer);
+    console.log(`Saved media file permanently: ${fileName} (${(buffer.length / 1024).toFixed(1)} KB)`);
+    return `/uploads/${fileName}`;
+  } catch (err) {
+    console.error('Failed to save base64 media to file:', err);
+    return dataUrl;
+  }
+}
 
 function generateId(prefix: string = ''): string {
   return `${prefix}${Math.random().toString(36).substring(2, 9)}`;
@@ -682,18 +726,58 @@ app.post('/api/auth/verify-passcode', (req, res) => {
   return res.status(401).json({ success: false, error: 'Incorrect castle passcode.' });
 });
 
-// Admin Media Storage
+// Admin Media Storage & Uploads
+app.post('/api/admin/upload-media', (req, res) => {
+  try {
+    const { dataUrl, type, fileName: originalName, sceneId } = req.body;
+    if (!dataUrl) {
+      return res.status(400).json({ success: false, error: 'No dataUrl provided' });
+    }
+    const prefix = `${type || 'media'}_${sceneId || 'asset'}`;
+    const url = saveBase64MediaToFile(dataUrl, prefix);
+    res.json({ success: true, url, fileName: originalName || path.basename(url) });
+  } catch (err: any) {
+    console.error('Failed to upload media:', err);
+    res.status(500).json({ success: false, error: 'Failed to process media upload' });
+  }
+});
+
 app.get('/api/admin/media', async (req, res) => {
-  const media = await db.getMediaConfig();
-  res.json({ success: true, media });
+  try {
+    const media = await db.getMediaConfig();
+    res.json({ success: true, media: media || [] });
+  } catch (err: any) {
+    console.error('Failed to get media config:', err);
+    res.status(500).json({ success: false, error: 'Failed to retrieve media config' });
+  }
 });
 
 app.post('/api/admin/media', async (req, res) => {
   try {
-    await db.saveMediaConfig(req.body);
+    const rawScenes = req.body;
+    if (Array.isArray(rawScenes)) {
+      // Convert any lingering Base64 audio or image strings directly into persistent files on disk
+      const processed = rawScenes.map((scene: any) => {
+        const clean = { ...scene };
+        if (clean.customImageUrl && typeof clean.customImageUrl === 'string' && clean.customImageUrl.startsWith('data:')) {
+          clean.customImageUrl = saveBase64MediaToFile(clean.customImageUrl, `img_${clean.id}`);
+        }
+        if (clean.voiceClip && clean.voiceClip.audioUrl && typeof clean.voiceClip.audioUrl === 'string' && clean.voiceClip.audioUrl.startsWith('data:')) {
+          clean.voiceClip = {
+            ...clean.voiceClip,
+            audioUrl: saveBase64MediaToFile(clean.voiceClip.audioUrl, `audio_${clean.id}`),
+          };
+        }
+        return clean;
+      });
+      await db.saveMediaConfig(processed);
+      return res.json({ success: true, message: 'Media configuration saved.', media: processed });
+    }
+    await db.saveMediaConfig(rawScenes);
     res.json({ success: true, message: 'Media configuration saved.' });
   } catch (err: any) {
-    res.status(500).json({ error: 'Failed to write media config.' });
+    console.error('Failed to write media config:', err);
+    res.status(500).json({ success: false, error: 'Failed to write media config.' });
   }
 });
 
@@ -702,7 +786,7 @@ app.post('/api/admin/media/reset', async (req, res) => {
     await db.resetMediaConfig();
     res.json({ success: true, message: 'Media configuration reset.' });
   } catch (err: any) {
-    res.status(500).json({ error: 'Failed to reset media config.' });
+    res.status(500).json({ success: false, error: 'Failed to reset media config.' });
   }
 });
 
@@ -927,6 +1011,24 @@ app.post('/api/rooms/:code/action', async (req, res) => {
     }
 
     case 'ADVANCE_TO_MISSION': {
+      if (s.currentRound === 2 && !s.birthdayMajorityState) {
+        const assignedQ = BIRTHDAY_MAJORITY_QUESTION_POOL[0];
+        const faithfulList = Object.values(room.players).filter(p => p.id !== s.traitorId);
+        const targetFaithful = faithfulList.length > 0 ? faithfulList[Math.floor(Math.random() * faithfulList.length)] : undefined;
+        s.birthdayMajorityState = {
+          questions: BIRTHDAY_MAJORITY_QUESTION_POOL.slice(0, 5),
+          step: 'INITIAL_ANSWERS',
+          activeQuestionIndex: 0,
+          initialAnswers: {},
+          allInitialAnswersLocked: false,
+          predictions: {},
+          playerCorrectCount: {},
+          traitorTargetFaithfulId: targetFaithful?.id,
+          traitorTargetFaithfulName: targetFaithful?.name,
+          traitorAssignedQuestionId: assignedQ?.id || 1,
+          traitorAssignmentSuccess: false,
+        };
+      }
       const dialogue = await getDialogueForPhase('MISSION', s.currentRound);
       setPhaseWithTimer(s, 'MISSION', 420, dialogue);
       break;
@@ -1144,12 +1246,31 @@ app.post('/api/rooms/:code/action', async (req, res) => {
     // -------------------------------------------------------------------
     case 'SUBMIT_MAJORITY_INITIAL_ANSWER':
     case 'SUBMIT_MAJORITY_ANSWER': {
-      if (!s.birthdayMajorityState) break;
+      if (!s.birthdayMajorityState) {
+        const assignedQ = BIRTHDAY_MAJORITY_QUESTION_POOL[0];
+        const faithfulList = Object.values(room.players).filter(p => p.id !== s.traitorId);
+        const targetFaithful = faithfulList.length > 0 ? faithfulList[Math.floor(Math.random() * faithfulList.length)] : undefined;
+        s.birthdayMajorityState = {
+          questions: BIRTHDAY_MAJORITY_QUESTION_POOL.slice(0, 5),
+          step: 'INITIAL_ANSWERS',
+          activeQuestionIndex: 0,
+          initialAnswers: {},
+          allInitialAnswersLocked: false,
+          predictions: {},
+          playerCorrectCount: {},
+          traitorTargetFaithfulId: targetFaithful?.id,
+          traitorTargetFaithfulName: targetFaithful?.name,
+          traitorAssignedQuestionId: assignedQ?.id || 1,
+          traitorAssignmentSuccess: false,
+        };
+      }
+      const targetId = payload?.targetPlayerId || payload?.playerId;
       const actingPlayer =
-        (s.isDemoRoom && (payload?.targetPlayerId || payload?.playerId)
-          ? Object.values(room.players).find(p => p.id === (payload.targetPlayerId || payload.playerId))
-          : null) || player;
-      if (!actingPlayer) break;
+        (targetId ? Object.values(room.players).find(p => p.id === targetId) : null) || player;
+      if (!actingPlayer) {
+        console.warn('SUBMIT_MAJORITY_INITIAL_ANSWER: No acting player found');
+        break;
+      }
 
       const qId = parseInt(payload?.questionId, 10);
       const chosenName = (payload?.chosenName || payload?.name || '').trim();
@@ -1163,12 +1284,30 @@ app.post('/api/rooms/:code/action', async (req, res) => {
       }
 
       s.birthdayMajorityState.initialAnswers[actingPlayer.id][qId] = chosenName;
+      (s.birthdayMajorityState.initialAnswers[actingPlayer.id] as any)[String(qId)] = chosenName;
       recalculateMajorityResults(s, room.players);
       break;
     }
 
     case 'UPDATE_BIRTHDAY_MAJORITY': {
-      if (!s.birthdayMajorityState) break;
+      if (!s.birthdayMajorityState) {
+        const assignedQ = BIRTHDAY_MAJORITY_QUESTION_POOL[0];
+        const faithfulList = Object.values(room.players).filter(p => p.id !== s.traitorId);
+        const targetFaithful = faithfulList.length > 0 ? faithfulList[Math.floor(Math.random() * faithfulList.length)] : undefined;
+        s.birthdayMajorityState = {
+          questions: BIRTHDAY_MAJORITY_QUESTION_POOL.slice(0, 5),
+          step: 'INITIAL_ANSWERS',
+          activeQuestionIndex: 0,
+          initialAnswers: {},
+          allInitialAnswersLocked: false,
+          predictions: {},
+          playerCorrectCount: {},
+          traitorTargetFaithfulId: targetFaithful?.id,
+          traitorTargetFaithfulName: targetFaithful?.name,
+          traitorAssignedQuestionId: assignedQ?.id || 1,
+          traitorAssignmentSuccess: false,
+        };
+      }
       if (typeof payload?.activeQuestionIndex === 'number') {
         s.birthdayMajorityState.activeQuestionIndex = Math.max(
           0,
@@ -1846,7 +1985,25 @@ app.post('/api/rooms/:code/action', async (req, res) => {
     }
 
     case 'DEMO_SIMULATE_MAJORITY_ANSWERS': {
-      if (s.isDemoRoom && s.birthdayMajorityState) {
+      if (s.isDemoRoom) {
+        if (!s.birthdayMajorityState) {
+          const assignedQ = BIRTHDAY_MAJORITY_QUESTION_POOL[0];
+          const faithfulList = Object.values(room.players).filter(p => p.id !== s.traitorId);
+          const targetFaithful = faithfulList.length > 0 ? faithfulList[Math.floor(Math.random() * faithfulList.length)] : undefined;
+          s.birthdayMajorityState = {
+            questions: BIRTHDAY_MAJORITY_QUESTION_POOL.slice(0, 5),
+            step: 'INITIAL_ANSWERS',
+            activeQuestionIndex: 0,
+            initialAnswers: {},
+            allInitialAnswersLocked: false,
+            predictions: {},
+            playerCorrectCount: {},
+            traitorTargetFaithfulId: targetFaithful?.id,
+            traitorTargetFaithfulName: targetFaithful?.name,
+            traitorAssignedQuestionId: assignedQ?.id || 1,
+            traitorAssignmentSuccess: false,
+          };
+        }
         const qIndex = s.birthdayMajorityState.activeQuestionIndex || 0;
         const qId = s.birthdayMajorityState.questions[qIndex]?.id || (qIndex + 1);
         const pList = Object.values(room.players);
@@ -1860,6 +2017,7 @@ app.post('/api/rooms/:code/action', async (req, res) => {
           }
           const randomCandidate = pList[Math.floor(Math.random() * pList.length)];
           s.birthdayMajorityState!.initialAnswers[p.id][qId] = randomCandidate.name;
+          (s.birthdayMajorityState!.initialAnswers[p.id] as any)[String(qId)] = randomCandidate.name;
         });
 
         recalculateMajorityResults(s, room.players);

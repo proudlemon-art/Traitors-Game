@@ -176,6 +176,9 @@ class AdminMediaService {
   private scenes: Map<string, SceneMediaConfig> = new Map();
   private listeners: Set<() => void> = new Set();
   private isServerLoaded: boolean = false;
+  private isSaving: boolean = false;
+  private lastSavedAt: Date | null = null;
+  private saveError: string | null = null;
 
   constructor() {
     this.init();
@@ -199,35 +202,39 @@ class AdminMediaService {
     }
 
     // 2. Fetch authoritative permanent storage from server API
-    if (typeof window !== 'undefined') {
-      try {
-        const res = await fetch('/api/admin/media');
-        if (res.ok) {
-          const data = await res.json();
-          if (data.success && Array.isArray(data.media)) {
-            this.applySavedScenes(data.media);
-            this.isServerLoaded = true;
-            if (typeof localStorage !== 'undefined') {
-              localStorage.setItem(STORAGE_KEY, JSON.stringify(Array.from(this.scenes.values())));
-            }
-            this.notify();
-          }
+    await this.refreshFromServer();
+  }
+
+  public async refreshFromServer(): Promise<SceneMediaConfig[]> {
+    if (typeof window === 'undefined') return this.getAllScenes();
+    try {
+      const res = await fetch('/api/admin/media');
+      if (res.ok) {
+        const data = await res.json();
+        if (data.success && Array.isArray(data.media) && data.media.length > 0) {
+          this.applySavedScenes(data.media);
+          this.isServerLoaded = true;
+          this.persistToLocalStorage();
+          this.notify();
         }
-      } catch (err) {
-        console.warn('Could not fetch server admin media', err);
       }
+    } catch (err) {
+      console.warn('Could not refresh server admin media:', err);
     }
+    return this.getAllScenes();
   }
 
   private applySavedScenes(savedList: SceneMediaConfig[]) {
+    if (!Array.isArray(savedList)) return;
     savedList.forEach(saved => {
+      if (!saved || !saved.id) return;
       const existing = this.scenes.get(saved.id);
       if (existing) {
         this.scenes.set(saved.id, {
           ...existing,
-          customText: saved.customText,
-          customImageUrl: saved.customImageUrl,
-          voiceClip: saved.voiceClip,
+          customText: saved.customText ?? existing.customText,
+          customImageUrl: saved.customImageUrl ?? existing.customImageUrl,
+          voiceClip: saved.voiceClip ?? existing.voiceClip,
         });
       } else {
         this.scenes.set(saved.id, saved);
@@ -235,30 +242,101 @@ class AdminMediaService {
     });
   }
 
-  private save() {
-    const data = Array.from(this.scenes.values());
-
-    // 1. Save to localStorage
-    if (typeof localStorage !== 'undefined') {
+  private persistToLocalStorage() {
+    if (typeof localStorage === 'undefined') return;
+    try {
+      const data = Array.from(this.scenes.values());
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+    } catch (err) {
+      // If quota is tight due to large data URLs, strip them in localStorage fallback
       try {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
-      } catch (err) {
-        console.warn('Failed to save admin media to localStorage', err);
+        const sanitized = Array.from(this.scenes.values()).map(s => ({
+          ...s,
+          customImageUrl: s.customImageUrl?.startsWith('data:') ? undefined : s.customImageUrl,
+          voiceClip: s.voiceClip?.audioUrl?.startsWith('data:') ? undefined : s.voiceClip,
+        }));
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(sanitized));
+      } catch (innerErr) {
+        console.warn('LocalStorage save failed:', innerErr);
+      }
+    }
+  }
+
+  public async save(): Promise<boolean> {
+    const data = Array.from(this.scenes.values());
+    this.isSaving = true;
+    this.saveError = null;
+    this.notify();
+
+    // 1. Save to localStorage cache
+    this.persistToLocalStorage();
+
+    // 2. Save permanently to server disk via REST API
+    let success = false;
+    if (typeof window !== 'undefined') {
+      try {
+        const res = await fetch('/api/admin/media', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(data),
+        });
+        if (res.ok) {
+          const resData = await res.json();
+          if (resData.success) {
+            success = true;
+            this.lastSavedAt = new Date();
+            // If server converted raw base64 data to static /uploads/ URLs, update local store
+            if (Array.isArray(resData.media)) {
+              this.applySavedScenes(resData.media);
+              this.persistToLocalStorage();
+            }
+          } else {
+            this.saveError = resData.error || 'Server rejected save';
+          }
+        } else {
+          this.saveError = `Server returned status ${res.status}`;
+        }
+      } catch (err: any) {
+        console.warn('Could not permanently persist media to server disk', err);
+        this.saveError = err?.message || 'Network error saving media';
       }
     }
 
-    // 2. Save permanently to server disk via REST API
-    if (typeof window !== 'undefined') {
-      fetch('/api/admin/media', {
+    this.isSaving = false;
+    this.notify();
+    return success;
+  }
+
+  public async uploadMedia(dataUrl: string, type: 'audio' | 'image', fileName: string, sceneId: string): Promise<string> {
+    if (typeof window === 'undefined') return dataUrl;
+    try {
+      const res = await fetch('/api/admin/upload-media', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data),
-      }).catch(err => {
-        console.warn('Could not permanently persist media to server disk', err);
+        body: JSON.stringify({ dataUrl, type, fileName, sceneId }),
       });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.success && data.url) {
+          return data.url;
+        }
+      }
+    } catch (err) {
+      console.warn('Direct upload endpoint failed, falling back to inline dataUrl:', err);
     }
+    return dataUrl;
+  }
 
-    this.notify();
+  public isCurrentlySaving(): boolean {
+    return this.isSaving;
+  }
+
+  public getLastSavedAt(): Date | null {
+    return this.lastSavedAt;
+  }
+
+  public getSaveError(): string | null {
+    return this.saveError;
   }
 
   public subscribe(listener: () => void): () => void {

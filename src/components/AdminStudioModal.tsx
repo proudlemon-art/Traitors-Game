@@ -30,6 +30,7 @@ import {
   Link,
   ChevronRight,
   Radio,
+  Loader2,
 } from 'lucide-react';
 
 interface Props {
@@ -96,6 +97,15 @@ export const AdminStudioModal: React.FC<Props> = ({
     const unsub = adminMediaService.subscribe(update);
     return unsub;
   }, []);
+
+  // Fetch authoritative state from server whenever studio is opened
+  useEffect(() => {
+    if (isOpen) {
+      adminMediaService.refreshFromServer().then(fresh => {
+        setScenes(fresh);
+      });
+    }
+  }, [isOpen]);
 
   useEffect(() => {
     if (initialSceneId) {
@@ -169,18 +179,27 @@ export const AdminStudioModal: React.FC<Props> = ({
 
       mediaRecorder.onstop = () => {
         const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
+        showNotification('Writing audio clip to persistent storage...');
         const reader = new FileReader();
-        reader.onloadend = () => {
+        reader.onloadend = async () => {
           const base64Url = reader.result as string;
+          const fileName = `Mic_Recording_${selectedScene.id}.webm`;
+          const savedUrl = await adminMediaService.uploadMedia(
+            base64Url,
+            'audio',
+            fileName,
+            selectedScene.id
+          );
           const clip: VoiceClipData = {
-            audioUrl: base64Url,
-            fileName: `Mic_Recording_${selectedScene.id}.webm`,
+            audioUrl: savedUrl,
+            fileName,
             durationSec: recordingSeconds,
             recordedAt: new Date().toLocaleTimeString(),
             isRecorded: true,
           };
           adminMediaService.setSceneVoiceClip(selectedScene.id, clip);
-          showNotification('Microphone voice clip saved!');
+          await adminMediaService.save();
+          showNotification('Microphone voice clip permanently saved!');
         };
         reader.readAsDataURL(audioBlob);
 
@@ -220,25 +239,34 @@ export const AdminStudioModal: React.FC<Props> = ({
     const file = e.target.files?.[0];
     if (!file) return;
 
+    showNotification(`Uploading audio: ${file.name}...`);
     const reader = new FileReader();
-    reader.onload = ev => {
+    reader.onload = async ev => {
       const base64Url = ev.target?.result as string;
+      const savedUrl = await adminMediaService.uploadMedia(
+        base64Url,
+        'audio',
+        file.name,
+        selectedScene.id
+      );
       const clip: VoiceClipData = {
-        audioUrl: base64Url,
+        audioUrl: savedUrl,
         fileName: file.name,
         recordedAt: new Date().toLocaleTimeString(),
         isRecorded: false,
       };
       adminMediaService.setSceneVoiceClip(selectedScene.id, clip);
-      showNotification(`Uploaded voice clip: ${file.name}`);
+      await adminMediaService.save();
+      showNotification(`Voice clip permanently saved: ${file.name}`);
     };
     reader.readAsDataURL(file);
     e.target.value = '';
   };
 
-  const handleRemoveVoiceClip = () => {
+  const handleRemoveVoiceClip = async () => {
     stopAudioPreview();
     adminMediaService.removeSceneVoiceClip(selectedScene.id);
+    await adminMediaService.save();
     showNotification('Voice clip removed.');
   };
 
@@ -249,16 +277,18 @@ export const AdminStudioModal: React.FC<Props> = ({
     adminMediaService.updateSceneText(selectedScene.id, e.target.value);
   };
 
-  const handleResetText = () => {
+  const handleResetText = async () => {
     adminMediaService.resetSceneText(selectedScene.id);
+    await adminMediaService.save();
     showNotification('Script text reset to default.');
   };
 
   // ----------------------------------------------------
   // Image Customization
   // ----------------------------------------------------
-  const handleSelectPresetImage = (url: string) => {
+  const handleSelectPresetImage = async (url: string) => {
     adminMediaService.updateSceneImage(selectedScene.id, url);
+    await adminMediaService.save();
     showNotification('Scene visual updated from castle gallery.');
   };
 
@@ -266,27 +296,37 @@ export const AdminStudioModal: React.FC<Props> = ({
     const file = e.target.files?.[0];
     if (!file) return;
 
+    showNotification(`Uploading image: ${file.name}...`);
     const reader = new FileReader();
-    reader.onload = ev => {
+    reader.onload = async ev => {
       const base64Url = ev.target?.result as string;
-      adminMediaService.updateSceneImage(selectedScene.id, base64Url);
-      showNotification(`Uploaded custom image: ${file.name}`);
+      const savedUrl = await adminMediaService.uploadMedia(
+        base64Url,
+        'image',
+        file.name,
+        selectedScene.id
+      );
+      adminMediaService.updateSceneImage(selectedScene.id, savedUrl);
+      await adminMediaService.save();
+      showNotification(`Custom image permanently saved: ${file.name}`);
     };
     reader.readAsDataURL(file);
     e.target.value = '';
   };
 
-  const handleResetImage = () => {
+  const handleResetImage = async () => {
     adminMediaService.resetSceneImage(selectedScene.id);
+    await adminMediaService.save();
     showNotification('Scene image reset to default.');
   };
 
   // ----------------------------------------------------
   // Scene Reset
   // ----------------------------------------------------
-  const handleResetCurrentScene = () => {
+  const handleResetCurrentScene = async () => {
     stopAudioPreview();
     adminMediaService.resetScene(selectedScene.id);
+    await adminMediaService.save();
     showNotification(`Reset ${selectedScene.title} to default settings.`);
   };
 
@@ -869,12 +909,13 @@ export const AdminStudioModal: React.FC<Props> = ({
                     <input
                       type="url"
                       placeholder="Or paste external image URL..."
-                      onKeyDown={e => {
+                      onKeyDown={async e => {
                         if (e.key === 'Enter') {
                           const val = (e.target as HTMLInputElement).value;
                           if (val.trim()) {
                             adminMediaService.updateSceneImage(selectedScene.id, val.trim());
-                            showNotification('Image URL saved.');
+                            await adminMediaService.save();
+                            showNotification('Image URL permanently saved.');
                           }
                         }
                       }}
@@ -915,14 +956,36 @@ export const AdminStudioModal: React.FC<Props> = ({
         </div>
 
         {/* Footer Bar */}
-        <div className="bg-zinc-900/90 border-t border-amber-900/40 px-6 py-3 flex items-center justify-between text-xs text-zinc-400">
-          <span className="font-mono">
-            All edits saved automatically to castle storage
-          </span>
+        <div className="bg-zinc-900/95 border-t border-amber-900/40 px-6 py-3 flex items-center justify-between text-xs text-zinc-400">
+          <div className="flex items-center gap-2 font-mono">
+            {adminMediaService.isCurrentlySaving() ? (
+              <span className="flex items-center gap-2 text-amber-300">
+                <Loader2 className="w-3.5 h-3.5 animate-spin text-amber-400" />
+                Saving to castle disk vault...
+              </span>
+            ) : adminMediaService.getSaveError() ? (
+              <span className="flex items-center gap-1.5 text-rose-400">
+                <X className="w-3.5 h-3.5" />
+                {adminMediaService.getSaveError()}
+              </span>
+            ) : (
+              <span className="flex items-center gap-1.5 text-emerald-400">
+                <Check className="w-3.5 h-3.5" />
+                All media edits permanently saved to disk
+              </span>
+            )}
+          </div>
           <button
-            onClick={onClose}
-            className="px-6 py-2 bg-amber-600 hover:bg-amber-500 text-black font-serif font-bold uppercase tracking-wider text-xs rounded transition-all shadow"
+            onClick={async () => {
+              if (adminMediaService.isCurrentlySaving()) {
+                showNotification('Finalizing castle vault saves...');
+              }
+              await adminMediaService.save();
+              onClose();
+            }}
+            className="px-6 py-2 bg-amber-600 hover:bg-amber-500 text-black font-serif font-bold uppercase tracking-wider text-xs rounded transition-all shadow flex items-center gap-1.5"
           >
+            <Check className="w-3.5 h-3.5" />
             Save & Exit Studio
           </button>
         </div>

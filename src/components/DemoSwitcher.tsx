@@ -148,6 +148,17 @@ export const DemoSwitcher: React.FC<Props> = ({ state, currentRoleView, onSelect
             </button>
           )}
 
+          {/* Birthday Majority (Round 2): Simulate all 7 answers */}
+          {state.currentRound === 2 && state.phase === 'MISSION' && (
+            <button
+              onClick={handleSimulateMajorityAnswers}
+              className="py-1 px-2.5 bg-amber-600/30 hover:bg-amber-600/50 border border-amber-500/60 text-amber-300 text-[11px] font-mono rounded flex items-center gap-1"
+            >
+              <Zap className="w-3 h-3 text-amber-400" />
+              Auto-Vote All 7 Answers
+            </button>
+          )}
+
           {/* Voting Phases */}
           {(state.phase === 'VOTING' ||
             state.phase === 'TIE_VOTING' ||

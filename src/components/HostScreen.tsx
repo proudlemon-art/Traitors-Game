@@ -266,6 +266,11 @@ export const HostScreen: React.FC<Props> = ({
           onOpenAdminStudio={onOpenAdminStudio}
         />
 
+        {/* Small Leaderboard for Previous Rounds (Always on Host Screen during game) */}
+        {state.phase !== 'LOBBY' && (
+          <PreviousRoundsLeaderboard state={state} />
+        )}
+
         {/* PHASE: LOBBY */}
         {state.phase === 'LOBBY' && (
           <div className="grid md:grid-cols-2 gap-8 items-center max-w-5xl mx-auto bg-zinc-950/90 border border-amber-900/50 p-6 md:p-10 rounded-xl shadow-2xl">

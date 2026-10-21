@@ -36,11 +36,12 @@ export const BirthdayMajorityMission: React.FC<Props> = ({ state, isHostDisplay,
   };
 
   const demoPlayer = DEMO_PLAYERS.find(p => p.token === playerToken);
-  const effectivePlayerId = demoPlayer?.id || state.myPlayerId;
+  const effectivePlayerId = demoPlayer?.id || state.myPlayerId || state.players[0]?.id;
   const isTraitor = state.myRole === 'TRAITOR';
 
   // Local active question state for mobile view (allows player to jump between Q1-Q5 independently)
   const [localQuestionIdx, setLocalQuestionIdx] = useState<number | null>(null);
+  const [optimisticVotes, setOptimisticVotes] = useState<Record<number, string>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // On host, use shared activeQuestionIndex; on player, default to shared or local tab
@@ -53,12 +54,18 @@ export const BirthdayMajorityMission: React.FC<Props> = ({ state, isHostDisplay,
     majorityState.questions[0] ||
     BIRTHDAY_MAJORITY_QUESTION_POOL[0];
 
-  const myAnswers =
+  const serverAnswers =
     (majorityState.initialAnswers && effectivePlayerId && majorityState.initialAnswers[effectivePlayerId]) || {};
-  const currentVote = myAnswers[activeQuestion.id];
+  const myAnswers: Record<number | string, string> = {
+    ...serverAnswers,
+    ...optimisticVotes,
+  };
+  const currentVote = myAnswers[activeQuestion.id] || myAnswers[String(activeQuestion.id)];
 
   // Actions
   const handleSelectInitialAnswer = async (questionId: number, chosenName: string) => {
+    // 1. Instantly store in optimistic local state for instant responsive UI feedback
+    setOptimisticVotes(prev => ({ ...prev, [questionId]: chosenName }));
     setIsSubmitting(true);
     try {
       await api.sendAction(
@@ -67,6 +74,8 @@ export const BirthdayMajorityMission: React.FC<Props> = ({ state, isHostDisplay,
         { questionId, chosenName, targetPlayerId: effectivePlayerId },
         playerToken
       );
+    } catch (err) {
+      console.error('Failed to submit majority answer:', err);
     } finally {
       setIsSubmitting(false);
     }
@@ -170,7 +179,7 @@ export const BirthdayMajorityMission: React.FC<Props> = ({ state, isHostDisplay,
           <div className="flex items-center justify-between text-[11px] font-mono uppercase tracking-widest text-amber-400">
             <span>Question {activeIndex + 1} of 5</span>
             <span className="text-zinc-400">
-              {totalAnsweredByMe}/5 Answered
+              Your Progress: {totalAnsweredByMe} / 5
             </span>
           </div>
 
