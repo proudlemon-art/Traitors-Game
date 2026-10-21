@@ -199,7 +199,7 @@ function recalculateMajorityResults(s: GameState, playersMap: Record<string, Pla
     const votesCount: Record<string, number> = {};
 
     Object.entries(initialAnswers).forEach(([_, answers]) => {
-      const chosen = answers[qId];
+      const chosen = (answers as any)[qId] || (answers as any)[String(qId)];
       if (chosen) {
         votesCount[chosen] = (votesCount[chosen] || 0) + 1;
       }
@@ -220,7 +220,7 @@ function recalculateMajorityResults(s: GameState, playersMap: Record<string, Pla
 
     if (maxVotes > 0 && topNames.length > 0) {
       Object.entries(initialAnswers).forEach(([pId, answers]) => {
-        const chosen = answers[qId];
+        const chosen = (answers as any)[qId] || (answers as any)[String(qId)];
         if (chosen && topNames.includes(chosen)) {
           correctCounts[pId] = (correctCounts[pId] || 0) + 1;
         }
@@ -233,7 +233,7 @@ function recalculateMajorityResults(s: GameState, playersMap: Record<string, Pla
 
   if (bState.traitorTargetFaithfulId && bState.traitorAssignedQuestionId) {
     const targetAnswers = initialAnswers[bState.traitorTargetFaithfulId];
-    const targetChoice = targetAnswers?.[bState.traitorAssignedQuestionId];
+    const targetChoice = (targetAnswers as any)?.[bState.traitorAssignedQuestionId] || (targetAnswers as any)?.[String(bState.traitorAssignedQuestionId)];
     const qResult = questionResults[bState.traitorAssignedQuestionId];
     if (targetChoice && qResult && qResult.topNames.length > 0) {
       bState.traitorAssignmentSuccess = !qResult.topNames.includes(targetChoice);
@@ -636,6 +636,11 @@ function recordRoundOutcome(
   banishedId: string | null,
   wasTraitor: boolean
 ) {
+  // Prevent duplicate recording if this round was already recorded
+  if (s.roundHistory.some(h => h.roundNumber === s.currentRound)) {
+    return;
+  }
+
   const players = Object.values(playersMap);
   const traitor = players.find(p => p.id === s.traitorId);
   const banished = banishedId ? players.find(p => p.id === banishedId) : null;
@@ -1274,6 +1279,7 @@ app.post('/api/rooms/:code/action', async (req, res) => {
     // -------------------------------------------------------------------
     // MISSION 2: BIRTHDAY MAJORITY ACTIONS
     // -------------------------------------------------------------------
+    case 'SUBMIT_MAJORITY_INITIAL_ANSWER':
     case 'MAJORITY_SUBMIT_ANSWER': {
       if (!s.birthdayMajorityState) break;
       const actingPlayer =
@@ -1294,6 +1300,18 @@ app.post('/api/rooms/:code/action', async (req, res) => {
       s.birthdayMajorityState.initialAnswers[actingPlayer.id][questionId] = chosenName;
       (s.birthdayMajorityState.initialAnswers[actingPlayer.id] as any)[String(questionId)] = chosenName;
 
+      recalculateMajorityResults(s, room.players);
+      break;
+    }
+
+    case 'UPDATE_BIRTHDAY_MAJORITY': {
+      if (!s.birthdayMajorityState) break;
+      if (typeof payload?.activeQuestionIndex === 'number') {
+        s.birthdayMajorityState.activeQuestionIndex = payload.activeQuestionIndex;
+      }
+      if (payload?.step) {
+        s.birthdayMajorityState.step = payload.step;
+      }
       recalculateMajorityResults(s, room.players);
       break;
     }
@@ -1445,6 +1463,7 @@ app.post('/api/rooms/:code/action', async (req, res) => {
     }
 
     case 'FINISH_PHONE_SLATE': {
+      if (s.phase !== 'VOTE_REVEALS' && s.phase !== 'TIE_REVEALS') break;
       const activePlayerId = s.seatingOrder[s.currentRevealIndex];
       const revealingPlayer = Object.values(room.players).find(p => p.id === activePlayerId);
       if (revealingPlayer) {
@@ -2073,23 +2092,83 @@ app.post('/api/rooms/:code/action', async (req, res) => {
             traitorAssignmentSuccess: false,
           };
         }
-        const qIndex = s.birthdayMajorityState.activeQuestionIndex || 0;
-        const qId = s.birthdayMajorityState.questions[qIndex]?.id || (qIndex + 1);
         const pList = Object.values(room.players);
         if (!s.birthdayMajorityState.initialAnswers) {
           s.birthdayMajorityState.initialAnswers = {};
         }
 
-        pList.forEach(p => {
-          if (!s.birthdayMajorityState!.initialAnswers[p.id]) {
-            s.birthdayMajorityState!.initialAnswers[p.id] = {};
-          }
-          const randomCandidate = pList[Math.floor(Math.random() * pList.length)];
-          s.birthdayMajorityState!.initialAnswers[p.id][qId] = randomCandidate.name;
-          (s.birthdayMajorityState!.initialAnswers[p.id] as any)[String(qId)] = randomCandidate.name;
+        const isAllQuestions = !!payload?.allQuestions;
+        const questionsToFill = isAllQuestions
+          ? s.birthdayMajorityState.questions
+          : [s.birthdayMajorityState.questions[s.birthdayMajorityState.activeQuestionIndex || 0] || s.birthdayMajorityState.questions[0]];
+
+        questionsToFill.forEach(q => {
+          const qId = q.id;
+          // Create clear consensus picks per question
+          const favoriteCandidate = pList[qId % pList.length];
+          const runnerUp = pList[(qId + 2) % pList.length];
+
+          pList.forEach((p, pIdx) => {
+            if (!s.birthdayMajorityState!.initialAnswers[p.id]) {
+              s.birthdayMajorityState!.initialAnswers[p.id] = {};
+            }
+            let choice = favoriteCandidate.name;
+            if (pIdx === 4 || pIdx === 5) choice = runnerUp.name;
+            else if (pIdx === 6) choice = pList[(pIdx + 3) % pList.length].name;
+
+            s.birthdayMajorityState!.initialAnswers[p.id][qId] = choice;
+            (s.birthdayMajorityState!.initialAnswers[p.id] as any)[String(qId)] = choice;
+          });
         });
 
         recalculateMajorityResults(s, room.players);
+      }
+      break;
+    }
+
+    case 'DEMO_SKIP_MAJORITY_MISSION': {
+      if (s.isDemoRoom) {
+        if (!s.birthdayMajorityState) {
+          s.birthdayMajorityState = {
+            questions: BIRTHDAY_MAJORITY_QUESTION_POOL.slice(0, 5),
+            step: 'INITIAL_ANSWERS',
+            activeQuestionIndex: 0,
+            initialAnswers: {},
+            allInitialAnswersLocked: false,
+            predictions: {},
+            playerCorrectCount: {},
+          };
+        }
+        const pList = Object.values(room.players);
+        if (!s.birthdayMajorityState.initialAnswers) {
+          s.birthdayMajorityState.initialAnswers = {};
+        }
+
+        s.birthdayMajorityState.questions.forEach(q => {
+          const qId = q.id;
+          const favoriteCandidate = pList[qId % pList.length];
+          const runnerUp = pList[(qId + 2) % pList.length];
+
+          pList.forEach((p, pIdx) => {
+            if (!s.birthdayMajorityState!.initialAnswers[p.id]) {
+              s.birthdayMajorityState!.initialAnswers[p.id] = {};
+            }
+            let choice = favoriteCandidate.name;
+            if (pIdx === 4 || pIdx === 5) choice = runnerUp.name;
+            else if (pIdx === 6) choice = pList[(pIdx + 3) % pList.length].name;
+
+            s.birthdayMajorityState!.initialAnswers[p.id][qId] = choice;
+            (s.birthdayMajorityState!.initialAnswers[p.id] as any)[String(qId)] = choice;
+          });
+        });
+
+        s.birthdayMajorityState.allInitialAnswersLocked = true;
+        s.birthdayMajorityState.step = 'COMPLETED';
+        recalculateMajorityResults(s, room.players);
+
+        // Advance straight to Round Table debate
+        const dialogue = await getDialogueForPhase('ROUND_TABLE', s.currentRound);
+        setPhaseWithTimer(s, 'ROUND_TABLE', 480, dialogue);
       }
       break;
     }

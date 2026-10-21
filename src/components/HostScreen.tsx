@@ -4,7 +4,7 @@ import { ClientGameState } from '../types/game';
 import { api } from '../services/api';
 import { audioHost } from '../services/audioHost';
 import { ClaudiaBroadcastVideo } from './ClaudiaBroadcastVideo';
-import { PreviousRoundsLeaderboard } from './PreviousRoundsLeaderboard';
+import { HostSidebarLeaderboard } from './HostSidebarLeaderboard';
 import { ExhibitAMission } from './Missions/ExhibitAMission';
 import { BirthdayMajorityMission } from './Missions/BirthdayMajorityMission';
 import { BodyDisposalMission } from './Missions/BodyDisposalMission';
@@ -254,26 +254,22 @@ export const HostScreen: React.FC<Props> = ({
       </header>
 
       {/* 2. MAIN HOST ARENA */}
-      <main className="flex-1 max-w-7xl w-full mx-auto p-4 md:p-8 flex flex-col justify-center space-y-6">
-        {/* Cinematic Claudia Television Broadcast Video Frame */}
-        <ClaudiaBroadcastVideo
-          caption={caption}
-          phase={state.phase}
-          currentRound={state.currentRound}
-          isHostAudioUnlocked={audioUnlocked}
-          onUnlockAudio={handleUnlockAudio}
-          isAdminModeOn={isAdminMode}
-          onOpenAdminStudio={onOpenAdminStudio}
-        />
+      <main className="flex-1 max-w-[1700px] w-full mx-auto p-4 md:p-6 lg:p-8 flex flex-col justify-center space-y-6">
+        {state.phase === 'LOBBY' ? (
+          <>
+            {/* Cinematic Claudia Television Broadcast Video Frame in Lobby */}
+            <ClaudiaBroadcastVideo
+              caption={caption}
+              phase={state.phase}
+              currentRound={state.currentRound}
+              isHostAudioUnlocked={audioUnlocked}
+              onUnlockAudio={handleUnlockAudio}
+              isAdminModeOn={isAdminMode}
+              onOpenAdminStudio={onOpenAdminStudio}
+            />
 
-        {/* Small Leaderboard for Previous Rounds (Always on Host Screen during game) */}
-        {state.phase !== 'LOBBY' && (
-          <PreviousRoundsLeaderboard state={state} />
-        )}
-
-        {/* PHASE: LOBBY */}
-        {state.phase === 'LOBBY' && (
-          <div className="grid md:grid-cols-2 gap-8 items-center max-w-5xl mx-auto bg-zinc-950/90 border border-amber-900/50 p-6 md:p-10 rounded-xl shadow-2xl">
+            {/* PHASE: LOBBY */}
+            <div className="grid md:grid-cols-2 gap-8 items-center max-w-5xl mx-auto bg-zinc-950/90 border border-amber-900/50 p-6 md:p-10 rounded-xl shadow-2xl">
             {/* Left: QR Code & Join Info */}
             <div className="space-y-4 text-center md:text-left">
               <span className="text-xs uppercase tracking-widest text-amber-500 font-mono">
@@ -370,7 +366,21 @@ export const HostScreen: React.FC<Props> = ({
               </div>
             </div>
           </div>
-        )}
+        </>
+      ) : (
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start w-full">
+          {/* Primary Center/Left Stage: Broadcast & Current Phase */}
+          <div className="lg:col-span-8 xl:col-span-9 space-y-6 min-w-0">
+            {/* Cinematic Claudia Television Broadcast Video Frame */}
+            <ClaudiaBroadcastVideo
+              caption={caption}
+              phase={state.phase}
+              currentRound={state.currentRound}
+              isHostAudioUnlocked={audioUnlocked}
+              onUnlockAudio={handleUnlockAudio}
+              isAdminModeOn={isAdminMode}
+              onOpenAdminStudio={onOpenAdminStudio}
+            />
 
         {/* PHASE: INTRO */}
         {state.phase === 'INTRO' && (
@@ -1247,10 +1257,18 @@ export const HostScreen: React.FC<Props> = ({
                   <CheckCircle2 className="w-4 h-4" /> Forfeit has been solemnised. Long live Libby and Jasmine!
                 </div>
               )}
+              </div>
             </div>
-          </div>
-        )}
-      </main>
+          )}
+        </div>
+
+        {/* Permanent Leaderboard on Side of Host Screen */}
+        <div className="lg:col-span-4 xl:col-span-3 sticky top-4 space-y-4">
+          <HostSidebarLeaderboard state={state} />
+        </div>
+      </div>
+    )}
+  </main>
 
       {/* 3. FOOTER */}
       <footer className="border-t border-amber-900/40 p-3 bg-black/90 text-center text-xs text-zinc-500 font-mono">
