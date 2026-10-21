@@ -1,6 +1,6 @@
 import React from 'react';
 import { ClientGameState } from '../types/game';
-import { Trophy } from 'lucide-react';
+import { Trophy, Award } from 'lucide-react';
 
 interface Props {
   state: ClientGameState;
@@ -8,34 +8,36 @@ interface Props {
 
 export const PreviousRoundsLeaderboard: React.FC<Props> = ({ state }) => {
   const currentRound = state.currentRound || 1;
-  const previousRounds = (state.roundHistory || []).filter(r => r.roundNumber < currentRound);
+  const completedRounds = state.roundHistory || [];
+  const hasCompletedRounds = completedRounds.length > 0;
 
-  // Compute total points strictly for rounds prior to the current active round
+  // Compute total points and round-by-round breakdown for all seated players
   const playerRankings = state.players.map(p => {
-    let priorScore = 0;
     const roundByRoundPoints: Record<number, number> = {};
+    let calculatedTotal = 0;
 
-    previousRounds.forEach(r => {
+    completedRounds.forEach(r => {
       const roundPts =
-        (r.roundScores && r.roundScores[p.id] !== undefined)
+        r.roundScores && r.roundScores[p.id] !== undefined
           ? r.roundScores[p.id]
           : (r.scoreBreakdown?.[p.id]?.totalRoundPoints ?? 0);
-      priorScore += roundPts;
       roundByRoundPoints[r.roundNumber] = roundPts;
+      calculatedTotal += roundPts;
     });
+
+    const displayScore = p.score !== undefined ? p.score : calculatedTotal;
 
     return {
       id: p.id,
       name: p.name,
       seatNumber: p.seatNumber,
       isRoomCreator: p.isRoomCreator,
-      priorScore,
+      displayScore,
       roundByRoundPoints,
     };
-  }).sort((a, b) => b.priorScore - a.priorScore || a.seatNumber - b.seatNumber);
+  }).sort((a, b) => b.displayScore - a.displayScore || a.seatNumber - b.seatNumber);
 
-  const highestScore = playerRankings.length > 0 ? playerRankings[0].priorScore : 0;
-  const hasPriorRounds = previousRounds.length > 0;
+  const highestScore = playerRankings.length > 0 ? playerRankings[0].displayScore : 0;
 
   return (
     <div className="w-full bg-zinc-950/90 border border-amber-900/50 rounded-xl px-4 py-2.5 shadow-lg backdrop-blur">
@@ -45,19 +47,19 @@ export const PreviousRoundsLeaderboard: React.FC<Props> = ({ state }) => {
             <Trophy className="w-3.5 h-3.5" />
           </div>
           <span className="font-serif font-bold text-xs uppercase tracking-wider text-amber-200">
-            {hasPriorRounds
-              ? `Prior Standings (Rounds 1${previousRounds.length > 1 ? `–${previousRounds.length}` : ''})`
-              : 'Prior Standings (No Previous Rounds Completed)'}
+            {hasCompletedRounds
+              ? `Castle Leaderboard (${completedRounds.length === 1 ? 'Round 1' : `Rounds 1–${completedRounds.length}`} Recorded)`
+              : 'Castle Leaderboard (Round 1 in Progress)'}
           </span>
         </div>
 
         <span className="text-[11px] font-mono text-zinc-400">
-          {hasPriorRounds ? (
+          {hasCompletedRounds ? (
             <span>
-              Locked prior scores · <strong className="text-amber-400">Round {currentRound}</strong> points tally upon its banishment
+              Live standings · <strong className="text-amber-400">Round {currentRound}</strong> points tally upon its banishment
             </span>
           ) : (
-            <span>Round 1 in progress · Scores record after banishment</span>
+            <span>All 7 players seated · Round 1 points record upon banishment</span>
           )}
         </span>
       </div>
@@ -65,7 +67,7 @@ export const PreviousRoundsLeaderboard: React.FC<Props> = ({ state }) => {
       {/* Compact Horizontal Grid of All 7 Players */}
       <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-7 gap-2">
         {playerRankings.map((p, idx) => {
-          const isLeader = hasPriorRounds && highestScore > 0 && p.priorScore === highestScore;
+          const isLeader = hasCompletedRounds && highestScore > 0 && p.displayScore === highestScore;
           const medal = idx === 0 ? '🥇' : idx === 1 ? '🥈' : idx === 2 ? '🥉' : `#${idx + 1}`;
 
           return (
@@ -87,9 +89,24 @@ export const PreviousRoundsLeaderboard: React.FC<Props> = ({ state }) => {
                   {p.name}
                 </span>
                 <span className="font-mono font-bold text-amber-300 text-xs shrink-0">
-                  {p.priorScore} <span className="text-[10px] text-zinc-400 font-normal">pts</span>
+                  {p.displayScore} <span className="text-[10px] text-zinc-400 font-normal">pts</span>
                 </span>
               </div>
+
+              {/* Round-by-round point badges if completed rounds exist */}
+              {hasCompletedRounds && (
+                <div className="flex items-center gap-1 mt-1 pt-1 border-t border-zinc-800/60 text-[9px] font-mono overflow-x-auto">
+                  {completedRounds.map(r => (
+                    <span
+                      key={r.roundNumber}
+                      className="px-1 py-0.2 rounded bg-zinc-800/80 text-zinc-400 whitespace-nowrap"
+                      title={`Round ${r.roundNumber}: ${p.roundByRoundPoints[r.roundNumber] ?? 0} pts`}
+                    >
+                      R{r.roundNumber}:{p.roundByRoundPoints[r.roundNumber] ?? 0}
+                    </span>
+                  ))}
+                </div>
+              )}
             </div>
           );
         })}

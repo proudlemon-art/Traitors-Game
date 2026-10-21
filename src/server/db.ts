@@ -1,7 +1,7 @@
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import fs from 'fs';
 import path from 'path';
-import type { GameState, Player } from '../types/game.ts';
+import type { GameState, Player } from '../types/game';
 
 export interface RoomRecord {
   code: string;
@@ -37,18 +37,29 @@ class DatabaseService {
       console.log('ℹ️ No SUPABASE_URL configured — using persistent local file storage.');
     }
 
-    // Local fallback path
+    // Try determining writable local directory: prefer data/ if writable, fallback to /tmp
     this.localFallbackPath = path.resolve('data');
+    let isDataDirWritable = false;
     try {
       if (!fs.existsSync(this.localFallbackPath)) {
         fs.mkdirSync(this.localFallbackPath, { recursive: true });
       }
-      this.loadLocalData();
+      fs.accessSync(this.localFallbackPath, fs.constants.W_OK);
+      isDataDirWritable = true;
     } catch {
-      // In read-only serverless environments without Supabase, use /tmp
-      this.localFallbackPath = '/tmp';
-      this.loadLocalData();
+      isDataDirWritable = false;
     }
+
+    if (!isDataDirWritable) {
+      this.localFallbackPath = '/tmp';
+      try {
+        if (!fs.existsSync(this.localFallbackPath)) {
+          fs.mkdirSync(this.localFallbackPath, { recursive: true });
+        }
+      } catch {}
+    }
+
+    this.loadLocalData();
   }
 
   private getRoomFilePath(code: string): string {
@@ -62,9 +73,10 @@ class DatabaseService {
   private loadLocalData() {
     try {
       const candidates = [
+        path.join(this.localFallbackPath, 'admin_media_config.json'),
         path.resolve('data', 'admin_media_config.json'),
         path.resolve('admin-media-config.json'),
-        this.getMediaFilePath(),
+        '/tmp/admin_media_config.json',
       ];
       for (const candidate of candidates) {
         if (fs.existsSync(candidate)) {
@@ -92,7 +104,7 @@ class DatabaseService {
   public async getRoom(code: string): Promise<RoomRecord | null> {
     const normalizedCode = code.toUpperCase();
 
-    // 1. Try Supabase
+    // 1. Try Supabase first (authoritative across all serverless lambda instances)
     if (this.supabase) {
       try {
         const { data, error } = await this.supabase
@@ -106,12 +118,14 @@ class DatabaseService {
             console.warn(`Supabase getRoom error (${normalizedCode}):`, error.message);
           }
         } else if (data) {
-          return {
+          const room: RoomRecord = {
             code: data.code,
             creatorToken: data.creator_token,
             state: data.state as GameState,
             players: (data.players || {}) as Record<string, Player>,
           };
+          this.localMemoryStore.set(normalizedCode, room);
+          return room;
         }
       } catch (err) {
         console.warn('Supabase query error:', err);
@@ -123,15 +137,22 @@ class DatabaseService {
       return this.localMemoryStore.get(normalizedCode)!;
     }
 
-    const filePath = this.getRoomFilePath(normalizedCode);
-    if (fs.existsSync(filePath)) {
-      try {
-        const raw = fs.readFileSync(filePath, 'utf-8');
-        const parsed = JSON.parse(raw);
-        this.localMemoryStore.set(normalizedCode, parsed);
-        return parsed;
-      } catch (err) {
-        console.warn(`Could not read room file ${filePath}:`, err);
+    const candidateFiles = [
+      path.join(this.localFallbackPath, `room_${normalizedCode}.json`),
+      `/tmp/room_${normalizedCode}.json`,
+      path.resolve('data', `room_${normalizedCode}.json`),
+    ];
+
+    for (const filePath of candidateFiles) {
+      if (fs.existsSync(filePath)) {
+        try {
+          const raw = fs.readFileSync(filePath, 'utf-8');
+          const parsed = JSON.parse(raw);
+          this.localMemoryStore.set(normalizedCode, parsed);
+          return parsed;
+        } catch (err) {
+          console.warn(`Could not read room file ${filePath}:`, err);
+        }
       }
     }
 
@@ -142,7 +163,7 @@ class DatabaseService {
     const normalizedCode = record.code.toUpperCase();
     this.localMemoryStore.set(normalizedCode, record);
 
-    // 1. Save to Supabase if configured
+    // 1. Save to Supabase (AWAITED to ensure completion in serverless environments)
     if (this.supabase) {
       try {
         const payload = {
@@ -171,12 +192,17 @@ class DatabaseService {
       }
     }
 
-    // 2. Save to local fallback file
+    // 2. Save to local fallback file (try primary path, fallback to /tmp)
     try {
-      const filePath = this.getRoomFilePath(normalizedCode);
-      fs.writeFileSync(filePath, JSON.stringify(record, null, 2), 'utf-8');
+      const primaryPath = this.getRoomFilePath(normalizedCode);
+      fs.writeFileSync(primaryPath, JSON.stringify(record, null, 2), 'utf-8');
     } catch {
-      // Ignore filesystem write errors in ephemeral environments
+      try {
+        const tmpPath = `/tmp/room_${normalizedCode}.json`;
+        fs.writeFileSync(tmpPath, JSON.stringify(record, null, 2), 'utf-8');
+      } catch {
+        // Ignore filesystem write errors in ephemeral environments
+      }
     }
   }
 
@@ -184,16 +210,42 @@ class DatabaseService {
   // Media Config Operations
   // ----------------------------------------------------
   public async getMediaConfig(): Promise<any[] | null> {
-    // 1. Check in-memory store first
+    // 1. Check in-memory store if previously loaded
     if (this.localMediaConfig && Array.isArray(this.localMediaConfig) && this.localMediaConfig.length > 0) {
       return this.localMediaConfig;
     }
 
-    // 2. Check local persistent disk files
+    // 2. Check Supabase first (authoritative across all serverless lambda instances)
+    if (this.supabase) {
+      try {
+        const { data, error } = await this.supabase
+          .from('traitors_media_configs')
+          .select('scenes')
+          .eq('id', 'global_config')
+          .single();
+
+        if (error) {
+          if (error.code !== 'PGRST116') {
+            console.warn('Supabase getMediaConfig error:', error.message);
+          }
+        } else if (data && Array.isArray(data.scenes) && data.scenes.length > 0) {
+          this.localMediaConfig = data.scenes;
+          try {
+            fs.writeFileSync(path.join(this.localFallbackPath, 'admin_media_config.json'), JSON.stringify(data.scenes, null, 2), 'utf-8');
+          } catch {}
+          return data.scenes;
+        }
+      } catch (err) {
+        console.warn('Supabase media query error:', err);
+      }
+    }
+
+    // 3. Check local persistent disk files
     const candidates = [
+      path.join(this.localFallbackPath, 'admin_media_config.json'),
+      '/tmp/admin_media_config.json',
       path.resolve('data', 'admin_media_config.json'),
       path.resolve('admin-media-config.json'),
-      this.getMediaFilePath(),
     ];
     for (const candidate of candidates) {
       if (fs.existsSync(candidate)) {
@@ -210,32 +262,6 @@ class DatabaseService {
       }
     }
 
-    // 3. Check Supabase
-    if (this.supabase) {
-      try {
-        const { data, error } = await this.supabase
-          .from('traitors_media_configs')
-          .select('scenes')
-          .eq('id', 'global_config')
-          .single();
-
-        if (error) {
-          if (error.code !== 'PGRST116') {
-            console.warn('Supabase getMediaConfig error:', error.message);
-          }
-        } else if (data && Array.isArray(data.scenes) && data.scenes.length > 0) {
-          this.localMediaConfig = data.scenes;
-          // Cache to local file so offline/restarts are instant
-          try {
-            fs.writeFileSync(path.resolve('data', 'admin_media_config.json'), JSON.stringify(data.scenes, null, 2), 'utf-8');
-          } catch {}
-          return data.scenes;
-        }
-      } catch (err) {
-        console.warn('Supabase media query error:', err);
-      }
-    }
-
     return null;
   }
 
@@ -243,39 +269,37 @@ class DatabaseService {
     if (!Array.isArray(media)) return;
     this.localMediaConfig = media;
 
-    // 1. Always write immediately to local persistent disk files
+    // 1. Write immediately to local disk fallback
+    const jsonContent = JSON.stringify(media, null, 2);
     try {
       const dataDir = path.resolve('data');
       if (!fs.existsSync(dataDir)) {
         fs.mkdirSync(dataDir, { recursive: true });
       }
-      const dataFilePath = path.resolve('data', 'admin_media_config.json');
-      const rootFilePath = path.resolve('admin-media-config.json');
-      const jsonContent = JSON.stringify(media, null, 2);
-      fs.writeFileSync(dataFilePath, jsonContent, 'utf-8');
-      fs.writeFileSync(rootFilePath, jsonContent, 'utf-8');
-    } catch (diskErr) {
-      console.error('Failed to write media config to disk:', diskErr);
+      fs.writeFileSync(path.resolve('data', 'admin_media_config.json'), jsonContent, 'utf-8');
+      fs.writeFileSync(path.resolve('admin-media-config.json'), jsonContent, 'utf-8');
+    } catch {
+      try {
+        fs.writeFileSync('/tmp/admin_media_config.json', jsonContent, 'utf-8');
+      } catch {}
     }
 
-    // 2. Also save to Supabase asynchronously (non-blocking)
+    // 2. Persist to Supabase and AWAIT it so Vercel doesn't kill execution mid-flight
     if (this.supabase) {
       try {
-        this.supabase
+        const { error } = await this.supabase
           .from('traitors_media_configs')
           .upsert({
             id: 'global_config',
             scenes: media,
             updated_at: new Date().toISOString(),
-          }, { onConflict: 'id' })
-          .then(({ error }) => {
-            if (error) {
-              console.warn('Supabase saveMediaConfig async error:', error.message);
-            }
-          })
-          .catch(err => {
-            console.warn('Supabase saveMediaConfig exception:', err);
-          });
+          }, { onConflict: 'id' });
+
+        if (error) {
+          console.warn('Supabase saveMediaConfig error:', error.message);
+        } else {
+          console.log('✅ Supabase saveMediaConfig successfully saved media scenes.');
+        }
       } catch (err) {
         console.warn('Supabase saveMediaConfig exception:', err);
       }
@@ -299,6 +323,7 @@ class DatabaseService {
     const filesToRemove = [
       path.resolve('data', 'admin_media_config.json'),
       path.resolve('admin-media-config.json'),
+      '/tmp/admin_media_config.json',
       this.getMediaFilePath(),
     ];
     for (const f of filesToRemove) {

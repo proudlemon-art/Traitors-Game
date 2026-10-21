@@ -235,9 +235,51 @@ export const AdminStudioModal: React.FC<Props> = ({
   // ----------------------------------------------------
   // Audio File Upload
   // ----------------------------------------------------
+function compressImageFile(file: File, maxDimension = 1200, quality = 0.82): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = reject;
+    reader.onload = ev => {
+      const img = new Image();
+      img.onerror = reject;
+      img.onload = () => {
+        let { width, height } = img;
+        if (width > maxDimension || height > maxDimension) {
+          if (width > height) {
+            height = Math.round((height * maxDimension) / width);
+            width = maxDimension;
+          } else {
+            width = Math.round((width * maxDimension) / height);
+            height = maxDimension;
+          }
+        }
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) {
+          resolve(ev.target?.result as string);
+          return;
+        }
+        ctx.drawImage(img, 0, 0, width, height);
+        const compressed = canvas.toDataURL('image/jpeg', quality);
+        resolve(compressed);
+      };
+      img.src = ev.target?.result as string;
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
   const handleAudioUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+
+    if (file.size > 5 * 1024 * 1024) {
+      showNotification('Audio file is too large (max 5MB). Please choose a shorter clip.');
+      e.target.value = '';
+      return;
+    }
 
     showNotification(`Uploading audio: ${file.name}...`);
     const reader = new FileReader();
@@ -292,14 +334,13 @@ export const AdminStudioModal: React.FC<Props> = ({
     showNotification('Scene visual updated from castle gallery.');
   };
 
-  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    showNotification(`Uploading image: ${file.name}...`);
-    const reader = new FileReader();
-    reader.onload = async ev => {
-      const base64Url = ev.target?.result as string;
+    showNotification(`Optimizing & saving image: ${file.name}...`);
+    try {
+      const base64Url = await compressImageFile(file, 1200, 0.82);
       const savedUrl = await adminMediaService.uploadMedia(
         base64Url,
         'image',
@@ -307,10 +348,16 @@ export const AdminStudioModal: React.FC<Props> = ({
         selectedScene.id
       );
       adminMediaService.updateSceneImage(selectedScene.id, savedUrl);
-      await adminMediaService.save();
-      showNotification(`Custom image permanently saved: ${file.name}`);
-    };
-    reader.readAsDataURL(file);
+      const ok = await adminMediaService.save();
+      if (ok) {
+        showNotification(`Custom image permanently saved: ${file.name}`);
+      } else {
+        showNotification(`Image saved locally: ${file.name}`);
+      }
+    } catch (err) {
+      console.error('Image upload failed', err);
+      showNotification('Failed to process image upload.');
+    }
     e.target.value = '';
   };
 
