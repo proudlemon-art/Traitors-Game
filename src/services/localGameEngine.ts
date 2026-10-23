@@ -437,7 +437,9 @@ export function sanitizeLocalState(
   callingToken?: string,
   isHostDisplay = false
 ): ClientGameState {
-  const callingPlayer = callingToken ? playersMap[callingToken] : undefined;
+  const callingPlayer = callingToken
+    ? playersMap[callingToken] || Object.values(playersMap).find(p => p.id === callingToken)
+    : undefined;
 
   let remainingSec = s.phaseTimeRemaining;
   if (s.isTimerPaused && s.timerPausedRemaining !== undefined) {
@@ -780,11 +782,17 @@ class LocalGameEngine {
     }
 
     const playersList = Object.values(room.players);
-    if (playersList.length >= 7) {
-      throw new Error('This castle room is already full (7 players seated).');
+
+    let cleanName = (name || '').trim() || `Guest ${playersList.length + 1}`;
+    const existingNames = playersList.map(p => p.name.toLowerCase());
+    if (existingNames.includes(cleanName.toLowerCase())) {
+      let suffix = 2;
+      while (existingNames.includes(`${cleanName.toLowerCase()} ${suffix}`)) {
+        suffix++;
+      }
+      cleanName = `${cleanName} ${suffix}`;
     }
 
-    const cleanName = (name || '').trim() || `Guest ${playersList.length + 1}`;
     const newToken = generateId('token_');
     const newPlayerId = generateId('p_');
     const seatNumber = playersList.length + 1;
@@ -796,11 +804,15 @@ class LocalGameEngine {
       seatNumber,
       connected: true,
       score: 0,
+      role: room.state.phase !== 'LOBBY' ? 'FAITHFUL' : undefined,
     };
 
     room.players[newToken] = newPlayer;
     if (!room.state.seatingOrder.includes(newPlayerId)) {
       room.state.seatingOrder.push(newPlayerId);
+    }
+    if (room.state.getawayAuctionState) {
+      room.state.getawayAuctionState.playerCoins[newPlayerId] = 12;
     }
 
     this.saveRoom(room);
@@ -891,17 +903,50 @@ class LocalGameEngine {
     if (!room) return null;
 
     const s = room.state;
-    let player = playerToken ? room.players[playerToken] : undefined;
-    if (!player && s.isDemoRoom && (payload?.targetPlayerId || payload?.playerId)) {
+    let player = playerToken
+      ? room.players[playerToken] || Object.values(room.players).find(p => p.id === playerToken)
+      : undefined;
+    if (!player && (payload?.targetPlayerId || payload?.playerId)) {
       const targetId = payload.targetPlayerId || payload.playerId;
       player = Object.values(room.players).find(p => p.id === targetId);
     }
-    if (!player && playerToken) {
-      // Fallback match by player id if token was passed as id
-      player = Object.values(room.players).find(p => p.id === playerToken);
-    }
 
     switch (action) {
+      case 'ADD_FAILSAFE_PLAYER': {
+        const playersList = Object.values(room.players || {});
+        let name = (payload?.name || '').trim();
+        if (!name) {
+          name = `Guest ${playersList.length + 1}`;
+        }
+        const existingNames = playersList.map(p => p.name.toLowerCase());
+        if (existingNames.includes(name.toLowerCase())) {
+          let suffix = 2;
+          while (existingNames.includes(`${name.toLowerCase()} ${suffix}`)) {
+            suffix++;
+          }
+          name = `${name} ${suffix}`;
+        }
+        const newToken = generateId('token_');
+        const newPlayerId = generateId('p_');
+        const seatNumber = playersList.length + 1;
+        room.players[newToken] = {
+          id: newPlayerId,
+          name,
+          isRoomCreator: false,
+          seatNumber,
+          connected: true,
+          score: 0,
+          role: s.phase !== 'LOBBY' ? 'FAITHFUL' : undefined,
+        };
+        if (!s.seatingOrder.includes(newPlayerId)) {
+          s.seatingOrder.push(newPlayerId);
+        }
+        if (s.getawayAuctionState) {
+          s.getawayAuctionState.playerCoins[newPlayerId] = 12;
+        }
+        break;
+      }
+
       case 'UPDATE_SEATING_ORDER': {
         if (payload?.seatingOrder && Array.isArray(payload.seatingOrder)) {
           s.seatingOrder = payload.seatingOrder;

@@ -313,14 +313,14 @@ export const HostScreen: React.FC<Props> = ({
               <div className="flex items-center justify-between border-b border-zinc-800 pb-2">
                 <h3 className="font-serif font-bold text-amber-300 flex items-center gap-2 text-base">
                   <Users className="w-4 h-4 text-amber-500" />
-                  Seating Order ({playersList.length} / 7)
+                  Seating Order ({playersList.length} Seated)
                 </h3>
                 <span className="text-[11px] text-zinc-400 font-mono">
                   Order determines reveals
                 </span>
               </div>
 
-              <div className="space-y-2">
+              <div className="space-y-2 max-h-72 overflow-y-auto pr-1 custom-scrollbar">
                 {seatingList.map((playerId, idx) => {
                   const player = playersList.find(p => p.id === playerId);
                   return (
@@ -366,17 +366,15 @@ export const HostScreen: React.FC<Props> = ({
               <div className="pt-4 border-t border-zinc-800">
                 <button
                   onClick={() => api.sendAction(state.roomCode, 'START_GAME')}
-                  disabled={playersList.length < 7 && !state.isDemoRoom}
+                  disabled={playersList.length < 1}
                   className="w-full py-4 px-6 bg-gradient-to-r from-amber-600 via-amber-500 to-amber-600 hover:from-amber-500 hover:to-amber-400 text-black font-serif font-black text-sm uppercase tracking-wider rounded-lg shadow-lg hover:shadow-[0_0_25px_rgba(212,163,69,0.5)] transition duration-200 disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                 >
                   <span>Begin Libby’s Birthday: Trust Nobody</span>
                   <ChevronRight className="w-4 h-4" />
                 </button>
-                {state.players.length < 7 && !state.isDemoRoom && (
-                  <p className="text-[11px] text-zinc-500 text-center mt-2 font-mono">
-                    Waiting for 7 players to be seated ({state.players.length}/7 joined)
-                  </p>
-                )}
+                <p className="text-[11px] text-zinc-400 text-center mt-2 font-mono">
+                  {playersList.length} player{playersList.length === 1 ? '' : 's'} seated · Guests whose phones can’t scan the QR code can be added & simulated from the Top Nav Bar at any time!
+                </p>
               </div>
             </div>
           </div>
