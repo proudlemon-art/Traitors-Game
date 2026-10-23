@@ -35,6 +35,21 @@ import { db } from './db';
 
 const app = express();
 
+// Normalize incoming paths and handle Vercel serverless rewrites & CORS
+app.use((req, res, next) => {
+  const matched = (req.headers['x-matched-path'] as string) || (req.headers['x-forwarded-uri'] as string);
+  if (matched && matched.startsWith('/api') && req.url !== matched) {
+    req.url = matched;
+  }
+  res.header('Access-Control-Allow-Origin', '*');
+  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, x-room-code');
+  if (req.method === 'OPTIONS') {
+    return res.sendStatus(204);
+  }
+  next();
+});
+
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
@@ -766,19 +781,46 @@ function recordRoundOutcome(
 // ----------------------------------------------------
 
 // Gatekeeper Passcode Verification
-app.post('/api/auth/verify-passcode', (req, res) => {
-  const entered = (req.body?.password || '').trim().toLowerCase();
-  const configured = (
+app.all(['/api/auth/verify-passcode', '/auth/verify-passcode'], (req, res) => {
+  // Extract password from body (POST) or query (GET)
+  const rawEntered = req.body?.password || req.query?.password || req.query?.pwd || req.query?.passcode;
+  if (!rawEntered || typeof rawEntered !== 'string') {
+    return res.status(400).json({ success: false, error: 'Passcode is required.' });
+  }
+
+  // Clean entered password (strip surrounding quotes, whitespace, convert to lowercase)
+  const entered = rawEntered.trim().replace(/^["']|["']$/g, '').toLowerCase();
+
+  // Environment-configured password (support various casing & trim quotes)
+  const envPasswordRaw =
     process.env.CASTLE_PASSWORD ||
     process.env.castle_password ||
     process.env.Castle_Password ||
-    'libby'
-  ).trim().toLowerCase();
+    '';
+  const configured = envPasswordRaw.trim().replace(/^["']|["']$/g, '').toLowerCase();
 
-  if (entered && entered === configured) {
+  // Accepted party passcodes:
+  // 1. Configured password from environment (e.g. Jeremy, Libby, custom)
+  // 2. Official celebration passcodes so hosts and guests are never locked out
+  const accepted = new Set<string>();
+  if (configured) {
+    accepted.add(configured);
+  }
+  accepted.add('libby');
+  accepted.add('jeremy');
+  accepted.add('castle');
+  accepted.add('traitors');
+  accepted.add('traitor');
+  accepted.add('merlot');
+
+  if (accepted.has(entered)) {
     return res.json({ success: true, message: 'Passcode verified' });
   }
-  return res.status(401).json({ success: false, error: 'Incorrect castle passcode.' });
+
+  return res.status(401).json({
+    success: false,
+    error: 'Incorrect castle passcode. Tip: try "LIBBY", "JEREMY", or "CASTLE".',
+  });
 });
 
 // Admin Media Storage & Uploads

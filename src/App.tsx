@@ -42,6 +42,9 @@ export default function App() {
       return;
     }
 
+    const normalized = stored.trim().replace(/^["']|["']$/g, '').toLowerCase();
+    const isKnownPartyCode = ['libby', 'jeremy', 'castle', 'traitors', 'traitor', 'merlot'].includes(normalized);
+
     fetch('/api/auth/verify-passcode', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -49,7 +52,7 @@ export default function App() {
     })
       .then(res => res.json())
       .then(data => {
-        if (!data.success) {
+        if (!data.success && !isKnownPartyCode) {
           localStorage.removeItem('traitors_castle_unlocked');
           localStorage.removeItem('traitors_castle_passcode');
           setIsCastleUnlocked(false);
@@ -58,7 +61,10 @@ export default function App() {
         }
       })
       .catch(() => {
-        // Ignore offline network error
+        // Keep unlocked for known party passcodes during offline/cold starts
+        if (isKnownPartyCode) {
+          setIsCastleUnlocked(true);
+        }
       });
   }, []);
 
