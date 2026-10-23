@@ -180,7 +180,7 @@ export const ExhibitAMission: React.FC<Props> = ({ state, isHostDisplay, playerT
                 {exhibitState.stage === 'SECRET_BRIEFING' && 'Secret Briefing'}
                 {exhibitState.stage === 'PRESENTATIONS' && 'Evidence Presentations'}
                 {exhibitState.stage === 'EVIDENCE_VOTING' && 'Evidence Voting'}
-                {exhibitState.stage === 'EVIDENCE_REVEAL' && 'Exhibit A Revealed'}
+                {(exhibitState.stage === 'EVIDENCE_REVEAL' || exhibitState.stage === 'COMPLETED') && 'Exhibit A Revealed'}
               </span>
             </div>
             <h2 className="text-2xl sm:text-3xl font-serif font-black tracking-wider text-amber-100">
@@ -193,7 +193,7 @@ export const ExhibitAMission: React.FC<Props> = ({ state, isHostDisplay, playerT
               Forensic Objective
             </span>
             <span className="text-xs text-zinc-300 italic max-w-xs block font-serif">
-              One object will become Exhibit A. The Traitor secretly wants their planted item selected.
+              One object will become Exhibit A (and all 7 items return in Round 4!). The Traitor secretly wants their planted item selected.
             </span>
           </div>
         </div>
@@ -211,22 +211,22 @@ export const ExhibitAMission: React.FC<Props> = ({ state, isHostDisplay, playerT
                 Official Forensics · Candlelit Castle Chamber
               </span>
               <h4 className="text-sm sm:text-base font-serif font-bold text-amber-100">
-                8 Suspected Objects Resting Upon the Table
+                Household Evidence Resting Upon the Table
               </h4>
               <p className="text-xs text-zinc-400 font-sans mt-0.5">
-                Key · Glove · Poison Decanter · Pocket Watch · Handkerchief · Sealed Letter · Spoon · Evidence Bag
+                Keep these objects handy — the committee will need them again in Round 4!
               </p>
             </div>
           </div>
           <div className="text-xs font-mono text-amber-300/90 bg-black/60 px-3 py-1.5 rounded-lg border border-amber-900/60 shadow">
-            Displaying Centre Stage on TV Broadcast
+            Zero-Spoiler Broadcast Active
           </div>
         </div>
 
         {/* STAGE 1: COLLECTION (HOST) */}
         {exhibitState.stage === 'COLLECTION' && (
           <div className="bg-zinc-950/80 border border-amber-900/40 rounded-xl p-6 space-y-6">
-            <div className="flex items-center justify-between">
+            <div className="flex flex-wrap items-center justify-between gap-4">
               <div>
                 <h3 className="text-lg font-serif font-bold text-amber-200">
                   Registered Household Contenders ({exhibitState.objects.length}/{state.players.length || 7})
@@ -236,19 +236,19 @@ export const ExhibitAMission: React.FC<Props> = ({ state, isHostDisplay, playerT
                 </p>
               </div>
 
-              {(exhibitState.objects.length >= 7 || exhibitState.objects.length >= state.players.length || (state.isDemoRoom && exhibitState.objects.length > 0)) && (
+              {exhibitState.objects.length > 0 && (
                 <button
                   onClick={handleLockObjects}
                   disabled={isSubmitting}
                   className="px-5 py-2.5 bg-amber-500 hover:bg-amber-400 text-black font-serif font-bold text-xs uppercase tracking-wider rounded-lg shadow-[0_0_20px_rgba(212,163,69,0.4)] transition"
                 >
-                  Confirm & Lock Object List
+                  Confirm & Lock Object List ({exhibitState.objects.length}/{state.players.length || 7})
                 </button>
               )}
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
-              {state.players.map((p, idx) => {
+              {state.players.map((p) => {
                 const obj = exhibitState.objects.find(o => o.contributorId === p.id);
                 return (
                   <div
@@ -292,7 +292,7 @@ export const ExhibitAMission: React.FC<Props> = ({ state, isHostDisplay, playerT
                 The Planted Evidence Has Been Selected
               </h3>
               <p className="text-sm text-zinc-300 font-serif leading-relaxed">
-                The Traitor is currently reading which object they planted. Faithful are receiving their final briefing. Everyone must tap their phone to acknowledge before we begin presentations.
+                The Traitor is privately reading which object they must push. Faithful are receiving their briefing. Tap your phone to acknowledge before presentations begin.
               </p>
             </div>
 
@@ -300,7 +300,7 @@ export const ExhibitAMission: React.FC<Props> = ({ state, isHostDisplay, playerT
             <div className="max-w-md mx-auto bg-black/60 border border-amber-900/50 rounded-xl p-4">
               <div className="text-xs font-mono uppercase text-amber-400 mb-3 flex items-center justify-between">
                 <span>Player Acknowledgement</span>
-                <span>{ackList.length} / 7 Ready</span>
+                <span>{ackList.length} / {state.players.length || 7} Ready</span>
               </div>
               <div className="grid grid-cols-2 gap-2 text-left">
                 {state.players.map(p => {
@@ -320,14 +320,14 @@ export const ExhibitAMission: React.FC<Props> = ({ state, isHostDisplay, playerT
               </div>
             </div>
 
-            {exhibitState.acknowledgedPlayerIds.length >= 7 && (
+            <div className="flex flex-wrap items-center justify-center gap-3">
               <button
                 onClick={handleStartPresentations}
                 className="px-6 py-3 bg-amber-500 hover:bg-amber-400 text-black font-serif font-bold text-sm uppercase tracking-wider rounded-lg shadow-[0_0_25px_rgba(212,163,69,0.5)] transition"
               >
-                Begin Forensic Presentations
+                Begin Forensic Presentations ({ackList.length}/{state.players.length || 7} Ready)
               </button>
-            )}
+            </div>
           </div>
         )}
 
@@ -340,7 +340,7 @@ export const ExhibitAMission: React.FC<Props> = ({ state, isHostDisplay, playerT
                   Forensic Presentations (30 Seconds Each)
                 </h3>
                 <p className="text-xs text-zinc-400 mt-1 max-w-xl">
-                  Each investigator presents why their item is suspicious. Then allow 2 minutes of open debate. Click the checkbox once a player presents to confirm their mission point.
+                  Each investigator presents why their item is suspicious. Then allow 2 minutes of open debate. Click each card as a player presents to confirm their mission participation.
                 </p>
               </div>
 
@@ -397,26 +397,34 @@ export const ExhibitAMission: React.FC<Props> = ({ state, isHostDisplay, playerT
             {/* Progress counter */}
             <div className="max-w-xs mx-auto bg-zinc-900/80 border border-amber-900/50 p-4 rounded-xl">
               <span className="text-3xl font-mono font-bold text-amber-300 block">
-                {Object.keys(exhibitState.evidenceVotes).length} / 7
+                {Object.keys(exhibitState.evidenceVotes).length} / {state.players.length || 7}
               </span>
               <span className="text-xs font-mono text-zinc-400 uppercase tracking-wider">
                 Ballots Locked
               </span>
             </div>
 
-            {Object.keys(exhibitState.evidenceVotes).length >= 7 && (
+            <div className="flex flex-wrap items-center justify-center gap-3">
               <button
                 onClick={handleRevealEvidenceVotes}
                 className="px-6 py-3 bg-amber-500 hover:bg-amber-400 text-black font-serif font-bold text-sm uppercase tracking-wider rounded-lg shadow-[0_0_25px_rgba(212,163,69,0.4)] transition"
               >
                 Reveal Exhibit A Votes
               </button>
-            )}
+
+              <button
+                onClick={handleProceedToRoundTable}
+                className="px-5 py-3 bg-zinc-900 hover:bg-zinc-800 border border-amber-500/40 text-amber-200 font-serif font-bold text-xs uppercase tracking-wider rounded-lg transition flex items-center gap-1.5"
+              >
+                <span>Skip Directly to Round Table</span>
+                <ArrowRight className="w-4 h-4" />
+              </button>
+            </div>
           </div>
         )}
 
         {/* STAGE 5: EVIDENCE REVEAL (HOST) */}
-        {exhibitState.stage === 'EVIDENCE_REVEAL' && (
+        {(exhibitState.stage === 'EVIDENCE_REVEAL' || exhibitState.stage === 'COMPLETED') && (
           <div className="bg-zinc-950/90 border border-amber-500/50 rounded-xl p-6 md:p-8 text-center space-y-6">
             <div className="w-16 h-16 rounded-full bg-gradient-to-tr from-amber-600 to-amber-400 text-black mx-auto flex items-center justify-center shadow-[0_0_35px_rgba(212,163,69,0.5)]">
               <Award className="w-9 h-9" />
@@ -427,24 +435,24 @@ export const ExhibitAMission: React.FC<Props> = ({ state, isHostDisplay, playerT
                 The Forensic Decision
               </span>
               <h3 className="text-3xl sm:text-4xl font-serif font-black text-amber-200">
-                EXHIBIT A: "{exhibitState.winningObjectName}"
+                EXHIBIT A: "{exhibitState.winningObjectName || exhibitState.objects[0]?.name || 'Sealed Evidence'}"
               </h3>
               <p className="text-sm font-serif italic text-zinc-300">
-                Contributed by {exhibitState.winningObjectContributorName}
+                Contributed by {exhibitState.winningObjectContributorName || exhibitState.objects[0]?.contributorName || 'Investigator'}
               </p>
             </div>
 
             {/* Tie notice if occurred */}
-            {exhibitState.tiedObjectIds.length > 1 && !exhibitState.winningObjectId && (
+            {exhibitState.tiedObjectIds.length > 1 && (
               <div className="p-4 bg-burgundy-950/80 border border-amber-500/60 rounded-xl max-w-md mx-auto space-y-3">
                 <span className="text-sm font-serif font-bold text-amber-200 block">
-                  A tie has occurred between candidate objects!
+                  Note: Multiple objects tied in the ballot! You may hold a tie revote or proceed with the top Exhibit A.
                 </span>
                 <button
                   onClick={handleTieRevote}
                   className="px-4 py-2 bg-amber-500 text-black font-serif font-bold text-xs uppercase tracking-wider rounded shadow"
                 >
-                  Hold Private Tie Revote
+                  Hold Optional Tie Revote
                 </button>
               </div>
             )}
@@ -752,14 +760,14 @@ export const ExhibitAMission: React.FC<Props> = ({ state, isHostDisplay, playerT
       )}
 
       {/* STAGE 5: EVIDENCE REVEAL (PHONE) */}
-      {exhibitState.stage === 'EVIDENCE_REVEAL' && (
+      {(exhibitState.stage === 'EVIDENCE_REVEAL' || exhibitState.stage === 'COMPLETED') && (
         <div className="bg-zinc-950 border border-amber-500/50 rounded-xl p-5 text-center space-y-3">
           <Award className="w-8 h-8 text-amber-400 mx-auto" />
           <h3 className="text-lg font-serif font-bold text-amber-200">
             Exhibit A Has Been Chosen!
           </h3>
           <div className="text-2xl font-serif font-black text-amber-300">
-            "{exhibitState.winningObjectName}"
+            "{exhibitState.winningObjectName || exhibitState.objects[0]?.name || 'Sealed Evidence'}"
           </div>
           <p className="text-xs text-zinc-400 font-serif">
             Look up at the Castle Host Display. Prepare for the Round Table and Banishment!

@@ -299,44 +299,99 @@ export const PlayerScreen: React.FC<Props> = ({ state, playerToken }) => {
                   <span className="text-[11px] font-mono uppercase tracking-widest text-amber-500 block">
                     The Counterfeit Expert · Your Pitch Words
                   </span>
-                  <div className="p-4 bg-burgundy-950/60 border border-amber-500/60 rounded text-xs text-amber-100 font-sans leading-relaxed space-y-2">
+                  <div className="p-4 bg-burgundy-950/60 border border-amber-500/60 rounded text-xs text-amber-100 font-sans leading-relaxed space-y-3">
                     <p className="font-serif font-bold text-amber-300 text-sm">
                       Invention to Pitch: “{state.counterfeitExpertState?.invention || 'High-Tech Security Birthday Cake'}”
                     </p>
                     {isTraitor ? (
-                      <div className="space-y-1">
-                        <span className="text-[10px] uppercase font-mono text-rose-400 font-bold">
-                          Traitor Required Words (Only 2 provided!):
+                      <div className="space-y-3">
+                        <div className="space-y-1">
+                          <span className="text-[10px] uppercase font-mono text-rose-400 font-bold">
+                            Your 2 Known Codewords (Smuggle both into your pitch):
+                          </span>
+                          <div className="flex flex-wrap gap-2">
+                            {(state.counterfeitExpertState?.traitorTwoWords || ['Laser', 'Fondant']).map(w => (
+                              <span
+                                key={w}
+                                className="px-2.5 py-1 bg-zinc-900 border border-rose-500/50 rounded font-mono text-amber-300 font-bold"
+                              >
+                                {w}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+
+                        <div className="pt-2 border-t border-rose-900/60 space-y-2">
+                          <span className="text-[10px] uppercase font-mono text-amber-300 font-bold block">
+                            Traitor Bonus (+2 Pts): Deduce the Faithful’s Missing 3rd Word!
+                          </span>
+                          <p className="text-[11px] text-zinc-300">
+                            Listen carefully to the Faithful pitches. Which word below are they all smuggling in? Tap it to lock your deduction:
+                          </p>
+                          <div className="grid grid-cols-2 gap-1.5">
+                            {(
+                              state.counterfeitExpertState?.candidateWords || [
+                                'Biometric',
+                                'Frosting',
+                                'Decibel',
+                                'Sprinkles',
+                                'Titanium',
+                                'Tripwire',
+                              ]
+                            )
+                              .filter(
+                                w =>
+                                  !(
+                                    state.counterfeitExpertState?.traitorTwoWords || []
+                                  ).includes(w)
+                              )
+                              .map(word => {
+                                const isGuessed =
+                                  state.counterfeitExpertState?.traitorGuessedWord === word;
+                                return (
+                                  <button
+                                    key={word}
+                                    type="button"
+                                    onClick={() =>
+                                      api.sendAction(
+                                        state.roomCode,
+                                        'COUNTERFEIT_TRAITOR_GUESS_WORD',
+                                        { guessedWord: word },
+                                        playerToken
+                                      )
+                                    }
+                                    className={`p-2 rounded border font-mono text-xs transition flex items-center justify-between ${
+                                      isGuessed
+                                        ? 'bg-amber-500 text-black font-bold border-amber-300 shadow'
+                                        : 'bg-zinc-900/90 border-zinc-700 text-zinc-300 hover:border-amber-500/50'
+                                    }`}
+                                  >
+                                    <span>{word}</span>
+                                    {isGuessed && <CheckCircle2 className="w-3.5 h-3.5 text-black" />}
+                                  </button>
+                                );
+                              })}
+                          </div>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="space-y-1.5">
+                        <span className="text-[10px] uppercase font-mono text-emerald-400 font-bold">
+                          Faithful Required Words (Smuggle all 3 into your 30s pitch):
                         </span>
-                        <div className="flex gap-2">
-                          {(state.counterfeitExpertState?.traitorTwoWords || ['Laser', 'Fondant']).map(w => (
+                        <div className="flex flex-wrap gap-2">
+                          {(state.counterfeitExpertState?.faithfulThreeWords || ['Laser', 'Fondant', 'Siren']).map(w => (
                             <span
                               key={w}
-                              className="px-2 py-0.5 bg-zinc-900 border border-rose-500/50 rounded font-mono text-amber-300"
+                              className="px-2.5 py-1 bg-zinc-900 border border-emerald-500/50 rounded font-mono text-emerald-300 font-bold"
                             >
                               {w}
                             </span>
                           ))}
                         </div>
                         <p className="text-[11px] text-zinc-400 italic pt-1">
-                          ⚠️ You are missing the 3rd required word! Listen to earlier pitches, deduce it, and weave it in naturally.
+                          ⚠️ The Traitor only knows 2 of these words! Slip all 3 into your pitch naturally so you don’t give the 3rd word away too easily.
                         </p>
-                      </div>
-                    ) : (
-                      <div className="space-y-1">
-                        <span className="text-[10px] uppercase font-mono text-emerald-400 font-bold">
-                          Faithful Required Words (Smuggle all 3 into your 30s pitch):
-                        </span>
-                        <div className="flex gap-2">
-                          {(state.counterfeitExpertState?.faithfulThreeWords || ['Laser', 'Fondant', 'Siren']).map(w => (
-                            <span
-                              key={w}
-                              className="px-2 py-0.5 bg-zinc-900 border border-emerald-500/50 rounded font-mono text-emerald-300"
-                            >
-                              {w}
-                            </span>
-                          ))}
-                        </div>
                       </div>
                     )}
                   </div>

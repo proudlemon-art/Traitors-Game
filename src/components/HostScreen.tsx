@@ -438,40 +438,149 @@ export const HostScreen: React.FC<Props> = ({
             {state.currentRound === 2 && <BirthdayMajorityMission state={state} isHostDisplay />}
             {state.currentRound === 3 && (
               <div className="bg-zinc-950/90 border border-amber-900/60 rounded-xl p-6 md:p-8 space-y-6 text-center">
-                <span className="text-xs uppercase tracking-widest text-amber-500 font-mono">
-                  Mission 3 · The Forgery Gallery
-                </span>
-                <h3 className="text-3xl font-serif font-black text-amber-200">
-                  Deadly Silence: Draw Your Briefs
-                </h3>
-                <p className="text-sm text-zinc-300 max-w-lg mx-auto font-serif">
-                  Faithful and Traitor received different briefs. Two minutes of silent sketching on scrap paper. Reveal together on Claudia’s command!
-                </p>
+                <div>
+                  <span className="text-xs uppercase tracking-widest text-amber-500 font-mono">
+                    Mission 3 · The Forgery Gallery (Zero-Spoiler Broadcast)
+                  </span>
+                  <h3 className="text-3xl font-serif font-black text-amber-200 mt-1">
+                    Deadly Silence: Sketch Your Secret Briefs
+                  </h3>
+                  <p className="text-sm text-zinc-300 max-w-xl mx-auto font-serif mt-2">
+                    One random prompt pair has been dealt with a 50/50 coin-flip between Faithful and Traitor. Check your phones privately — the prompts are hidden from this TV screen so nobody has an advantage!
+                  </p>
+                </div>
+
+                {/* Forgery Milestones (+1 pt each, max 3 pts) */}
+                <div className="max-w-xl mx-auto bg-black/60 border border-zinc-800 rounded-xl p-4 space-y-2.5 text-left">
+                  <div className="flex items-center justify-between text-xs font-mono text-amber-400 border-b border-zinc-800 pb-2">
+                    <span>Gallery Mission Milestones (+1 pt each, max 3)</span>
+                    <span>
+                      {(state.forgeryGalleryState?.milestones?.allFinishedUnderTwoMinutes ? 1 : 0) +
+                        (state.forgeryGalleryState?.milestones?.majorityCompletedFiveDetails ? 1 : 0) +
+                        (state.forgeryGalleryState?.milestones?.groupDiscussedAllDrawings ? 1 : 0)}{' '}
+                      / 3 Pts
+                    </span>
+                  </div>
+
+                  {[
+                    {
+                      key: 'allFinishedUnderTwoMinutes' as const,
+                      label: '1. All 7 artists finished sketching before the 2-minute timer',
+                    },
+                    {
+                      key: 'majorityCompletedFiveDetails' as const,
+                      label: '2. At least 5 sketches included all 5 required details',
+                    },
+                    {
+                      key: 'groupDiscussedAllDrawings' as const,
+                      label: '3. Every artist held up and explained their masterpiece',
+                    },
+                  ].map(m => {
+                    const checked = !!state.forgeryGalleryState?.milestones?.[m.key];
+                    return (
+                      <div
+                        key={m.key}
+                        onClick={() =>
+                          api.sendAction(state.roomCode, 'UPDATE_FORGERY_GALLERY', {
+                            milestones: {
+                              ...(state.forgeryGalleryState?.milestones || {
+                                allFinishedUnderTwoMinutes: false,
+                                majorityCompletedFiveDetails: false,
+                                groupDiscussedAllDrawings: false,
+                              }),
+                              [m.key]: !checked,
+                            },
+                          })
+                        }
+                        className={`p-3 rounded-lg border flex items-center justify-between cursor-pointer transition ${
+                          checked
+                            ? 'bg-emerald-950/40 border-emerald-500/60 text-emerald-200'
+                            : 'bg-zinc-900/70 border-zinc-800 text-zinc-400 hover:border-zinc-700'
+                        }`}
+                      >
+                        <span className="text-xs font-serif font-semibold">{m.label}</span>
+                        <span className="text-xs font-mono font-bold">
+                          {checked ? '✓ +1 Pt' : 'Tap to Confirm'}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+
                 <button
                   onClick={() => api.sendAction(state.roomCode, 'ADVANCE_TO_ROUND_TABLE')}
-                  className="py-3 px-8 bg-amber-500 hover:bg-amber-400 text-black font-serif font-bold text-sm uppercase tracking-wider rounded-lg shadow"
+                  className="py-3.5 px-8 bg-gradient-to-r from-burgundy-800 via-amber-600 to-burgundy-800 hover:from-burgundy-700 hover:to-amber-500 text-white font-serif font-bold text-sm uppercase tracking-wider rounded-lg shadow-xl flex items-center gap-2 mx-auto"
                 >
-                  Sketches Complete: Enter Round Table
+                  <span>Sketches Complete: Enter Round Table & Banishment</span>
+                  <ArrowRight className="w-4 h-4" />
                 </button>
               </div>
             )}
             {state.currentRound === 4 && <BodyDisposalMission state={state} isHostDisplay />}
             {state.currentRound === 5 && (
               <div className="bg-zinc-950/90 border border-amber-900/60 rounded-xl p-6 md:p-8 space-y-6 text-center">
-                <span className="text-xs uppercase tracking-widest text-amber-500 font-mono">
-                  Mission 5 · The Counterfeit Expert
-                </span>
-                <h3 className="text-3xl font-serif font-black text-amber-200">
-                  Pitching: “{state.counterfeitExpertState?.invention || 'High-Tech Invention'}”
-                </h3>
-                <p className="text-sm text-zinc-300 max-w-lg mx-auto font-serif">
-                  Each guest has 30 seconds to pitch the invention. Faithful have 3 required words; the Traitor only has 2 and must deduce the third!
-                </p>
+                <div>
+                  <span className="text-xs uppercase tracking-widest text-amber-500 font-mono">
+                    Mission 5 · The Counterfeit Expert (Zero-Spoiler Broadcast)
+                  </span>
+                  <h3 className="text-3xl font-serif font-black text-amber-200 mt-1">
+                    Pitching: “{state.counterfeitExpertState?.invention || 'High-Tech Castle Invention'}”
+                  </h3>
+                  <p className="text-sm text-zinc-300 max-w-xl mx-auto font-serif mt-2">
+                    Each guest has 30 seconds to pitch this invention. Faithful secretly received 3 codewords on their phones; the Traitor only received 2 and must listen closely to deduce the missing 3rd word on their phone!
+                  </p>
+                </div>
+
+                {/* Pitch Completion Checklist */}
+                <div className="max-w-2xl mx-auto bg-black/60 border border-zinc-800 rounded-xl p-4 space-y-3 text-left">
+                  <div className="flex items-center justify-between text-xs font-mono text-amber-400 border-b border-zinc-800 pb-2">
+                    <span>Click Each Guest as They Complete Their 30s Pitch</span>
+                    <span>
+                      {
+                        Object.values(
+                          state.counterfeitExpertState?.pitchCompletedByPlayerId || {}
+                        ).filter(Boolean).length
+                      }{' '}
+                      / {state.players.length || 7} Pitched
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
+                    {state.players.map(p => {
+                      const pitched =
+                        !!state.counterfeitExpertState?.pitchCompletedByPlayerId?.[p.id];
+                      return (
+                        <button
+                          key={p.id}
+                          type="button"
+                          onClick={() =>
+                            api.sendAction(state.roomCode, 'UPDATE_COUNTERFEIT_EXPERT', {
+                              pitchCompletedByPlayerId: {
+                                ...(state.counterfeitExpertState?.pitchCompletedByPlayerId || {}),
+                                [p.id]: !pitched,
+                              },
+                            })
+                          }
+                          className={`p-2.5 rounded-lg border text-left text-xs transition flex items-center justify-between ${
+                            pitched
+                              ? 'bg-emerald-950/50 border-emerald-500/60 text-emerald-200 font-bold'
+                              : 'bg-zinc-900/70 border-zinc-800 text-zinc-400 hover:border-zinc-700'
+                          }`}
+                        >
+                          <span className="font-serif truncate">{p.name}</span>
+                          {pitched && <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0" />}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
                 <button
                   onClick={() => api.sendAction(state.roomCode, 'ADVANCE_TO_ROUND_TABLE')}
-                  className="py-3 px-8 bg-amber-500 hover:bg-amber-400 text-black font-serif font-bold text-sm uppercase tracking-wider rounded-lg shadow"
+                  className="py-3.5 px-8 bg-gradient-to-r from-burgundy-800 via-amber-600 to-burgundy-800 hover:from-burgundy-700 hover:to-amber-500 text-white font-serif font-bold text-sm uppercase tracking-wider rounded-lg shadow-xl flex items-center gap-2 mx-auto"
                 >
-                  Pitches Complete: Enter Round Table
+                  <span>Pitches Complete: Enter Round Table & Banishment</span>
+                  <ArrowRight className="w-4 h-4" />
                 </button>
               </div>
             )}
@@ -527,16 +636,14 @@ export const HostScreen: React.FC<Props> = ({
               </div>
             </div>
 
-            {state.isDemoRoom && (
-              <div className="pt-2">
-                <button
-                  onClick={() => api.sendAction(state.roomCode, 'DEMO_SIMULATE_VOTES')}
-                  className="py-1 px-3 bg-zinc-800 hover:bg-zinc-700 text-amber-300 text-xs font-mono rounded"
-                >
-                  ⚡ Auto-Simulate Demo Votes
-                </button>
-              </div>
-            )}
+            <div className="pt-2 flex items-center justify-center gap-3">
+              <button
+                onClick={() => api.sendAction(state.roomCode, 'DEMO_SIMULATE_VOTES')}
+                className="py-2 px-4 bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/60 text-amber-200 text-xs font-mono font-bold rounded shadow"
+              >
+                ⚡ Auto-Lock Remaining Votes
+              </button>
+            </div>
           </div>
         )}
 
@@ -551,33 +658,42 @@ export const HostScreen: React.FC<Props> = ({
                 The Slates of Betrayal
               </h2>
               <p className="text-xs text-zinc-300 font-sans">
-                Each player raises their mobile slate to the table in strict seating order.
+                Each player raises their mobile slate to the table in strict seating order — or reveal all slates simultaneously below.
               </p>
             </div>
 
             {/* Current Active Turn Player */}
-            {state.currentRevealIndex < state.seatingOrder.length && (
-              <div className="p-6 bg-gradient-to-r from-burgundy-950/80 via-zinc-900 to-burgundy-950/80 border-2 border-amber-500 rounded-lg text-center shadow-[0_0_30px_rgba(212,163,69,0.2)]">
-                <span className="text-xs uppercase tracking-widest text-amber-400 font-mono block mb-1 animate-pulse">
-                  Now Presenting Slate #{state.currentRevealIndex + 1}
-                </span>
-                <h3 className="text-3xl md:text-4xl font-serif font-black text-amber-300">
-                  {state.players.find(p => p.id === state.seatingOrder[state.currentRevealIndex])?.name?.toUpperCase()}
-                </h3>
-                <p className="text-xs text-zinc-300 italic mt-2 font-serif">
-                  Turn your phone toward the room. Declare your accusation aloud!
-                </p>
+            <div className="p-6 bg-gradient-to-r from-burgundy-950/80 via-zinc-900 to-burgundy-950/80 border-2 border-amber-500 rounded-lg text-center shadow-[0_0_30px_rgba(212,163,69,0.2)]">
+              <span className="text-xs uppercase tracking-widest text-amber-400 font-mono block mb-1 animate-pulse">
+                {state.currentRevealIndex < state.seatingOrder.length
+                  ? `Now Presenting Slate #${state.currentRevealIndex + 1} of ${state.seatingOrder.length}`
+                  : 'All Slates Ready for Verdict'}
+              </span>
+              <h3 className="text-3xl md:text-4xl font-serif font-black text-amber-300">
+                {state.players
+                  .find(p => p.id === state.seatingOrder[state.currentRevealIndex])
+                  ?.name?.toUpperCase() || 'TALLYING VOTES'}
+              </h3>
+              <p className="text-xs text-zinc-300 italic mt-2 font-serif">
+                Turn your phone toward the room and declare your accusation aloud!
+              </p>
 
-                <div className="mt-4">
-                  <button
-                    onClick={() => api.sendAction(state.roomCode, 'FINISH_PHONE_SLATE')}
-                    className="py-1.5 px-4 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 text-xs font-mono uppercase rounded border border-zinc-700"
-                  >
-                    Advance Slate Turn (Host Override)
-                  </button>
-                </div>
+              <div className="mt-4 flex flex-wrap items-center justify-center gap-3">
+                <button
+                  onClick={() => api.sendAction(state.roomCode, 'FINISH_PHONE_SLATE')}
+                  className="py-2 px-4 bg-zinc-800 hover:bg-zinc-700 text-amber-200 text-xs font-mono uppercase rounded border border-zinc-600"
+                >
+                  Reveal Next Slate ({Math.min(state.currentRevealIndex + 1, state.seatingOrder.length)}/{state.seatingOrder.length})
+                </button>
+
+                <button
+                  onClick={() => api.sendAction(state.roomCode, 'REVEAL_ALL_SLATES')}
+                  className="py-2 px-5 bg-amber-500 hover:bg-amber-400 text-black font-serif font-bold text-xs uppercase tracking-wider rounded shadow-lg"
+                >
+                  ⚡ Reveal All Slates & Tally Verdict
+                </button>
               </div>
-            )}
+            </div>
 
             {/* Public Reveal Table */}
             <div className="space-y-2 pt-2">
@@ -937,25 +1053,32 @@ export const HostScreen: React.FC<Props> = ({
             </div>
 
             {/* Current Revealing Survivor */}
-            {state.currentRevealIndex < survivors.length && (
-              <div className="p-6 bg-gradient-to-r from-burgundy-950/80 via-zinc-900 to-burgundy-950/80 border-2 border-amber-500 rounded-lg text-center shadow-lg">
-                <span className="text-xs uppercase tracking-widest text-amber-400 font-mono block mb-1 animate-pulse">
-                  Revealing Slate #{state.currentRevealIndex + 1}
-                </span>
-                <h3 className="text-3xl md:text-4xl font-serif font-black text-amber-300">
-                  {survivors[state.currentRevealIndex]?.name?.toUpperCase()}
-                </h3>
+            <div className="p-6 bg-gradient-to-r from-burgundy-950/80 via-zinc-900 to-burgundy-950/80 border-2 border-amber-500 rounded-lg text-center shadow-lg">
+              <span className="text-xs uppercase tracking-widest text-amber-400 font-mono block mb-1 animate-pulse">
+                {state.currentRevealIndex < survivors.length
+                  ? `Revealing Slate #${state.currentRevealIndex + 1} of ${survivors.length}`
+                  : 'All Slates Ready for Verdict'}
+              </span>
+              <h3 className="text-3xl md:text-4xl font-serif font-black text-amber-300">
+                {survivors[state.currentRevealIndex]?.name?.toUpperCase() || 'TALLYING VOTES'}
+              </h3>
 
-                <div className="mt-4">
-                  <button
-                    onClick={() => api.sendAction(state.roomCode, 'FINALE_FINISH_SLATE')}
-                    className="py-1.5 px-4 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 text-xs font-mono uppercase rounded border border-zinc-700"
-                  >
-                    Advance Slate Turn (Host Override)
-                  </button>
-                </div>
+              <div className="mt-4 flex flex-wrap items-center justify-center gap-3">
+                <button
+                  onClick={() => api.sendAction(state.roomCode, 'FINALE_FINISH_SLATE')}
+                  className="py-2 px-4 bg-zinc-800 hover:bg-zinc-700 text-amber-200 text-xs font-mono uppercase rounded border border-zinc-600"
+                >
+                  Reveal Next Slate ({Math.min(state.currentRevealIndex + 1, survivors.length)}/{survivors.length})
+                </button>
+
+                <button
+                  onClick={() => api.sendAction(state.roomCode, 'REVEAL_ALL_SLATES')}
+                  className="py-2 px-5 bg-amber-500 hover:bg-amber-400 text-black font-serif font-bold text-xs uppercase tracking-wider rounded shadow-lg"
+                >
+                  ⚡ Reveal All Slates & Tally Verdict
+                </button>
               </div>
-            )}
+            </div>
 
             {/* Revealed votes */}
             <div className="grid sm:grid-cols-2 gap-2.5 pt-2">

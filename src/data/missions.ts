@@ -85,7 +85,9 @@ export const BIRTHDAY_MAJORITY_QUESTION_POOL: BirthdayMajorityQuestion[] = [
 ];
 
 // ----------------------------------------------------------------------
-// MISSION 3: THE FORGERY GALLERY PAIRS
+// MISSION 3: THE FORGERY GALLERY PAIRS (RANDOMIZED & COIN-FLIPPED AT RUNTIME)
+// Neither the Host Display nor the app creator knows which side of the pair
+// was dealt to the 6 Faithful vs the 1 Traitor!
 // ----------------------------------------------------------------------
 export const FORGERY_BRIEF_PAIRS = [
   {
@@ -100,48 +102,96 @@ export const FORGERY_BRIEF_PAIRS = [
     faithful: 'A flamboyant aristocrat playing the grand piano inside the castle library while an owl perches on a marble bust.',
     traitor: 'An eccentric maestro playing a harp inside an overgrown castle conservatory while a raven perches on a gargoyle.',
   },
+  {
+    faithful: 'A royal detective inspecting muddy footprints outside the castle wine cellar with a magnifying glass and a bloodhound.',
+    traitor: 'A nervous groundskeeper hiding a golden trophy behind the castle greenhouse with a shovel and a badger.',
+  },
+  {
+    faithful: 'A Scottish duchess riding a penny-farthing bicycle across a stone drawbridge with a champagne flute and a swan.',
+    traitor: 'A Highland lord riding a tandem scooter past a medieval turret with a candelabra and a peacock.',
+  },
+  {
+    faithful: 'A glamorous opera singer toasting by a roaring castle fireplace with a crystal decanter, a pug, and a portrait.',
+    traitor: 'A mysterious fortune teller reading tarot cards by candlelight in a stone tower with a black cat and a cauldron.',
+  },
+  {
+    faithful: 'A chef in a tall hat flambeing a birthday pudding in the castle kitchen with a copper pan and a stealing mouse.',
+    traitor: 'A medieval alchemist brewing a bubbling potion in the castle dungeon with a mortar and pestle and a frog.',
+  },
+  {
+    faithful: 'A sleepy duke soaking in a clawfoot bathtub on the castle roof with a rubber duck, a telescope, and a crown.',
+    traitor: 'A knight in shining armour lounging in a hammock between two castle cannons with a lute and a goblet.',
+  },
 ];
 
 // ----------------------------------------------------------------------
 // MISSION 4: THE BODY DISPOSAL COMMITTEE DATA
+// Uses objects carried over from Round 1 (Exhibit A) + fallback pool!
 // ----------------------------------------------------------------------
 export const BODY_DISPOSAL_SCENARIO =
-  'The Duchess has expired during dessert. The inspector is five minutes away, your getaway vehicle is a tandem bicycle, and the police already know you are here. Seven objects have been scavenged from Jasmine’s Castle. Together, select five objects and construct an airtight getaway story in sixty seconds.';
+  'The Duchess has expired during dessert. The inspector is five minutes away, your getaway vehicle is a tandem bicycle, and the police already know you are here. The household objects from Round 1 have returned to the parlour. Together, select five objects and construct an airtight getaway story in sixty seconds.';
 
 export const BODY_DISPOSAL_OBJECTS_POOL = [
+  'Antique Pocket Watch',
+  'Black Leather Glove',
+  'Crimson Handkerchief',
+  'Ornate Brass Key',
+  'Poison Decanter Flask',
+  'Wax-Sealed Letter',
+  'Engraved Silver Spoon',
   'Wooden Spoon',
   'Tea Towel',
-  'Shoe or Slipper',
-  'Sofa Cushion',
-  'Coffee Mug',
-  'Coat Hanger',
-  'Bunch of Keys',
   'Roll of Foil',
-  'Umbrella',
-  'Empty Wine Bottle',
 ];
 
 // ----------------------------------------------------------------------
-// MISSION 5: THE COUNTERFEIT EXPERT INVENTIONS
+// MISSION 5: THE COUNTERFEIT EXPERT INVENTIONS (RANDOMIZED WORD DRAWS)
+// At runtime, 3 words are randomly drawn from candidateWords for the Faithful,
+// and 1 of those 3 is randomly hidden from the Traitor — so even the person
+// who wrote the app cannot know the missing word if they are the Traitor!
 // ----------------------------------------------------------------------
 export const COUNTERFEIT_INVENTIONS = [
   {
-    invention: 'The Whispering Teapot',
+    invention: 'The Self-Pouring Midnight Wine Goblet',
+    faithfulThreeWords: ['Velvet', 'Gravity', 'Alibi'] as [string, string, string],
+    traitorTwoWords: ['Velvet', 'Gravity'] as [string, string],
+    missingThirdWord: 'Alibi',
+    candidateWords: ['Velvet', 'Gravity', 'Alibi', 'Chandelier', 'Hangover', 'Monocle', 'Cellar', 'Scandal'],
+  },
+  {
+    invention: 'The Whispering Porcelain Teapot',
     faithfulThreeWords: ['Porcelain', 'Steam', 'Gossip'] as [string, string, string],
     traitorTwoWords: ['Porcelain', 'Steam'] as [string, string],
     missingThirdWord: 'Gossip',
+    candidateWords: ['Porcelain', 'Steam', 'Gossip', 'Earl', 'Eavesdrop', 'Biscuit', 'Silver', 'Poison'],
   },
   {
-    invention: 'The Velvet Umbrella',
-    faithfulThreeWords: ['Raindrops', 'Canopy', 'Aristocrat'] as [string, string, string],
-    traitorTwoWords: ['Raindrops', 'Canopy'] as [string, string],
-    missingThirdWord: 'Aristocrat',
+    invention: 'The Anti-Paranoia Highland Cloak',
+    faithfulThreeWords: ['Tartan', 'Shadow', 'Dagger'] as [string, string, string],
+    traitorTwoWords: ['Tartan', 'Shadow'] as [string, string],
+    missingThirdWord: 'Dagger',
+    candidateWords: ['Tartan', 'Shadow', 'Dagger', 'Heather', 'Whisky', 'Fortress', 'Disguise', 'Bagpipe'],
   },
   {
-    invention: 'The Clockwork Snuffbox',
-    faithfulThreeWords: ['Brass', 'Spring', 'Treason'] as [string, string, string],
-    traitorTwoWords: ['Brass', 'Spring'] as [string, string],
+    invention: 'The Clockwork Alibi Pocket Watch',
+    faithfulThreeWords: ['Brass', 'Pendulum', 'Treason'] as [string, string, string],
+    traitorTwoWords: ['Brass', 'Pendulum'] as [string, string],
     missingThirdWord: 'Treason',
+    candidateWords: ['Brass', 'Pendulum', 'Treason', 'Detective', 'Hypnosis', 'Midnight', 'Gearbox', 'Witness'],
+  },
+  {
+    invention: 'The Royal Corgi Translator Collar',
+    faithfulThreeWords: ['Sausage', 'Majesty', 'Barking'] as [string, string, string],
+    traitorTwoWords: ['Sausage', 'Majesty'] as [string, string],
+    missingThirdWord: 'Barking',
+    candidateWords: ['Sausage', 'Majesty', 'Barking', 'Throne', 'Biscuits', 'Tiara', 'Butler', 'Pedigree'],
+  },
+  {
+    invention: 'The Jet-Powered Tandem Getaway Bicycle',
+    faithfulThreeWords: ['Pedals', 'Turbo', 'Duchess'] as [string, string, string],
+    traitorTwoWords: ['Pedals', 'Turbo'] as [string, string],
+    missingThirdWord: 'Duchess',
+    candidateWords: ['Pedals', 'Turbo', 'Duchess', 'Gravel', 'Parachute', 'Inspector', 'Handlebars', 'Escape'],
   },
 ];
 

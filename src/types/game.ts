@@ -160,6 +160,7 @@ export interface ForgeryGalleryState {
   traitorBrief: string;
   qualifiedMilestones: Record<string, { person: boolean; setting: boolean; threeObjects: boolean }>;
   isDrawingLocked: boolean;
+  forgerAccusations?: Record<string, string>; // voterPlayerId -> suspectedForgerPlayerId
 }
 
 // ----------------------------------------------------------------------
@@ -168,6 +169,7 @@ export interface ForgeryGalleryState {
 export interface BodyDisposalState {
   scenario: string;
   confirmedHouseholdItems: string[];
+  carriedOverFromRound1?: boolean;
   traitorAssignedObject: string;
   chosenFiveObjects: string[];
   milestones: {
@@ -183,11 +185,13 @@ export interface BodyDisposalState {
 // ----------------------------------------------------------------------
 export interface CounterfeitExpertState {
   invention: string;
+  candidateWords?: string[];
   faithfulThreeWords: [string, string, string];
   traitorTwoWords: [string, string];
   missingThirdWord: string;
   speakingOrder: string[];
   playerMilestones: Record<string, { under30Seconds: boolean; word1Used: boolean; word2Used: boolean; word3Attempted: boolean }>;
+  traitorGuessedWord?: string;
   traitorGuessedWordSuccess?: boolean;
 }
 

@@ -41,6 +41,7 @@ export const DemoSwitcher: React.FC<Props> = ({
   if (!state.isDemoRoom) return null;
 
   const [isJumping, setIsJumping] = useState(false);
+  const [showRoleSpoilers, setShowRoleSpoilers] = useState(false);
 
   const handleJumpRound = async (round: number, phase: string = 'INTRO') => {
     setIsJumping(true);
@@ -53,6 +54,10 @@ export const DemoSwitcher: React.FC<Props> = ({
 
   const handleAutoVote = async () => {
     await api.sendAction(state.roomCode, 'DEMO_SIMULATE_VOTES');
+  };
+
+  const handleRevealAllSlates = async () => {
+    await api.sendAction(state.roomCode, 'REVEAL_ALL_SLATES');
   };
 
   const handleAutoSubmitAllObjects = async () => {
@@ -68,7 +73,11 @@ export const DemoSwitcher: React.FC<Props> = ({
   };
 
   const handleSimulateMajorityAnswers = async () => {
-    await api.sendAction(state.roomCode, 'DEMO_SIMULATE_MAJORITY_ANSWERS');
+    await api.sendAction(state.roomCode, 'DEMO_SIMULATE_MAJORITY_ANSWERS', { allQuestions: true });
+  };
+
+  const handleSimulateAuction = async () => {
+    await api.sendAction(state.roomCode, 'DEMO_SIMULATE_AUCTION');
   };
 
   const handleSimulateEndOrBanish = async () => {
@@ -105,7 +114,7 @@ export const DemoSwitcher: React.FC<Props> = ({
                     ? 'bg-amber-500 text-black shadow'
                     : 'text-zinc-400 hover:text-amber-200 hover:bg-zinc-800'
                 }`}
-                title={`Jump to Round ${r}`}
+                title={`Jump to Round ${r} (Carries over R1–R${r - 1} scores)`}
               >
                 R{r}
               </button>
@@ -125,6 +134,20 @@ export const DemoSwitcher: React.FC<Props> = ({
           >
             <Zap className="w-3 h-3" />
             <span>Mission View</span>
+          </button>
+
+          {/* Toggle Role Spoilers in Nav */}
+          <button
+            onClick={() => setShowRoleSpoilers(!showRoleSpoilers)}
+            className={`px-2 py-1 rounded text-[10px] font-mono border transition flex items-center gap-1 ${
+              showRoleSpoilers
+                ? 'bg-rose-950/80 border-rose-500/60 text-rose-200'
+                : 'bg-zinc-900 border-zinc-800 text-zinc-400 hover:text-zinc-200'
+            }`}
+            title="Hide or peek Traitor icons on player tabs (kept hidden by default for zero spoilers!)"
+          >
+            <Eye className="w-3 h-3" />
+            <span>{showRoleSpoilers ? 'Spoilers: ON' : 'Spoilers: OFF'}</span>
           </button>
         </div>
 
@@ -169,21 +192,23 @@ export const DemoSwitcher: React.FC<Props> = ({
                 <Smartphone className={`w-3 h-3 ${isSelected ? 'text-amber-400' : 'text-zinc-500'}`} />
                 <span>{dp.name.replace(' (Host)', '')}</span>
 
-                {/* Role badge for testing */}
-                {isTraitor ? (
-                  <span
-                    className="px-1 py-0.2 bg-red-950 text-red-400 border border-red-700/60 rounded text-[9px] font-mono font-bold"
-                    title="Traitor for this round"
-                  >
-                    🗡️
-                  </span>
-                ) : (
-                  <span
-                    className="px-1 py-0.2 bg-emerald-950 text-emerald-400 border border-emerald-700/60 rounded text-[9px] font-mono"
-                    title="Faithful"
-                  >
-                    🛡️
-                  </span>
+                {/* Optional Role badge only when Spoilers toggled ON */}
+                {showRoleSpoilers && (
+                  isTraitor ? (
+                    <span
+                      className="px-1 py-0.2 bg-red-950 text-red-400 border border-red-700/60 rounded text-[9px] font-mono font-bold"
+                      title="Traitor for this round"
+                    >
+                      🗡️
+                    </span>
+                  ) : (
+                    <span
+                      className="px-1 py-0.2 bg-emerald-950 text-emerald-400 border border-emerald-700/60 rounded text-[9px] font-mono"
+                      title="Faithful"
+                    >
+                      🛡️
+                    </span>
+                  )
                 )}
 
                 {/* Action status dots */}
@@ -201,7 +226,7 @@ export const DemoSwitcher: React.FC<Props> = ({
         {/* 3. RIGHT: FAST-FORWARDS & ADMIN PLAN SHORTCUT */}
         <div className="flex items-center gap-1.5 flex-wrap">
           {/* Exhibit A: Fill all objects */}
-          {state.currentRound === 1 && exhibitState?.stage === 'COLLECTION' && (
+          {state.currentRound === 1 && state.phase === 'MISSION' && exhibitState?.stage === 'COLLECTION' && (
             <button
               onClick={handleAutoSubmitAllObjects}
               className="py-1 px-2.5 bg-emerald-950/90 hover:bg-emerald-900 border border-emerald-500/60 text-emerald-300 text-[11px] font-mono rounded flex items-center gap-1 shadow"
@@ -212,26 +237,50 @@ export const DemoSwitcher: React.FC<Props> = ({
           )}
 
           {/* Exhibit A: Acknowledge briefing for all */}
-          {state.currentRound === 1 && exhibitState?.stage === 'SECRET_BRIEFING' && (
+          {state.currentRound === 1 && state.phase === 'MISSION' && exhibitState?.stage === 'SECRET_BRIEFING' && (
             <button
               onClick={handleAcknowledgeAll}
               className="py-1 px-2.5 bg-amber-600/30 hover:bg-amber-600/50 border border-amber-500/60 text-amber-300 text-[11px] font-mono rounded flex items-center gap-1 shadow"
             >
               <Zap className="w-3 h-3 text-amber-400" />
-              <span>Ack 7/7</span>
+              <span>Ack 7/7 & Present</span>
+            </button>
+          )}
+
+          {/* Exhibit A: Open voting from presentations */}
+          {state.currentRound === 1 && state.phase === 'MISSION' && exhibitState?.stage === 'PRESENTATIONS' && (
+            <button
+              onClick={() => api.sendAction(state.roomCode, 'EXHIBIT_A_OPEN_VOTING')}
+              className="py-1 px-2.5 bg-amber-600/30 hover:bg-amber-600/50 border border-amber-500/60 text-amber-300 text-[11px] font-mono rounded flex items-center gap-1 shadow"
+            >
+              <Zap className="w-3 h-3 text-amber-400" />
+              <span>Open Item Vote</span>
             </button>
           )}
 
           {/* Exhibit A: Simulate evidence votes */}
-          {state.currentRound === 1 && exhibitState?.stage === 'EVIDENCE_VOTING' && (
+          {state.currentRound === 1 && state.phase === 'MISSION' && exhibitState?.stage === 'EVIDENCE_VOTING' && (
             <button
               onClick={handleSimulateEvidenceVotes}
               className="py-1 px-2.5 bg-amber-600/30 hover:bg-amber-600/50 border border-amber-500/60 text-amber-300 text-[11px] font-mono rounded flex items-center gap-1 shadow"
             >
               <Zap className="w-3 h-3 text-amber-400" />
-              <span>Sim Votes</span>
+              <span>Sim Votes & Reveal</span>
             </button>
           )}
+
+          {/* Exhibit A: Advance from Evidence Reveal to Round Table */}
+          {state.currentRound === 1 &&
+            state.phase === 'MISSION' &&
+            (exhibitState?.stage === 'EVIDENCE_REVEAL' || exhibitState?.stage === 'COMPLETED') && (
+              <button
+                onClick={() => api.sendAction(state.roomCode, 'ADVANCE_TO_ROUND_TABLE')}
+                className="py-1 px-2.5 bg-emerald-600 hover:bg-emerald-500 text-black font-bold text-[11px] font-mono rounded flex items-center gap-1 shadow"
+              >
+                <Zap className="w-3 h-3" />
+                <span>To Round Table →</span>
+              </button>
+            )}
 
           {/* Birthday Majority (Round 2): Simulate all 7 answers */}
           {state.currentRound === 2 && state.phase === 'MISSION' && (
@@ -240,7 +289,18 @@ export const DemoSwitcher: React.FC<Props> = ({
               className="py-1 px-2.5 bg-amber-600/30 hover:bg-amber-600/50 border border-amber-500/60 text-amber-300 text-[11px] font-mono rounded flex items-center gap-1 shadow"
             >
               <Zap className="w-3 h-3 text-amber-400" />
-              <span>Sim 7 Answers</span>
+              <span>Sim All 5 Qs</span>
+            </button>
+          )}
+
+          {/* Round 6 Auction: Simulate all 6 lots */}
+          {state.currentRound === 6 && state.phase === 'MISSION' && (
+            <button
+              onClick={handleSimulateAuction}
+              className="py-1 px-2.5 bg-amber-600/30 hover:bg-amber-600/50 border border-amber-500/60 text-amber-300 text-[11px] font-mono rounded flex items-center gap-1 shadow"
+            >
+              <Zap className="w-3 h-3 text-amber-400" />
+              <span>Sim Auction → Finale</span>
             </button>
           )}
 
@@ -253,7 +313,20 @@ export const DemoSwitcher: React.FC<Props> = ({
               className="py-1 px-2.5 bg-amber-600/30 hover:bg-amber-600/50 border border-amber-500/60 text-amber-300 text-[11px] font-mono rounded flex items-center gap-1 shadow"
             >
               <Zap className="w-3 h-3 text-amber-400" />
-              <span>Auto-Vote 7</span>
+              <span>Auto-Vote All</span>
+            </button>
+          )}
+
+          {/* Slate Reveal Phases: Reveal All Slates */}
+          {(state.phase === 'VOTE_REVEALS' ||
+            state.phase === 'TIE_REVEALS' ||
+            state.phase === 'FINALE_VOTE_REVEALS') && (
+            <button
+              onClick={handleRevealAllSlates}
+              className="py-1 px-2.5 bg-emerald-600 hover:bg-emerald-500 text-black font-bold text-[11px] font-mono rounded flex items-center gap-1 shadow"
+            >
+              <Zap className="w-3 h-3" />
+              <span>Reveal All Slates</span>
             </button>
           )}
 
