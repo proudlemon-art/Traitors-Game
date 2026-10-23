@@ -171,49 +171,49 @@
       "objects": [
         {
           "id": "obj_p_libby",
-          "name": "Wooden Spoon",
+          "name": "Antique Pocket Watch",
           "hasPresented": true,
           "contributorId": "p_libby",
           "contributorName": "Libby"
         },
         {
           "id": "obj_p_arthur",
-          "name": "Single Sock",
+          "name": "Black Leather Glove",
           "hasPresented": true,
           "contributorId": "p_arthur",
           "contributorName": "Arthur"
         },
         {
           "id": "obj_p_beatrice",
-          "name": "Tea Towel",
+          "name": "Crimson Handkerchief",
           "hasPresented": true,
           "contributorId": "p_beatrice",
           "contributorName": "Beatrice"
         },
         {
           "id": "obj_p_callum",
-          "name": "Screwdriver",
+          "name": "Ornate Brass Key",
           "hasPresented": true,
           "contributorId": "p_callum",
           "contributorName": "Callum"
         },
         {
           "id": "obj_p_daphne",
-          "name": "Rubber Duck",
+          "name": "Poison Decanter Flask",
           "hasPresented": true,
           "contributorId": "p_daphne",
           "contributorName": "Daphne"
         },
         {
           "id": "obj_p_edgar",
-          "name": "Coffee Mug",
+          "name": "Wax-Sealed Letter",
           "hasPresented": true,
           "contributorId": "p_edgar",
           "contributorName": "Edgar"
         },
         {
           "id": "obj_p_fiona",
-          "name": "Candlestick",
+          "name": "Engraved Silver Spoon",
           "hasPresented": true,
           "contributorId": "p_fiona",
           "contributorName": "Fiona"

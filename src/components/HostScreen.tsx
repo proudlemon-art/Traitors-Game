@@ -254,22 +254,23 @@ export const HostScreen: React.FC<Props> = ({
       </header>
 
       {/* 2. MAIN HOST ARENA */}
-      <main className="flex-1 max-w-[1700px] w-full mx-auto p-4 md:p-6 lg:p-8 flex flex-col justify-center space-y-6">
-        {state.phase === 'LOBBY' ? (
-          <>
-            {/* Cinematic Claudia Television Broadcast Video Frame in Lobby */}
-            <ClaudiaBroadcastVideo
-              caption={caption}
-              phase={state.phase}
-              currentRound={state.currentRound}
-              isHostAudioUnlocked={audioUnlocked}
-              onUnlockAudio={handleUnlockAudio}
-              isAdminModeOn={isAdminMode}
-              onOpenAdminStudio={onOpenAdminStudio}
-            />
+      <main className="flex-1 max-w-[1700px] w-full mx-auto p-4 md:p-6 lg:p-8 flex flex-col justify-start space-y-6">
+        {/* CENTER STAGE HERO: WIDESCREEN CINEMATIC TELEVISION BROADCAST & SCENE PHOTO */}
+        <section className="w-full flex justify-center">
+          <ClaudiaBroadcastVideo
+            caption={caption}
+            phase={state.phase}
+            currentRound={state.currentRound}
+            isHostAudioUnlocked={audioUnlocked}
+            onUnlockAudio={handleUnlockAudio}
+            isAdminModeOn={isAdminMode}
+            onOpenAdminStudio={onOpenAdminStudio}
+          />
+        </section>
 
-            {/* PHASE: LOBBY */}
-            <div className="grid md:grid-cols-2 gap-8 items-center max-w-5xl mx-auto bg-zinc-950/90 border border-amber-900/50 p-6 md:p-10 rounded-xl shadow-2xl">
+        {state.phase === 'LOBBY' ? (
+          /* PHASE: LOBBY */
+          <div className="grid md:grid-cols-2 gap-8 items-center max-w-5xl mx-auto bg-zinc-950/90 border border-amber-900/50 p-6 md:p-10 rounded-xl shadow-2xl w-full">
             {/* Left: QR Code & Join Info */}
             <div className="space-y-4 text-center md:text-left">
               <span className="text-xs uppercase tracking-widest text-amber-500 font-mono">
@@ -366,22 +367,10 @@ export const HostScreen: React.FC<Props> = ({
               </div>
             </div>
           </div>
-        </>
-      ) : (
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start w-full">
-          {/* Primary Center/Left Stage: Broadcast & Current Phase */}
-          <div className="lg:col-span-8 xl:col-span-9 space-y-6 min-w-0">
-            {/* Cinematic Claudia Television Broadcast Video Frame */}
-            <ClaudiaBroadcastVideo
-              caption={caption}
-              phase={state.phase}
-              currentRound={state.currentRound}
-              isHostAudioUnlocked={audioUnlocked}
-              onUnlockAudio={handleUnlockAudio}
-              isAdminModeOn={isAdminMode}
-              onOpenAdminStudio={onOpenAdminStudio}
-            />
-
+        ) : (
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start w-full">
+            {/* Primary Center Stage: Current Phase Controls */}
+            <div className="lg:col-span-8 xl:col-span-9 space-y-6 min-w-0">
         {/* PHASE: INTRO */}
         {state.phase === 'INTRO' && (
           <div className="max-w-3xl mx-auto text-center space-y-6 bg-zinc-950/90 border border-amber-900/60 p-8 md:p-12 rounded-xl shadow-2xl animate-fadeIn">

@@ -24,6 +24,12 @@ export interface SceneMediaConfig {
 // Preset visual images from the castle gallery
 export const PRESET_CASTLE_IMAGES = [
   {
+    id: 'crime_scene_mystery',
+    name: 'The Candlelit Mystery (Mission 1)',
+    description: 'Slumbering lord in armchair with 8 crime scene objects on table',
+    url: '/assets/aistudio/The_Candlelit_Castle_Mystery_891f6711.png',
+  },
+  {
     id: 'prologue_arrival',
     name: 'Jasmine’s Castle Arrival',
     description: 'Claudia at the wrought iron gates of Jasmine’s Castle',
@@ -63,7 +69,7 @@ function buildInitialScenes(): SceneMediaConfig[] {
   // ROUNDS 1 TO 6 COMPLETE CATALOG
   for (let r = 1; r <= 6; r++) {
     const s = HOST_SCRIPTS[r] || HOST_SCRIPTS[1];
-    const roundImg = r === 1 ? PRESET_CASTLE_IMAGES[0].url : (r % 2 === 0 ? PRESET_CASTLE_IMAGES[4].url : PRESET_CASTLE_IMAGES[3].url);
+    const roundImg = r === 1 ? PRESET_CASTLE_IMAGES[1].url : (r % 2 === 0 ? PRESET_CASTLE_IMAGES[5].url : PRESET_CASTLE_IMAGES[4].url);
 
     // 1. Prologue / Intro
     scenes.push({
@@ -73,7 +79,7 @@ function buildInitialScenes(): SceneMediaConfig[] {
       round: r,
       phase: 'INTRO',
       defaultText: s.intro,
-      defaultImageUrl: r === 1 || r === 6 ? PRESET_CASTLE_IMAGES[0].url : PRESET_CASTLE_IMAGES[4].url,
+      defaultImageUrl: r === 1 || r === 6 ? PRESET_CASTLE_IMAGES[1].url : PRESET_CASTLE_IMAGES[5].url,
     });
 
     // 2. Role Briefing
@@ -84,12 +90,12 @@ function buildInitialScenes(): SceneMediaConfig[] {
       round: r,
       phase: 'ROLE_BRIEFING',
       defaultText: s.roleBriefing,
-      defaultImageUrl: PRESET_CASTLE_IMAGES[2].url,
+      defaultImageUrl: PRESET_CASTLE_IMAGES[3].url,
     });
 
     // 3. Mission
     const missionNames: Record<number, string> = {
-      1: 'Mission 1: The Castle Heist',
+      1: 'Mission 1: Exhibit A: The Crime Scene',
       2: 'Mission 2: The Birthday Majority',
       3: 'Mission 3: The Forgery Gallery',
       4: 'Mission 4: Body Disposal Committee',
@@ -99,11 +105,13 @@ function buildInitialScenes(): SceneMediaConfig[] {
     scenes.push({
       id: `ROUND_${r}_MISSION`,
       title: `Round ${r}: ${missionNames[r] || `Mission ${r}`}`,
-      subtitle: `Instructions and rules for Round ${r} mission play`,
+      subtitle: r === 1 ? 'Examine the 8 crime scene objects and select Exhibit A' : `Instructions and rules for Round ${r} mission play`,
       round: r,
       phase: 'MISSION',
-      defaultText: s.missionStart,
-      defaultImageUrl: PRESET_CASTLE_IMAGES[3].url,
+      defaultText: r === 1
+        ? 'Look closely at the crime scene before you. Eight curious objects rest upon the table beside our slumbering Lord. One will be chosen as Exhibit A. One Traitor has secretly planted their mark.'
+        : s.missionStart,
+      defaultImageUrl: r === 1 ? '/assets/aistudio/The_Candlelit_Castle_Mystery_891f6711.png' : PRESET_CASTLE_IMAGES[4].url,
     });
 
     // 4. Round Table Debate
@@ -114,7 +122,7 @@ function buildInitialScenes(): SceneMediaConfig[] {
       round: r,
       phase: 'ROUND_TABLE',
       defaultText: s.roundTable,
-      defaultImageUrl: PRESET_CASTLE_IMAGES[1].url,
+      defaultImageUrl: PRESET_CASTLE_IMAGES[2].url,
     });
 
     // 5. Voting Slates Open

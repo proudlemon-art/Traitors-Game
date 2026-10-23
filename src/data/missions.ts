@@ -58,16 +58,19 @@ export const TRAITOR_OBJECTIVES: Record<number, TraitorObjective> = {
 // MISSION 1: EXHIBIT A EXAMPLES & DEFAULTS
 // ----------------------------------------------------------------------
 export const EXHIBIT_A_EXAMPLES = [
+  'Ornate Brass Key',
+  'Black Leather Glove',
+  'Poison Decanter Flask',
+  'Antique Pocket Watch & Chain',
+  'Crimson Damask Handkerchief',
+  'Wax-Sealed Secret Envelope',
+  'Engraved Silver Spoon',
+  'Forensics Evidence Bag',
   'Wooden Spoon',
   'Tea Towel',
   'Shoe or Slipper',
-  'Screwdriver',
-  'Rubber Duck',
-  'Coffee Mug',
   'Candlestick',
-  'Paperback Book',
-  'Oven Glove',
-  'Bunch of Keys',
+  'Coffee Mug',
 ];
 
 // ----------------------------------------------------------------------

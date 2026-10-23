@@ -194,6 +194,31 @@ export const ExhibitAMission: React.FC<Props> = ({ state, isHostDisplay, playerT
           </div>
         </div>
 
+        {/* Crime Scene Photo & Clue Callout */}
+        <div className="bg-zinc-950/90 border border-amber-500/40 rounded-xl p-4 flex flex-wrap items-center justify-between gap-4 shadow-xl">
+          <div className="flex items-center gap-3">
+            <img
+              src="/assets/aistudio/The_Candlelit_Castle_Mystery_891f6711.png"
+              alt="The Crime Scene"
+              className="w-24 h-16 object-cover rounded-lg border border-amber-500/50 shadow-md"
+            />
+            <div>
+              <span className="text-[10px] font-mono text-amber-400 uppercase tracking-widest block">
+                Official Forensics · Candlelit Castle Chamber
+              </span>
+              <h4 className="text-sm sm:text-base font-serif font-bold text-amber-100">
+                8 Suspected Objects Resting Upon the Table
+              </h4>
+              <p className="text-xs text-zinc-400 font-sans mt-0.5">
+                Key · Glove · Poison Decanter · Pocket Watch · Handkerchief · Sealed Letter · Spoon · Evidence Bag
+              </p>
+            </div>
+          </div>
+          <div className="text-xs font-mono text-amber-300/90 bg-black/60 px-3 py-1.5 rounded-lg border border-amber-900/60 shadow">
+            Displaying Centre Stage on TV Broadcast
+          </div>
+        </div>
+
         {/* STAGE 1: COLLECTION (HOST) */}
         {exhibitState.stage === 'COLLECTION' && (
           <div className="bg-zinc-950/80 border border-amber-900/40 rounded-xl p-6 space-y-6">
@@ -529,6 +554,32 @@ export const ExhibitAMission: React.FC<Props> = ({ state, isHostDisplay, playerT
                   autoFocus
                   className="w-full bg-black border border-amber-900/70 rounded-lg p-3 text-sm text-amber-100 font-serif focus:outline-none focus:border-amber-400"
                 />
+                <div className="mt-2">
+                  <span className="text-[10px] font-mono text-zinc-400 uppercase tracking-wider block mb-1">
+                    Suspected objects from the TV crime scene photo:
+                  </span>
+                  <div className="flex flex-wrap gap-1.5">
+                    {[
+                      'Ornate Brass Key',
+                      'Black Leather Glove',
+                      'Poison Decanter Flask',
+                      'Antique Pocket Watch',
+                      'Crimson Handkerchief',
+                      'Wax-Sealed Letter',
+                      'Silver Spoon',
+                      'Forensics Evidence Bag',
+                    ].map(item => (
+                      <button
+                        type="button"
+                        key={item}
+                        onClick={() => setObjectNameInput(item)}
+                        className="px-2 py-0.5 bg-zinc-900 hover:bg-zinc-800 text-amber-300 hover:text-amber-100 border border-amber-900/50 rounded text-[10px] font-mono transition"
+                      >
+                        + {item}
+                      </button>
+                    ))}
+                  </div>
+                </div>
               </div>
               <button
                 type="submit"

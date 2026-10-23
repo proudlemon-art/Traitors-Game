@@ -956,13 +956,13 @@ app.post('/api/rooms/demo-setup', async (req, res) => {
 
   const players: Record<string, Player> = {};
   const demoGuestList = [
-    { name: 'Libby', isCreator: true, token: 'demo_token_libby', defaultObject: 'Wooden Spoon' },
-    { name: 'Arthur', isCreator: false, token: 'demo_token_arthur', defaultObject: 'Single Sock' },
-    { name: 'Beatrice', isCreator: false, token: 'demo_token_beatrice', defaultObject: 'Tea Towel' },
-    { name: 'Callum', isCreator: false, token: 'demo_token_callum', defaultObject: 'Screwdriver' },
-    { name: 'Daphne', isCreator: false, token: 'demo_token_daphne', defaultObject: 'Rubber Duck' },
-    { name: 'Edgar', isCreator: false, token: 'demo_token_edgar', defaultObject: 'Coffee Mug' },
-    { name: 'Fiona', isCreator: false, token: 'demo_token_fiona', defaultObject: 'Candlestick' },
+    { name: 'Libby', isCreator: true, token: 'demo_token_libby', defaultObject: 'Antique Pocket Watch' },
+    { name: 'Arthur', isCreator: false, token: 'demo_token_arthur', defaultObject: 'Black Leather Glove' },
+    { name: 'Beatrice', isCreator: false, token: 'demo_token_beatrice', defaultObject: 'Crimson Handkerchief' },
+    { name: 'Callum', isCreator: false, token: 'demo_token_callum', defaultObject: 'Ornate Brass Key' },
+    { name: 'Daphne', isCreator: false, token: 'demo_token_daphne', defaultObject: 'Poison Decanter Flask' },
+    { name: 'Edgar', isCreator: false, token: 'demo_token_edgar', defaultObject: 'Wax-Sealed Letter' },
+    { name: 'Fiona', isCreator: false, token: 'demo_token_fiona', defaultObject: 'Engraved Silver Spoon' },
   ];
 
   state.seatingOrder = [];

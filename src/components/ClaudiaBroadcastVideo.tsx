@@ -2,20 +2,18 @@ import React, { useState, useEffect } from 'react';
 import { audioHost } from '../services/audioHost';
 import { adminMediaService, SceneMediaConfig } from '../services/adminMediaService';
 import {
-  Volume2,
-  VolumeX,
   Play,
   Maximize2,
   Minimize2,
-  Tv,
   Flame,
-  Radio,
-  Sparkles,
   Mic,
   Edit3,
   ImageIcon,
   ChevronDown,
   ChevronUp,
+  Search,
+  X,
+  Tv,
 } from 'lucide-react';
 
 interface Props {
@@ -40,18 +38,10 @@ export const ClaudiaBroadcastVideo: React.FC<Props> = ({
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [isExpanded, setIsExpanded] = useState(false);
   const [isCaptionCollapsed, setIsCaptionCollapsed] = useState(false);
-  const [activeMoodIndex, setActiveMoodIndex] = useState(0);
+  const [isLightboxOpen, setIsLightboxOpen] = useState(false);
   const [activeScene, setActiveScene] = useState<SceneMediaConfig | undefined>(
     adminMediaService.getActiveScene(phase, currentRound)
   );
-
-  const CLAUDIA_MOODS = [
-    'Jasmine’s Castle: Murder, Merlot & Manipulation',
-    'Fringe: Threat Level Maximum',
-    'Friendship: Let’s not get attached',
-    'Swear on my life? Overvalued it.',
-    'Suspicion: Look at Libby’s face',
-  ];
 
   // Subscribe to audio playback state
   useEffect(() => {
@@ -72,165 +62,187 @@ export const ClaudiaBroadcastVideo: React.FC<Props> = ({
     return unsub;
   }, [phase, currentRound]);
 
-  // Mood rotator
+  // Close lightbox on Escape key
   useEffect(() => {
-    const interval = setInterval(() => {
-      setActiveMoodIndex(prev => (prev + 1) % CLAUDIA_MOODS.length);
-    }, 8000);
-    return () => clearInterval(interval);
-  }, []);
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && isLightboxOpen) {
+        setIsLightboxOpen(false);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isLightboxOpen]);
 
   // Determine active visual image:
+  // For Round 1 Mission, always default to the high-res mystery scene unless explicitly overridden
   const displayImage =
     activeScene?.customImageUrl ||
     activeScene?.defaultImageUrl ||
-    '/assets/aistudio/Screenshot_2026-10-20_at_11.50.13_adceafb3.png';
-  const sceneTitle = activeScene?.title || `Jasmine’s Castle · Round ${currentRound}`;
+    (phase === 'MISSION' && currentRound === 1
+      ? '/assets/aistudio/The_Candlelit_Castle_Mystery_891f6711.png'
+      : '/assets/aistudio/Screenshot_2026-10-20_at_11.50.13_adceafb3.png');
+
+  const sceneTitle =
+    activeScene?.title ||
+    (phase === 'MISSION' && currentRound === 1
+      ? 'Mission 1 · Exhibit A: The Candlelit Castle Crime Scene'
+      : `Jasmine’s Castle · Round ${currentRound}`);
+
   const displayText =
     activeScene?.customText ||
     caption ||
     activeScene?.defaultText ||
     'Welcome to Jasmine’s Castle. Trust absolutely nobody.';
+
   const hasCustomVoiceClip = !!activeScene?.voiceClip?.audioUrl;
 
   return (
-    <div
-      className={`transition-all duration-500 ease-in-out relative rounded-2xl overflow-hidden border-2 border-amber-500/80 shadow-[0_0_60px_rgba(212,163,69,0.35)] bg-black w-full mx-auto ${
-        isExpanded ? 'my-4 max-w-7xl' : 'my-2 max-w-6xl'
-      }`}
-    >
-      {/* 1. BROADCAST VIDEO CANVAS / SCREEN - Sized for large TV display */}
+    <>
       <div
-        className={`relative overflow-hidden w-full flex items-center justify-center transition-all duration-500 ${
-          isExpanded
-            ? 'h-[500px] sm:h-[600px] md:h-[680px] lg:h-[780px] xl:h-[840px]'
-            : 'h-[360px] sm:h-[440px] md:h-[540px] lg:h-[620px] xl:h-[680px]'
+        className={`transition-all duration-500 ease-in-out relative rounded-2xl overflow-hidden border-2 border-amber-500/80 shadow-[0_0_60px_rgba(212,163,69,0.35)] bg-black w-full mx-auto ${
+          isExpanded ? 'my-4 max-w-7xl xl:max-w-[1700px]' : 'my-2 max-w-6xl xl:max-w-[1550px]'
         }`}
       >
-        {/* Ambient Blurred Backdrop: Fills entire widescreen frame with matching tones so there are no raw black void bars */}
-        <img
-          src={displayImage}
-          alt=""
-          aria-hidden="true"
-          referrerPolicy="no-referrer"
-          className="absolute inset-0 w-full h-full object-cover blur-3xl opacity-40 scale-110 pointer-events-none select-none transition-transform duration-1000"
-        />
-
-        {/* Cinematic Vignette Overlays */}
-        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-black/60 pointer-events-none z-[1]" />
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,transparent_30%,rgba(0,0,0,0.8)_100%)] pointer-events-none z-[1]" />
-
-        {/* THE WHOLE IMAGE DISPLAYED IN FULL GLORY (object-contain ensures 100% visible, never cropped) */}
-        <div className="relative z-[2] w-full h-full flex items-center justify-center p-2 sm:p-4">
-          <img
-            src={displayImage}
-            alt={sceneTitle}
-            referrerPolicy="no-referrer"
-            className={`w-full h-full object-contain drop-shadow-[0_20px_50px_rgba(0,0,0,0.95)] rounded-lg transition-transform duration-700 ease-out ${
-              isSpeaking ? 'scale-[1.02] brightness-105' : 'scale-100 brightness-100'
-            }`}
-          />
-        </div>
-
-        {/* Top TV Broadcast Badges & Controls */}
-        <div className="absolute top-3 left-3 right-3 flex items-center justify-between z-20 pointer-events-auto">
-          <div className="flex items-center gap-2">
-            <div className="flex items-center gap-1.5 px-3 py-1 bg-red-950/90 border border-red-600/60 text-white rounded-lg text-[10px] sm:text-xs font-mono font-bold tracking-widest uppercase shadow-lg backdrop-blur">
-              <span className={`w-2.5 h-2.5 rounded-full bg-red-500 ${isSpeaking ? 'animate-ping' : ''}`} />
-              <span>{isSpeaking ? 'VOICE PLAYING' : 'CASTLE TV BROADCAST'}</span>
-            </div>
-
-            {hasCustomVoiceClip && (
-              <div className="flex items-center gap-1 px-2.5 py-1 bg-emerald-950/90 border border-emerald-600/60 text-emerald-300 rounded-lg text-[10px] sm:text-xs font-mono shadow backdrop-blur">
-                <Mic className="w-3.5 h-3.5 text-emerald-400" />
-                <span className="hidden sm:inline">Voice Clip Active</span>
-              </div>
-            )}
-
-            {/* Admin badge */}
-            {isAdminModeOn && activeScene?.customImageUrl && (
-              <div className="hidden sm:flex items-center gap-1 px-2.5 py-1 bg-amber-950/90 border border-amber-600/60 text-amber-300 rounded-lg text-[10px] sm:text-xs font-mono shadow backdrop-blur">
-                <ImageIcon className="w-3.5 h-3.5" />
-                <span>Custom Image</span>
-              </div>
-            )}
-          </div>
-
-          <div className="flex items-center gap-2">
-            {/* Quick Admin Edit Button ONLY shown when Admin Mode is ON */}
-            {isAdminModeOn && onOpenAdminStudio && (
-              <button
-                onClick={() => onOpenAdminStudio(activeScene?.id)}
-                className="px-3 py-1.5 bg-amber-500 hover:bg-amber-400 text-black border border-amber-600 rounded-lg text-xs font-mono font-bold flex items-center gap-1.5 transition-all shadow-lg active:scale-95"
-                title="Edit this scene's voice clip, text, or image"
-              >
-                <Edit3 className="w-3.5 h-3.5" />
-                <span>Edit Media</span>
-              </button>
-            )}
-
-            {/* Caption Minimize/Maximize Toggle */}
-            <button
-              onClick={() => setIsCaptionCollapsed(!isCaptionCollapsed)}
-              className="px-2.5 py-1.5 bg-black/80 hover:bg-black text-amber-300 border border-amber-900/60 rounded-lg text-xs font-mono flex items-center gap-1 transition-all shadow backdrop-blur"
-              title={isCaptionCollapsed ? 'Show Captions' : 'Hide Captions for Unobstructed Image'}
-            >
-              {isCaptionCollapsed ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-              <span className="hidden sm:inline">{isCaptionCollapsed ? 'Show Text' : 'Hide Text'}</span>
-            </button>
-
-            {/* Large TV Expanded Theater Mode Toggle */}
-            <button
-              onClick={() => setIsExpanded(!isExpanded)}
-              className="p-1.5 sm:px-3 sm:py-1.5 bg-black/80 hover:bg-black text-amber-300 border border-amber-900/60 rounded-lg text-xs font-mono flex items-center gap-1.5 transition-all shadow backdrop-blur"
-              title={isExpanded ? 'Contract View' : 'Expand to Large TV Theater View'}
-            >
-              {isExpanded ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
-              <span className="hidden md:inline">{isExpanded ? 'Standard' : 'Large TV Theater'}</span>
-            </button>
-          </div>
-        </div>
-
-        {/* Center Pulsing Audio Visualizer when audio is playing */}
-        {isSpeaking && (
-          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 flex items-center gap-2 z-20 pointer-events-none bg-black/70 backdrop-blur-md px-6 py-3 rounded-full border-2 border-amber-500/70 shadow-[0_0_30px_rgba(212,163,69,0.5)]">
-            <div className="w-2 h-6 bg-amber-400 animate-bounce rounded-full" />
-            <div className="w-2 h-10 bg-amber-300 animate-pulse rounded-full" />
-            <div className="w-2 h-8 bg-amber-400 animate-bounce rounded-full" />
-            <div className="w-2 h-12 bg-amber-200 animate-pulse rounded-full" />
-            <div className="w-2 h-7 bg-amber-400 animate-bounce rounded-full" />
-            <div className="w-2 h-4 bg-amber-500 animate-pulse rounded-full" />
-            <span className="ml-2 font-mono text-xs sm:text-sm uppercase tracking-wider text-amber-300 font-bold">
-              Voice Clip Playing
-            </span>
-          </div>
-        )}
-
-        {/* Bottom Subtitle / Speech Caption Bar */}
+        {/* 1. BROADCAST VIDEO CANVAS / SCREEN - Sized for widescreen TV display with ZERO cropping */}
         <div
-          className={`absolute bottom-0 inset-x-0 transition-all duration-300 z-20 ${
-            isCaptionCollapsed
-              ? 'p-2 bg-gradient-to-t from-black/80 to-transparent'
-              : 'p-4 sm:p-5 md:p-6 bg-gradient-to-t from-black via-black/85 to-transparent'
+          className={`relative overflow-hidden w-full flex items-center justify-center transition-all duration-500 bg-zinc-950 ${
+            isExpanded
+              ? 'aspect-[16/9] max-h-[82vh] min-h-[460px] md:min-h-[620px] lg:min-h-[760px] xl:min-h-[840px]'
+              : 'aspect-[16/9] max-h-[70vh] min-h-[360px] md:min-h-[500px] lg:min-h-[620px] xl:min-h-[700px]'
           }`}
         >
-          {isCaptionCollapsed ? (
-            <div className="flex items-center justify-between text-xs font-mono text-amber-400/80 px-2">
-              <span className="flex items-center gap-1.5 font-bold">
-                <Flame className="w-3.5 h-3.5 text-amber-500" />
-                {sceneTitle}
-              </span>
-              <span className="text-[10px] text-zinc-400 italic">Captions collapsed · Click 'Show Text' above</span>
+          {/* Ambient Blurred Backdrop: Fills entire widescreen frame with matching tones so there are no raw black void bars */}
+          <img
+            src={displayImage}
+            alt=""
+            aria-hidden="true"
+            referrerPolicy="no-referrer"
+            className="absolute inset-0 w-full h-full object-cover blur-3xl opacity-35 scale-110 pointer-events-none select-none transition-transform duration-1000"
+          />
+
+          {/* Subtle Cinematic Vignette Around Edges (doesn't obscure table or items) */}
+          <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-black/50 pointer-events-none z-[1]" />
+
+          {/* THE WHOLE IMAGE DISPLAYED IN FULL GLORY (object-contain ensures 100% visible, never cropped at top/bottom/sides) */}
+          <div
+            onClick={() => setIsLightboxOpen(true)}
+            className="relative z-[2] w-full h-full flex items-center justify-center p-2 sm:p-4 cursor-pointer group"
+            title="Click to inspect full-screen on TV"
+          >
+            <img
+              src={displayImage}
+              alt={sceneTitle}
+              referrerPolicy="no-referrer"
+              className={`w-full h-full object-contain drop-shadow-[0_20px_50px_rgba(0,0,0,0.95)] rounded-lg transition-transform duration-500 ease-out select-none ${
+                isSpeaking ? 'scale-[1.01] brightness-105' : 'scale-100 group-hover:scale-[1.008]'
+              }`}
+            />
+
+            {/* Hover overlay hint */}
+            <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity bg-black/30 pointer-events-none">
+              <div className="px-4 py-2 bg-black/80 border border-amber-500/70 rounded-full text-amber-300 font-mono text-xs flex items-center gap-2 shadow-2xl backdrop-blur-md">
+                <Search className="w-4 h-4 text-amber-400" />
+                <span>Click to Inspect Entire Photo (TV Zoom)</span>
+              </div>
             </div>
-          ) : (
-            <div className="max-w-4xl mx-auto bg-black/60 backdrop-blur-md border border-amber-900/50 rounded-xl p-3 sm:p-4 shadow-2xl">
-              <div className="flex items-center justify-between mb-1.5 text-[11px] sm:text-xs font-mono uppercase tracking-widest text-amber-400">
+          </div>
+
+          {/* Top TV Broadcast Badges & Controls */}
+          <div className="absolute top-3 left-3 right-3 flex items-center justify-between z-20 pointer-events-auto">
+            <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1.5 px-3 py-1 bg-red-950/90 border border-red-600/60 text-white rounded-lg text-[10px] sm:text-xs font-mono font-bold tracking-widest uppercase shadow-lg backdrop-blur">
+                <span className={`w-2.5 h-2.5 rounded-full bg-red-500 ${isSpeaking ? 'animate-ping' : ''}`} />
+                <span>{isSpeaking ? 'VOICE PLAYING' : 'CASTLE TV BROADCAST'}</span>
+              </div>
+
+              {hasCustomVoiceClip && (
+                <div className="flex items-center gap-1 px-2.5 py-1 bg-emerald-950/90 border border-emerald-600/60 text-emerald-300 rounded-lg text-[10px] sm:text-xs font-mono shadow backdrop-blur">
+                  <Mic className="w-3.5 h-3.5 text-emerald-400" />
+                  <span className="hidden sm:inline">Voice Clip Active</span>
+                </div>
+              )}
+
+              {/* Admin badge */}
+              {isAdminModeOn && activeScene?.customImageUrl && (
+                <div className="hidden sm:flex items-center gap-1 px-2.5 py-1 bg-amber-950/90 border border-amber-600/60 text-amber-300 rounded-lg text-[10px] sm:text-xs font-mono shadow backdrop-blur">
+                  <ImageIcon className="w-3.5 h-3.5" />
+                  <span>Custom Image</span>
+                </div>
+              )}
+            </div>
+
+            <div className="flex items-center gap-2">
+              {/* Fullscreen TV Inspect Clues Button */}
+              <button
+                onClick={() => setIsLightboxOpen(true)}
+                className="px-2.5 py-1.5 bg-black/80 hover:bg-black text-amber-300 border border-amber-500/60 rounded-lg text-xs font-mono flex items-center gap-1.5 transition-all shadow-lg backdrop-blur active:scale-95"
+                title="Open entire photo in full TV screen mode"
+              >
+                <Search className="w-3.5 h-3.5 text-amber-400" />
+                <span className="hidden sm:inline">Inspect Clues</span>
+              </button>
+
+              {/* Quick Admin Edit Button ONLY shown when Admin Mode is ON */}
+              {isAdminModeOn && onOpenAdminStudio && (
+                <button
+                  onClick={() => onOpenAdminStudio(activeScene?.id)}
+                  className="px-3 py-1.5 bg-amber-500 hover:bg-amber-400 text-black border border-amber-600 rounded-lg text-xs font-mono font-bold flex items-center gap-1.5 transition-all shadow-lg active:scale-95"
+                  title="Edit this scene's voice clip, text, or image"
+                >
+                  <Edit3 className="w-3.5 h-3.5" />
+                  <span>Edit Media</span>
+                </button>
+              )}
+
+              {/* Caption Minimize/Maximize Toggle */}
+              <button
+                onClick={() => setIsCaptionCollapsed(!isCaptionCollapsed)}
+                className="px-2.5 py-1.5 bg-black/80 hover:bg-black text-amber-300 border border-amber-900/60 rounded-lg text-xs font-mono flex items-center gap-1 transition-all shadow backdrop-blur"
+                title={isCaptionCollapsed ? 'Show Captions' : 'Hide Captions for Unobstructed Image'}
+              >
+                {isCaptionCollapsed ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                <span className="hidden sm:inline">{isCaptionCollapsed ? 'Show Text' : 'Hide Text'}</span>
+              </button>
+
+              {/* Large TV Expanded Theater Mode Toggle */}
+              <button
+                onClick={() => setIsExpanded(!isExpanded)}
+                className="p-1.5 sm:px-3 sm:py-1.5 bg-black/80 hover:bg-black text-amber-300 border border-amber-900/60 rounded-lg text-xs font-mono flex items-center gap-1.5 transition-all shadow backdrop-blur"
+                title={isExpanded ? 'Standard View' : 'Expand to Large TV Theater View'}
+              >
+                {isExpanded ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
+                <span className="hidden md:inline">{isExpanded ? 'Standard' : 'TV Theater'}</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Center Pulsing Audio Visualizer when audio is playing */}
+          {isSpeaking && (
+            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 flex items-center gap-2 z-20 pointer-events-none bg-black/75 backdrop-blur-md px-6 py-3 rounded-full border-2 border-amber-500/70 shadow-[0_0_30px_rgba(212,163,69,0.5)]">
+              <div className="w-2 h-6 bg-amber-400 animate-bounce rounded-full" />
+              <div className="w-2 h-10 bg-amber-300 animate-pulse rounded-full" />
+              <div className="w-2 h-8 bg-amber-400 animate-bounce rounded-full" />
+              <div className="w-2 h-12 bg-amber-200 animate-pulse rounded-full" />
+              <div className="w-2 h-7 bg-amber-400 animate-bounce rounded-full" />
+              <div className="w-2 h-4 bg-amber-500 animate-pulse rounded-full" />
+              <span className="ml-2 font-mono text-xs sm:text-sm uppercase tracking-wider text-amber-300 font-bold">
+                Voice Clip Playing
+              </span>
+            </div>
+          )}
+        </div>
+
+        {/* 2. SUBTITLE / SPEECH CAPTION BAR - Positioned UNDERNEATH the video frame so the photo remains 100% UNCOVERED */}
+        {!isCaptionCollapsed && (
+          <div className="bg-gradient-to-b from-zinc-950 via-zinc-900 to-black border-t border-amber-900/60 p-3 sm:p-4 md:px-6 transition-all duration-300">
+            <div className="max-w-5xl mx-auto flex flex-col gap-2">
+              <div className="flex items-center justify-between text-[11px] sm:text-xs font-mono uppercase tracking-widest text-amber-400 border-b border-zinc-800/80 pb-1.5">
                 <span className="flex items-center gap-1.5 font-bold">
                   <Flame className="w-3.5 h-3.5 text-amber-500" />
                   {sceneTitle}
                 </span>
 
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-3">
                   {!isHostAudioUnlocked ? (
                     <button
                       onClick={onUnlockAudio}
@@ -246,16 +258,82 @@ export const ClaudiaBroadcastVideo: React.FC<Props> = ({
                       <Play className="w-3.5 h-3.5 text-amber-400" /> Play Voice Clip
                     </button>
                   ) : null}
+
+                  <button
+                    onClick={() => setIsLightboxOpen(true)}
+                    className="text-zinc-400 hover:text-amber-300 flex items-center gap-1 text-[11px]"
+                  >
+                    <Search className="w-3 h-3" /> Full TV View
+                  </button>
                 </div>
               </div>
 
-              <div className="font-serif italic text-sm sm:text-base md:text-lg text-amber-100 font-medium drop-shadow-md leading-relaxed whitespace-pre-line max-h-32 sm:max-h-40 overflow-y-auto pr-2 custom-scrollbar">
+              <div className="font-serif italic text-sm sm:text-base md:text-lg text-amber-100 font-medium drop-shadow leading-relaxed whitespace-pre-line max-h-28 overflow-y-auto pr-2 custom-scrollbar">
                 “{displayText}”
               </div>
             </div>
-          )}
-        </div>
+          </div>
+        )}
       </div>
-    </div>
+
+      {/* 3. FULLSCREEN TV CLUE INSPECTOR LIGHTBOX MODAL */}
+      {isLightboxOpen && (
+        <div
+          className="fixed inset-0 z-50 bg-black/95 backdrop-blur-xl flex flex-col justify-between p-4 md:p-8 animate-fadeIn"
+          onClick={() => setIsLightboxOpen(false)}
+        >
+          {/* Top Bar */}
+          <div
+            className="flex items-center justify-between max-w-7xl w-full mx-auto pb-4 border-b border-amber-900/60"
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 rounded-full bg-burgundy-900/90 border border-amber-500/60 flex items-center justify-center">
+                <Tv className="w-4 h-4 text-amber-400" />
+              </div>
+              <div>
+                <h3 className="font-serif font-black text-amber-200 text-lg md:text-xl tracking-wider">
+                  {sceneTitle}
+                </h3>
+                <span className="text-[11px] font-mono text-amber-400/80 uppercase tracking-widest block">
+                  Widescreen TV View · Unobstructed Full Photographic Inspection
+                </span>
+              </div>
+            </div>
+
+            <button
+              onClick={() => setIsLightboxOpen(false)}
+              className="px-4 py-2 bg-zinc-900 hover:bg-zinc-800 border border-amber-500/50 text-amber-200 rounded-lg text-xs font-mono font-bold flex items-center gap-1.5 transition active:scale-95"
+            >
+              <X className="w-4 h-4" />
+              <span>Close Fullscreen (ESC)</span>
+            </button>
+          </div>
+
+          {/* Central Stage: Pure Uncropped Photo */}
+          <div
+            className="flex-1 w-full max-w-7xl mx-auto flex items-center justify-center p-2 md:p-4 overflow-hidden"
+            onClick={e => e.stopPropagation()}
+          >
+            <img
+              src={displayImage}
+              alt={sceneTitle}
+              referrerPolicy="no-referrer"
+              className="max-h-[82vh] max-w-full object-contain rounded-xl shadow-[0_0_80px_rgba(212,163,69,0.3)] border border-amber-500/40"
+            />
+          </div>
+
+          {/* Bottom Bar: Clue Description */}
+          <div
+            className="max-w-4xl w-full mx-auto text-center pt-3 border-t border-zinc-800"
+            onClick={e => e.stopPropagation()}
+          >
+            <p className="text-xs md:text-sm text-zinc-300 font-serif italic">
+              {displayText}
+            </p>
+          </div>
+        </div>
+      )}
+    </>
   );
 };
