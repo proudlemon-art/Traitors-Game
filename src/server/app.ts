@@ -19,7 +19,7 @@ import type {
   GetawayAuctionState,
   FinaleState,
   PlayerScoreBreakdown,
-} from '../types/game';
+} from '../types/game.ts';
 import {
   TRAITOR_OBJECTIVES,
   EXHIBIT_A_EXAMPLES,
@@ -29,9 +29,9 @@ import {
   BODY_DISPOSAL_OBJECTS_POOL,
   COUNTERFEIT_INVENTIONS,
   AUCTION_LOTS,
-} from '../data/missions';
-import { HOST_SCRIPTS, JASMINE_FORFEIT_APOLOGY } from '../data/dialogue';
-import { db } from './db';
+} from '../data/missions.ts';
+import { HOST_SCRIPTS, JASMINE_FORFEIT_APOLOGY } from '../data/dialogue.ts';
+import { db } from './db.ts';
 
 const app = express();
 
@@ -931,7 +931,10 @@ app.post('/api/rooms', async (req, res) => {
       roomCode: code,
       playerToken,
       playerId,
+      name: hostName,
+      seatNumber: 1,
       isRoomCreator: true,
+      state: sanitizeState(state, players, playerToken, true),
     });
   } catch (err: any) {
     console.error('Error creating room in /api/rooms:', err);
@@ -960,6 +963,7 @@ app.post('/api/rooms/:code/join', async (req, res) => {
         name: existingPlayer.name,
         seatNumber: existingPlayer.seatNumber,
         isRoomCreator: !!existingPlayer.isRoomCreator,
+        state: sanitizeState(room.state, room.players, existingToken, !!existingPlayer.isRoomCreator),
       });
     }
 
@@ -1002,6 +1006,7 @@ app.post('/api/rooms/:code/join', async (req, res) => {
       name,
       seatNumber,
       isRoomCreator: false,
+      state: sanitizeState(room.state, room.players, newToken, false),
     });
   } catch (err: any) {
     console.error(`Error in /api/rooms/${req.params.code}/join:`, err);
@@ -1083,6 +1088,7 @@ const handleDemoSetup = async (req: express.Request, res: express.Response) => {
       playerToken: record.creatorToken,
       playerId: 'p_libby',
       message: 'Demo Castle created with 7 seated players.',
+      state: sanitizeState(record.state, record.players, record.creatorToken, true),
     });
   } catch (err: any) {
     console.error('Demo setup handler caught error, providing fallback response:', err);
@@ -1309,13 +1315,17 @@ app.post('/api/rooms/:code/action', async (req, res) => {
     case 'EXHIBIT_A_TOGGLE_PRESENTED': {
       if (!s.exhibitAState) break;
       const objId = payload?.objectId;
-      const targetObj = s.exhibitAState.objects.find(o => o.id === objId);
+      const contributorId = payload?.contributorId;
+      const targetObj = s.exhibitAState.objects.find(
+        o => (objId && o.id === objId) || (contributorId && o.contributorId === contributorId)
+      );
       if (targetObj) {
         targetObj.hasPresented = !targetObj.hasPresented;
       }
       break;
     }
 
+    case 'EXHIBIT_A_OPEN_VOTING':
     case 'EXHIBIT_A_START_VOTING': {
       if (!s.exhibitAState) break;
       s.exhibitAState.stage = 'EVIDENCE_VOTING';
@@ -1325,6 +1335,7 @@ app.post('/api/rooms/:code/action', async (req, res) => {
       break;
     }
 
+    case 'EXHIBIT_A_CAST_VOTE':
     case 'EXHIBIT_A_VOTE': {
       if (!s.exhibitAState) break;
       const actingPlayer =
@@ -1343,6 +1354,7 @@ app.post('/api/rooms/:code/action', async (req, res) => {
       break;
     }
 
+    case 'EXHIBIT_A_REVEAL_VOTES':
     case 'EXHIBIT_A_RESOLVE_VOTES': {
       if (!s.exhibitAState) break;
       const tallies: Record<string, number> = {};
@@ -1364,13 +1376,21 @@ app.post('/api/rooms/:code/action', async (req, res) => {
       if (tiedObjIds.length > 1) {
         s.exhibitAState.isEvidenceTieRevote = true;
         s.exhibitAState.tiedObjectIds = tiedObjIds;
-        s.exhibitAState.evidenceVotes = {};
-        s.exhibitAState.isEvidenceVoteLocked = false;
+        s.exhibitAState.evidenceVoteRevealed = true;
       } else if (tiedObjIds.length === 1) {
         s.exhibitAState.winningObjectId = tiedObjIds[0];
         s.exhibitAState.evidenceVoteRevealed = true;
         s.exhibitAState.stage = 'COMPLETED';
       }
+      break;
+    }
+
+    case 'EXHIBIT_A_TIE_REVOTE': {
+      if (!s.exhibitAState) break;
+      s.exhibitAState.evidenceVotes = {};
+      s.exhibitAState.isEvidenceVoteLocked = false;
+      s.exhibitAState.evidenceVoteRevealed = false;
+      s.exhibitAState.stage = 'EVIDENCE_VOTING';
       break;
     }
 
@@ -1443,6 +1463,17 @@ app.post('/api/rooms/:code/action', async (req, res) => {
       break;
     }
 
+    case 'UPDATE_FORGERY_GALLERY': {
+      if (!s.forgeryGalleryState) break;
+      if (payload?.qualifiedMilestones) {
+        s.forgeryGalleryState.qualifiedMilestones = payload.qualifiedMilestones;
+      }
+      if (typeof payload?.isDrawingLocked === 'boolean') {
+        s.forgeryGalleryState.isDrawingLocked = payload.isDrawingLocked;
+      }
+      break;
+    }
+
     case 'FORGERY_UPDATE_MILESTONE': {
       if (!s.forgeryGalleryState) break;
       const { playerId, milestone, value } = payload;
@@ -1462,6 +1493,20 @@ app.post('/api/rooms/:code/action', async (req, res) => {
     // -------------------------------------------------------------------
     // MISSION 4: BODY DISPOSAL COMMITTEE ACTIONS
     // -------------------------------------------------------------------
+    case 'UPDATE_BODY_DISPOSAL': {
+      if (!s.bodyDisposalState) break;
+      if (Array.isArray(payload?.chosenFiveObjects)) {
+        s.bodyDisposalState.chosenFiveObjects = payload.chosenFiveObjects;
+      }
+      if (payload?.milestones) {
+        s.bodyDisposalState.milestones = {
+          ...s.bodyDisposalState.milestones,
+          ...payload.milestones,
+        };
+      }
+      break;
+    }
+
     case 'BODY_DISPOSAL_CONFIRM_OBJECTS': {
       if (!s.bodyDisposalState) break;
       if (payload?.items && Array.isArray(payload.items)) {
@@ -1491,6 +1536,17 @@ app.post('/api/rooms/:code/action', async (req, res) => {
     // -------------------------------------------------------------------
     // MISSION 5: COUNTERFEIT EXPERT ACTIONS
     // -------------------------------------------------------------------
+    case 'UPDATE_COUNTERFEIT_EXPERT': {
+      if (!s.counterfeitExpertState) break;
+      if (payload?.playerMilestones) {
+        s.counterfeitExpertState.playerMilestones = payload.playerMilestones;
+      }
+      if (typeof payload?.traitorGuessedWordSuccess === 'boolean') {
+        s.counterfeitExpertState.traitorGuessedWordSuccess = payload.traitorGuessedWordSuccess;
+      }
+      break;
+    }
+
     case 'COUNTERFEIT_UPDATE_MILESTONE': {
       if (!s.counterfeitExpertState) break;
       const { playerId, milestone, value } = payload;
@@ -1673,6 +1729,17 @@ app.post('/api/rooms/:code/action', async (req, res) => {
     // -------------------------------------------------------------------
     // ROUND 6: AUCTION & FINALE ACTIONS
     // -------------------------------------------------------------------
+    case 'UPDATE_GETAWAY_AUCTION': {
+      if (!s.getawayAuctionState) break;
+      if (typeof payload?.currentLotIndex === 'number') {
+        s.getawayAuctionState.currentLotIndex = payload.currentLotIndex;
+      }
+      if (typeof payload?.activeLotBidsLocked === 'boolean') {
+        s.getawayAuctionState.activeLotBidsLocked = payload.activeLotBidsLocked;
+      }
+      break;
+    }
+
     case 'SUBMIT_AUCTION_BID': {
       if (!s.getawayAuctionState || !player) break;
       const { lotNumber, bid } = payload;
@@ -2062,6 +2129,13 @@ app.post('/api/rooms/:code/action', async (req, res) => {
       break;
     }
 
+    case 'FINALE_FORFEIT_COMPLETE': {
+      if (s.finaleState) {
+        s.finaleState.forfeitCompleted = true;
+      }
+      break;
+    }
+
     // Timer actions
     case 'TIMER_PLAY_PAUSE': {
       if (s.isTimerPaused) {
@@ -2333,7 +2407,12 @@ app.post('/api/rooms/:code/action', async (req, res) => {
   }
 
   await db.saveRoom(room);
-  res.json({ success: true, phase: s.phase });
+  const isHostReq = !!req.body?.isHost || !playerToken || playerToken === room.creatorToken;
+  res.json({
+    success: true,
+    phase: s.phase,
+    state: sanitizeState(room.state, room.players, playerToken, isHostReq),
+  });
 });
 
 export default app;

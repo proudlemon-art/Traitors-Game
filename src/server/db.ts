@@ -1,7 +1,7 @@
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import fs from 'fs';
 import path from 'path';
-import type { GameState, Player } from '../types/game';
+import type { GameState, Player } from '../types/game.ts';
 
 export interface RoomRecord {
   code: string;

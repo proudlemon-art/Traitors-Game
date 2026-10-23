@@ -153,16 +153,14 @@ export default function App() {
       setViewMode('HOST');
       api.setActivePlayerToken(demo.playerToken, true);
 
-      // Attempt to immediately sync state from server
-      const state = await api.fetchState(demo.roomCode, demo.playerToken, true);
-      if (state) {
-        setGameState(state);
+      if (demo.state) {
+        setGameState(demo.state);
       } else {
-        setGameState(createFallbackDemoClientState(demo.playerToken, true));
+        const state = await api.fetchState(demo.roomCode, demo.playerToken, true);
+        setGameState(state || createFallbackDemoClientState(demo.playerToken, true));
       }
     } catch (err: any) {
       console.warn('Demo initialization notice:', err);
-      // Fail-safe: Always start the demo castle with local mock state so tests never fail
       setCurrentRoomCode('DEMO7');
       setPlayerToken('demo_token_libby');
       setViewMode('HOST');
@@ -186,10 +184,13 @@ export default function App() {
       setViewMode('HOST');
       api.setActivePlayerToken(res.playerToken, true);
 
-      // Immediately sync state from server
-      const state = await api.fetchState(res.roomCode, res.playerToken, true);
-      if (state) {
-        setGameState(state);
+      if (res.state) {
+        setGameState(res.state);
+      } else {
+        const state = await api.fetchState(res.roomCode, res.playerToken, true);
+        if (state) {
+          setGameState(state);
+        }
       }
     } catch (err: any) {
       setErrorMessage(err.message || 'Failed to create room');
@@ -211,10 +212,13 @@ export default function App() {
       setViewMode('PLAYER');
       api.setActivePlayerToken(res.playerToken, false);
 
-      // Immediately sync state from server
-      const state = await api.fetchState(res.roomCode, res.playerToken, false);
-      if (state) {
-        setGameState(state);
+      if (res.state) {
+        setGameState(res.state);
+      } else {
+        const state = await api.fetchState(res.roomCode, res.playerToken, false);
+        if (state) {
+          setGameState(state);
+        }
       }
     } catch (err: any) {
       setErrorMessage(err.message || 'Failed to join room');
