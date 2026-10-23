@@ -2,160 +2,15 @@
   "code": "DEMO7",
   "creatorToken": "demo_token_libby",
   "state": {
-    "phase": "BANISHMENT_OUTCOME",
     "roomCode": "DEMO7",
+    "currentRound": 1,
+    "phase": "LOBBY",
+    "phaseTimeRemaining": 480,
+    "timerDurationSec": 480,
+    "timerDeadline": 1792764009641,
+    "isTimerPaused": false,
+    "totalGoldPot": 0,
     "roundGold": 0,
-    "traitorId": null,
-    "isDemoRoom": true,
-    "isTieRevote": false,
-    "traitorName": null,
-    "currentRound": 2,
-    "roundHistory": [
-      {
-        "traitorId": "",
-        "exhibitAWon": true,
-        "roundNumber": 2,
-        "roundScores": {
-          "p_edgar": 3,
-          "p_fiona": 3,
-          "p_libby": 3,
-          "p_arthur": 3,
-          "p_callum": 0,
-          "p_daphne": 0,
-          "p_beatrice": 1
-        },
-        "traitorName": "Unknown",
-        "scoreBreakdown": {
-          "p_edgar": {
-            "missionPoints": 3,
-            "totalRoundPoints": 3,
-            "roundOutcomePoints": 0,
-            "personalObjectivePoints": 0
-          },
-          "p_fiona": {
-            "missionPoints": 3,
-            "totalRoundPoints": 3,
-            "roundOutcomePoints": 0,
-            "personalObjectivePoints": 0
-          },
-          "p_libby": {
-            "missionPoints": 3,
-            "totalRoundPoints": 3,
-            "roundOutcomePoints": 0,
-            "personalObjectivePoints": 0
-          },
-          "p_arthur": {
-            "missionPoints": 3,
-            "totalRoundPoints": 3,
-            "roundOutcomePoints": 0,
-            "personalObjectivePoints": 0
-          },
-          "p_callum": {
-            "missionPoints": 0,
-            "totalRoundPoints": 0,
-            "roundOutcomePoints": 0,
-            "personalObjectivePoints": 0
-          },
-          "p_daphne": {
-            "missionPoints": 0,
-            "totalRoundPoints": 0,
-            "roundOutcomePoints": 0,
-            "personalObjectivePoints": 0
-          },
-          "p_beatrice": {
-            "missionPoints": 1,
-            "totalRoundPoints": 1,
-            "roundOutcomePoints": 0,
-            "personalObjectivePoints": 0
-          }
-        },
-        "banishedPlayerId": "p_fiona",
-        "firstBallotVotes": {
-          "p_edgar": "p_daphne",
-          "p_fiona": "p_beatrice",
-          "p_libby": "p_arthur",
-          "p_arthur": "p_libby",
-          "p_callum": "p_fiona",
-          "p_daphne": "p_fiona",
-          "p_beatrice": "p_edgar"
-        },
-        "banishedPlayerName": "Fiona",
-        "wasTraitorBanished": false,
-        "traitorAssignmentCompleted": true
-      },
-      {
-        "roundNumber": 2,
-        "traitorId": "",
-        "traitorName": "Unknown",
-        "banishedPlayerId": "p_fiona",
-        "banishedPlayerName": "Fiona",
-        "wasTraitorBanished": false,
-        "traitorAssignmentCompleted": true,
-        "firstBallotVotes": {
-          "p_edgar": "p_daphne",
-          "p_fiona": "p_beatrice",
-          "p_libby": "p_arthur",
-          "p_arthur": "p_libby",
-          "p_callum": "p_fiona",
-          "p_daphne": "p_fiona",
-          "p_beatrice": "p_edgar"
-        },
-        "scoreBreakdown": {
-          "p_edgar": {
-            "missionPoints": 3,
-            "personalObjectivePoints": 0,
-            "roundOutcomePoints": 0,
-            "totalRoundPoints": 3
-          },
-          "p_fiona": {
-            "missionPoints": 3,
-            "personalObjectivePoints": 0,
-            "roundOutcomePoints": 0,
-            "totalRoundPoints": 3
-          },
-          "p_libby": {
-            "missionPoints": 3,
-            "personalObjectivePoints": 0,
-            "roundOutcomePoints": 0,
-            "totalRoundPoints": 3
-          },
-          "p_arthur": {
-            "missionPoints": 3,
-            "personalObjectivePoints": 0,
-            "roundOutcomePoints": 0,
-            "totalRoundPoints": 3
-          },
-          "p_callum": {
-            "missionPoints": 0,
-            "personalObjectivePoints": 0,
-            "roundOutcomePoints": 0,
-            "totalRoundPoints": 0
-          },
-          "p_daphne": {
-            "missionPoints": 0,
-            "personalObjectivePoints": 0,
-            "roundOutcomePoints": 0,
-            "totalRoundPoints": 0
-          },
-          "p_beatrice": {
-            "missionPoints": 1,
-            "personalObjectivePoints": 0,
-            "roundOutcomePoints": 0,
-            "totalRoundPoints": 1
-          }
-        },
-        "roundScores": {
-          "p_edgar": 3,
-          "p_fiona": 3,
-          "p_libby": 3,
-          "p_arthur": 3,
-          "p_callum": 0,
-          "p_daphne": 0,
-          "p_beatrice": 1
-        },
-        "exhibitAWon": true
-      }
-    ],
     "seatingOrder": [
       "p_libby",
       "p_arthur",
@@ -165,312 +20,134 @@
       "p_edgar",
       "p_fiona"
     ],
-    "totalGoldPot": 0,
+    "currentRevealIndex": 0,
+    "tieCandidateIds": [],
+    "tieRevealIndex": 0,
+    "isTieRevote": false,
+    "traitorId": null,
+    "traitorName": null,
+    "traitorObjective": null,
+    "roundHistory": [],
+    "latestDialogue": "Welcome to Jasmine’s Castle. Trust absolutely nobody.",
+    "isDemoRoom": true,
     "exhibitAState": {
       "stage": "COLLECTION",
       "objects": [
         {
           "id": "obj_p_libby",
-          "name": "Antique Pocket Watch",
-          "hasPresented": true,
           "contributorId": "p_libby",
-          "contributorName": "Libby"
+          "contributorName": "Libby",
+          "name": "Antique Pocket Watch",
+          "hasPresented": true
         },
         {
           "id": "obj_p_arthur",
-          "name": "Black Leather Glove",
-          "hasPresented": true,
           "contributorId": "p_arthur",
-          "contributorName": "Arthur"
+          "contributorName": "Arthur",
+          "name": "Black Leather Glove",
+          "hasPresented": true
         },
         {
           "id": "obj_p_beatrice",
-          "name": "Crimson Handkerchief",
-          "hasPresented": true,
           "contributorId": "p_beatrice",
-          "contributorName": "Beatrice"
+          "contributorName": "Beatrice",
+          "name": "Crimson Handkerchief",
+          "hasPresented": true
         },
         {
           "id": "obj_p_callum",
-          "name": "Ornate Brass Key",
-          "hasPresented": true,
           "contributorId": "p_callum",
-          "contributorName": "Callum"
+          "contributorName": "Callum",
+          "name": "Ornate Brass Key",
+          "hasPresented": true
         },
         {
           "id": "obj_p_daphne",
-          "name": "Poison Decanter Flask",
-          "hasPresented": true,
           "contributorId": "p_daphne",
-          "contributorName": "Daphne"
+          "contributorName": "Daphne",
+          "name": "Poison Decanter Flask",
+          "hasPresented": true
         },
         {
           "id": "obj_p_edgar",
-          "name": "Wax-Sealed Letter",
-          "hasPresented": true,
           "contributorId": "p_edgar",
-          "contributorName": "Edgar"
+          "contributorName": "Edgar",
+          "name": "Wax-Sealed Letter",
+          "hasPresented": true
         },
         {
           "id": "obj_p_fiona",
-          "name": "Engraved Silver Spoon",
-          "hasPresented": true,
           "contributorId": "p_fiona",
-          "contributorName": "Fiona"
+          "contributorName": "Fiona",
+          "name": "Engraved Silver Spoon",
+          "hasPresented": true
         }
       ],
       "isListLocked": false,
+      "acknowledgedPlayerIds": [],
       "evidenceVotes": {},
-      "tiedObjectIds": [],
-      "isEvidenceTieRevote": false,
-      "evidenceVoteRevealed": false,
       "isEvidenceVoteLocked": false,
-      "acknowledgedPlayerIds": []
-    },
-    "isTimerPaused": false,
-    "timerDeadline": 1792597574464,
-    "latestDialogue": "Fiona has been banished! But oh, the heartbreak... they were completely FAITHFUL! Heartbreaking!",
-    "tieRevealIndex": 0,
-    "tieCandidateIds": [],
-    "timerDurationSec": 120,
-    "traitorObjective": null,
-    "currentRevealIndex": 8,
-    "phaseTimeRemaining": 120,
-    "birthdayMajorityState": {
-      "step": "COMPLETED",
-      "questions": [
-        {
-          "id": 1,
-          "prompt": "Who would say “I’m absolutely fine” while putting their key into the wrong front door?"
-        },
-        {
-          "id": 2,
-          "prompt": "Who would spend £70 on a night out and decide the £3 delivery fee on a kebab was taking the piss?"
-        },
-        {
-          "id": 3,
-          "prompt": "Who would rehearse saying “here” before a roll call and still say it fucking weirdly?"
-        },
-        {
-          "id": 4,
-          "prompt": "Who would say “you too” when a waiter says “enjoy your meal” and still be thinking about it at bedtime?"
-        },
-        {
-          "id": 5,
-          "prompt": "Who would hear “last orders” and buy enough drinks to turn going home into tomorrow’s problem?"
-        }
-      ],
-      "predictions": {},
-      "initialAnswers": {
-        "p_edgar": {
-          "1": "Fiona",
-          "2": "Libby",
-          "3": "Arthur",
-          "4": "Callum",
-          "5": "Daphne"
-        },
-        "p_fiona": {
-          "1": "Fiona",
-          "2": "Libby",
-          "3": "Arthur",
-          "4": "Callum",
-          "5": "Daphne"
-        },
-        "p_libby": {
-          "1": "Fiona",
-          "2": "Libby",
-          "3": "Arthur",
-          "4": "Callum",
-          "5": "Daphne"
-        },
-        "p_arthur": {
-          "1": "Fiona",
-          "2": "Libby",
-          "3": "Arthur",
-          "4": "Callum",
-          "5": "Daphne"
-        },
-        "p_callum": {
-          "1": "Arthur",
-          "2": "Callum",
-          "3": "Daphne",
-          "4": "Beatrice",
-          "5": "Edgar"
-        },
-        "p_daphne": {
-          "1": "Arthur",
-          "2": "Callum",
-          "3": "Daphne",
-          "4": "Beatrice",
-          "5": "Edgar"
-        },
-        "p_beatrice": {
-          "1": "Libby",
-          "2": "Libby",
-          "3": "Libby",
-          "4": "Libby",
-          "5": "Libby"
-        }
-      },
-      "questionResults": {
-        "1": {
-          "topNames": [
-            "Fiona"
-          ],
-          "votesCount": {
-            "Fiona": 4,
-            "Libby": 1,
-            "Arthur": 2
-          }
-        },
-        "2": {
-          "topNames": [
-            "Libby"
-          ],
-          "votesCount": {
-            "Libby": 5,
-            "Callum": 2
-          }
-        },
-        "3": {
-          "topNames": [
-            "Arthur"
-          ],
-          "votesCount": {
-            "Libby": 1,
-            "Arthur": 4,
-            "Daphne": 2
-          }
-        },
-        "4": {
-          "topNames": [
-            "Callum"
-          ],
-          "votesCount": {
-            "Libby": 1,
-            "Callum": 4,
-            "Beatrice": 2
-          }
-        },
-        "5": {
-          "topNames": [
-            "Daphne"
-          ],
-          "votesCount": {
-            "Edgar": 2,
-            "Libby": 1,
-            "Daphne": 4
-          }
-        }
-      },
-      "playerCorrectCount": {
-        "p_edgar": 5,
-        "p_fiona": 5,
-        "p_libby": 5,
-        "p_arthur": 5,
-        "p_callum": 0,
-        "p_daphne": 0,
-        "p_beatrice": 1
-      },
-      "activeQuestionIndex": 0,
-      "allInitialAnswersLocked": true,
-      "traitorTargetFaithfulId": "p_callum",
-      "traitorAssignmentSuccess": true,
-      "traitorAssignedQuestionId": 1,
-      "traitorTargetFaithfulName": "Callum"
+      "evidenceVoteRevealed": false,
+      "isEvidenceTieRevote": false,
+      "tiedObjectIds": []
     }
   },
   "players": {
-    "demo_token_edgar": {
-      "id": "p_edgar",
-      "name": "Edgar",
-      "score": 6,
-      "connected": true,
-      "seatNumber": 6,
-      "hasLockedVote": true,
-      "isRoomCreator": false,
-      "lastRoundScore": 3,
-      "hasRevealedSlate": true,
-      "votedForPlayerId": "p_daphne",
-      "votedForPlayerName": "Daphne"
-    },
-    "demo_token_fiona": {
-      "id": "p_fiona",
-      "name": "Fiona",
-      "score": 6,
-      "connected": true,
-      "seatNumber": 7,
-      "hasLockedVote": true,
-      "isRoomCreator": false,
-      "lastRoundScore": 3,
-      "hasRevealedSlate": true,
-      "votedForPlayerId": "p_beatrice",
-      "votedForPlayerName": "Beatrice"
-    },
     "demo_token_libby": {
       "id": "p_libby",
       "name": "Libby",
-      "score": 6,
-      "connected": true,
-      "seatNumber": 1,
-      "hasLockedVote": true,
       "isRoomCreator": true,
-      "lastRoundScore": 3,
-      "hasRevealedSlate": true,
-      "votedForPlayerId": "p_arthur",
-      "votedForPlayerName": "Arthur"
+      "seatNumber": 1,
+      "connected": true,
+      "score": 0
     },
     "demo_token_arthur": {
       "id": "p_arthur",
       "name": "Arthur",
-      "score": 6,
-      "connected": true,
+      "isRoomCreator": false,
       "seatNumber": 2,
-      "hasLockedVote": true,
-      "isRoomCreator": false,
-      "lastRoundScore": 3,
-      "hasRevealedSlate": true,
-      "votedForPlayerId": "p_libby",
-      "votedForPlayerName": "Libby"
-    },
-    "demo_token_callum": {
-      "id": "p_callum",
-      "name": "Callum",
-      "score": 0,
       "connected": true,
-      "seatNumber": 4,
-      "hasLockedVote": true,
-      "isRoomCreator": false,
-      "lastRoundScore": 0,
-      "hasRevealedSlate": true,
-      "votedForPlayerId": "p_fiona",
-      "votedForPlayerName": "Fiona"
-    },
-    "demo_token_daphne": {
-      "id": "p_daphne",
-      "name": "Daphne",
-      "score": 0,
-      "connected": true,
-      "seatNumber": 5,
-      "hasLockedVote": true,
-      "isRoomCreator": false,
-      "lastRoundScore": 0,
-      "hasRevealedSlate": true,
-      "votedForPlayerId": "p_fiona",
-      "votedForPlayerName": "Fiona"
+      "score": 0
     },
     "demo_token_beatrice": {
       "id": "p_beatrice",
       "name": "Beatrice",
-      "score": 2,
-      "connected": true,
-      "seatNumber": 3,
-      "hasLockedVote": true,
       "isRoomCreator": false,
-      "lastRoundScore": 1,
-      "hasRevealedSlate": true,
-      "votedForPlayerId": "p_edgar",
-      "votedForPlayerName": "Edgar"
+      "seatNumber": 3,
+      "connected": true,
+      "score": 0
+    },
+    "demo_token_callum": {
+      "id": "p_callum",
+      "name": "Callum",
+      "isRoomCreator": false,
+      "seatNumber": 4,
+      "connected": true,
+      "score": 0
+    },
+    "demo_token_daphne": {
+      "id": "p_daphne",
+      "name": "Daphne",
+      "isRoomCreator": false,
+      "seatNumber": 5,
+      "connected": true,
+      "score": 0
+    },
+    "demo_token_edgar": {
+      "id": "p_edgar",
+      "name": "Edgar",
+      "isRoomCreator": false,
+      "seatNumber": 6,
+      "connected": true,
+      "score": 0
+    },
+    "demo_token_fiona": {
+      "id": "p_fiona",
+      "name": "Fiona",
+      "isRoomCreator": false,
+      "seatNumber": 7,
+      "connected": true,
+      "score": 0
     }
   }
 }

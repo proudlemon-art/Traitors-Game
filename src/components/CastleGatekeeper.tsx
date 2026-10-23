@@ -53,7 +53,7 @@ export function CastleGatekeeper({ onUnlock, initialMessage }: CastleGatekeeperP
       } else {
         localStorage.removeItem('traitors_castle_unlocked');
         localStorage.removeItem('traitors_castle_passcode');
-        setError(data.error || 'Incorrect passcode. Try "LIBBY", "JEREMY", or "CASTLE".');
+        setError(data.error || 'Incorrect passcode. Access denied.');
       }
     } catch {
       // Offline fallback: if the player entered a valid celebration code, unlock smoothly
@@ -63,7 +63,7 @@ export function CastleGatekeeper({ onUnlock, initialMessage }: CastleGatekeeperP
         onUnlock();
         return;
       }
-      setError('Unable to reach castle server. Try "LIBBY" or "JEREMY".');
+      setError('Unable to verify passcode. Please check your connection and try again.');
     } finally {
       setIsVerifying(false);
     }
@@ -72,12 +72,6 @@ export function CastleGatekeeper({ onUnlock, initialMessage }: CastleGatekeeperP
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     verifyPasscode(password);
-  };
-
-  const handleFillCode = (code: string) => {
-    setPassword(code);
-    setError(null);
-    verifyPasscode(code);
   };
 
   return (
@@ -131,7 +125,7 @@ export function CastleGatekeeper({ onUnlock, initialMessage }: CastleGatekeeperP
                     setPassword(e.target.value);
                     if (error) setError(null);
                   }}
-                  placeholder="Enter passcode (e.g. LIBBY, JEREMY, or CASTLE)"
+                  placeholder="Enter secret castle passcode"
                   autoFocus
                   required
                   className="w-full pl-10 pr-10 py-3 bg-black/60 border border-amber-900/60 focus:border-amber-400 rounded-lg text-sm text-amber-100 placeholder-zinc-600 focus:outline-none focus:ring-1 focus:ring-amber-400 transition"
@@ -169,25 +163,6 @@ export function CastleGatekeeper({ onUnlock, initialMessage }: CastleGatekeeperP
                 </>
               )}
             </button>
-
-            {/* Quick entry helpers */}
-            <div className="pt-2 border-t border-amber-950/60 flex flex-col items-center gap-2 text-center">
-              <span className="text-[11px] text-zinc-400">
-                Quick unlock with party passcodes:
-              </span>
-              <div className="flex flex-wrap items-center justify-center gap-2">
-                {['LIBBY', 'JEREMY', 'CASTLE'].map(code => (
-                  <button
-                    key={code}
-                    type="button"
-                    onClick={() => handleFillCode(code)}
-                    className="px-2.5 py-1 text-[11px] font-mono tracking-wider bg-amber-950/40 hover:bg-amber-900/60 text-amber-300 border border-amber-700/40 rounded transition hover:border-amber-400/70"
-                  >
-                    {code}
-                  </button>
-                ))}
-              </div>
-            </div>
           </form>
         </div>
       </div>

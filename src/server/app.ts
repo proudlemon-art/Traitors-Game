@@ -37,10 +37,14 @@ const app = express();
 
 // Normalize incoming paths and handle Vercel serverless rewrites & CORS
 app.use((req, res, next) => {
-  const matched = (req.headers['x-matched-path'] as string) || (req.headers['x-forwarded-uri'] as string);
-  if (matched && matched.startsWith('/api') && req.url !== matched) {
-    req.url = matched;
+  // If originalUrl has the full /api/... path, preserve it
+  if (req.originalUrl && req.originalUrl.startsWith('/api/') && req.url !== req.originalUrl) {
+    req.url = req.originalUrl;
+  } else if (process.env.VERCEL && req.url && !req.url.startsWith('/api') && !req.url.startsWith('/uploads')) {
+    // Only in Vercel serverless functions where /api is stripped by routing:
+    req.url = `/api${req.url.startsWith('/') ? '' : '/'}${req.url}`;
   }
+
   res.header('Access-Control-Allow-Origin', '*');
   res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
   res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, x-room-code');
@@ -783,7 +787,7 @@ function recordRoundOutcome(
 // Gatekeeper Passcode Verification
 app.all(['/api/auth/verify-passcode', '/auth/verify-passcode'], (req, res) => {
   // Extract password from body (POST) or query (GET)
-  const rawEntered = req.body?.password || req.query?.password || req.query?.pwd || req.query?.passcode;
+  const rawEntered = req.body?.password || req.body?.passcode || req.query?.password || req.query?.pwd || req.query?.passcode;
   if (!rawEntered || typeof rawEntered !== 'string') {
     return res.status(400).json({ success: false, error: 'Passcode is required.' });
   }
@@ -819,7 +823,7 @@ app.all(['/api/auth/verify-passcode', '/auth/verify-passcode'], (req, res) => {
 
   return res.status(401).json({
     success: false,
-    error: 'Incorrect castle passcode. Tip: try "LIBBY", "JEREMY", or "CASTLE".',
+    error: 'Incorrect castle passcode. Access denied.',
   });
 });
 
@@ -991,12 +995,16 @@ app.post('/api/rooms/:code/join', async (req, res) => {
   });
 });
 
-// Seed Instant Demo Castle (7-player test room with Exhibit A pre-seeded objects)
-app.post('/api/rooms/demo-setup', async (req, res) => {
+// Helper to initialize or re-seed the 7-player Instant Demo Castle
+async function setupDemoCastleRoom() {
   const code = 'DEMO7';
   const creatorToken = 'demo_token_libby';
   const state = createInitialState(code, true);
-  state.latestDialogue = await getDialogueForPhase('INTRO', 1);
+  try {
+    state.latestDialogue = await getDialogueForPhase('INTRO', 1);
+  } catch {
+    state.latestDialogue = HOST_SCRIPTS[1].intro;
+  }
 
   const players: Record<string, Player> = {};
   const demoGuestList = [
@@ -1036,25 +1044,54 @@ app.post('/api/rooms/demo-setup', async (req, res) => {
     state.exhibitAState.objects = demoObjects;
   }
 
-  await db.saveRoom({
+  const record = {
     code,
     creatorToken,
     state,
     players,
-  });
+  };
 
-  res.json({
-    roomCode: code,
-    playerToken: creatorToken,
-    playerId: 'p_libby',
-    message: 'Demo Castle created with 7 seated players.',
-  });
-});
+  try {
+    await db.saveRoom(record);
+  } catch (err) {
+    console.warn('Non-fatal error persisting DEMO7 room to database:', err);
+  }
+
+  return record;
+}
+
+// Seed Instant Demo Castle handler
+const handleDemoSetup = async (req: express.Request, res: express.Response) => {
+  try {
+    const record = await setupDemoCastleRoom();
+    res.json({
+      roomCode: record.code,
+      playerToken: record.creatorToken,
+      playerId: 'p_libby',
+      message: 'Demo Castle created with 7 seated players.',
+    });
+  } catch (err: any) {
+    console.error('Demo setup handler caught error, providing fallback response:', err);
+    res.json({
+      roomCode: 'DEMO7',
+      playerToken: 'demo_token_libby',
+      playerId: 'p_libby',
+      message: 'Demo Castle created with 7 seated players.',
+    });
+  }
+};
+
+app.post('/api/rooms/demo-setup', handleDemoSetup);
+app.get('/api/rooms/demo-setup', handleDemoSetup);
+app.all(['/rooms/demo-setup', '/api/demo/setup', '/demo/setup', '/api/demo-setup'], handleDemoSetup);
 
 // Get current state snapshot
 app.get('/api/rooms/:code/state', async (req, res) => {
   const code = req.params.code.toUpperCase();
-  const room = await db.getRoom(code);
+  let room = await db.getRoom(code);
+  if (!room && code === 'DEMO7') {
+    room = await setupDemoCastleRoom();
+  }
   if (!room) {
     return res.status(404).json({ error: 'Room not found' });
   }
@@ -1069,7 +1106,10 @@ app.get('/api/rooms/:code/state', async (req, res) => {
 // Perform game action
 app.post('/api/rooms/:code/action', async (req, res) => {
   const code = req.params.code.toUpperCase();
-  const room = await db.getRoom(code);
+  let room = await db.getRoom(code);
+  if (!room && code === 'DEMO7') {
+    room = await setupDemoCastleRoom();
+  }
   if (!room) {
     return res.status(404).json({ error: 'Room not found' });
   }
