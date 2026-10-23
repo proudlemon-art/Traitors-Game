@@ -149,9 +149,9 @@ export const DemoSwitcher: React.FC<Props> = ({
           {DEMO_PLAYERS.map(dp => {
             const isSelected = currentRoleView === dp.token;
             const isTraitor = dp.id === state.traitorId;
-            const playerInState = state.players.find(p => p.id === dp.id);
-            const hasRegisteredObject = exhibitState?.objects.some(
-              o => o.contributorId === dp.id && o.name.trim().length > 0
+            const playerInState = state?.players?.find(p => p.id === dp.id);
+            const hasRegisteredObject = exhibitState?.objects?.some(
+              o => o.contributorId === dp.id && typeof o.name === 'string' && o.name.trim().length > 0
             );
             const hasVoted = playerInState?.hasLockedVote;
 

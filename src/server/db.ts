@@ -104,7 +104,12 @@ class DatabaseService {
   public async getRoom(code: string): Promise<RoomRecord | null> {
     const normalizedCode = code.toUpperCase();
 
-    // 1. Try Supabase first (authoritative across all serverless lambda instances)
+    // 1. Check local memory store first for instant zero-latency response
+    if (this.localMemoryStore.has(normalizedCode)) {
+      return this.localMemoryStore.get(normalizedCode)!;
+    }
+
+    // 2. Try Supabase (authoritative across serverless instances)
     if (this.supabase) {
       try {
         const { data, error } = await this.supabase
@@ -130,11 +135,6 @@ class DatabaseService {
       } catch (err) {
         console.warn('Supabase query error:', err);
       }
-    }
-
-    // 2. Fallback to Local Storage / Memory
-    if (this.localMemoryStore.has(normalizedCode)) {
-      return this.localMemoryStore.get(normalizedCode)!;
     }
 
     const candidateFiles = [

@@ -184,6 +184,13 @@ export default function App() {
       setCurrentRoomCode(res.roomCode);
       setPlayerToken(res.playerToken);
       setViewMode('HOST');
+      api.setActivePlayerToken(res.playerToken, true);
+
+      // Immediately sync state from server
+      const state = await api.fetchState(res.roomCode, res.playerToken, true);
+      if (state) {
+        setGameState(state);
+      }
     } catch (err: any) {
       setErrorMessage(err.message || 'Failed to create room');
     } finally {
@@ -202,6 +209,13 @@ export default function App() {
       setCurrentRoomCode(res.roomCode);
       setPlayerToken(res.playerToken);
       setViewMode('PLAYER');
+      api.setActivePlayerToken(res.playerToken, false);
+
+      // Immediately sync state from server
+      const state = await api.fetchState(res.roomCode, res.playerToken, false);
+      if (state) {
+        setGameState(state);
+      }
     } catch (err: any) {
       setErrorMessage(err.message || 'Failed to join room');
     } finally {

@@ -893,106 +893,120 @@ app.post('/api/admin/media/reset', async (req, res) => {
 
 // Create new room
 app.post('/api/rooms', async (req, res) => {
-  const hostName = (req.body.hostName || 'Libby').trim();
-  const code = generateRoomCode();
-  const playerToken = generateId('token_');
-  const playerId = generateId('p_');
+  try {
+    const hostName = (req.body?.hostName || 'Libby').trim() || 'Libby';
+    const code = generateRoomCode();
+    const playerToken = generateId('token_');
+    const playerId = generateId('p_');
 
-  const creatorPlayer: Player = {
-    id: playerId,
-    name: hostName,
-    isRoomCreator: true,
-    seatNumber: 1,
-    connected: true,
-    score: 0,
-  };
+    const creatorPlayer: Player = {
+      id: playerId,
+      name: hostName,
+      isRoomCreator: true,
+      seatNumber: 1,
+      connected: true,
+      score: 0,
+    };
 
-  const state = createInitialState(code);
-  state.seatingOrder = [playerId];
-  state.latestDialogue = await getDialogueForPhase('INTRO', 1);
+    const state = createInitialState(code);
+    state.seatingOrder = [playerId];
+    try {
+      state.latestDialogue = await getDialogueForPhase('INTRO', 1);
+    } catch {
+      state.latestDialogue = HOST_SCRIPTS[1]?.intro || 'Welcome to Jasmine’s Castle. Trust absolutely nobody.';
+    }
 
-  const players: Record<string, Player> = {
-    [playerToken]: creatorPlayer,
-  };
+    const players: Record<string, Player> = {
+      [playerToken]: creatorPlayer,
+    };
 
-  await db.saveRoom({
-    code,
-    creatorToken: playerToken,
-    state,
-    players,
-  });
+    await db.saveRoom({
+      code,
+      creatorToken: playerToken,
+      state,
+      players,
+    });
 
-  res.json({
-    roomCode: code,
-    playerToken,
-    playerId,
-    isRoomCreator: true,
-  });
+    res.json({
+      roomCode: code,
+      playerToken,
+      playerId,
+      isRoomCreator: true,
+    });
+  } catch (err: any) {
+    console.error('Error creating room in /api/rooms:', err);
+    res.status(500).json({ error: err?.message || 'Failed to create room' });
+  }
 });
 
 // Join room
 app.post('/api/rooms/:code/join', async (req, res) => {
-  const code = req.params.code.toUpperCase();
-  const room = await db.getRoom(code);
-  if (!room) {
-    return res.status(404).json({ error: 'Castle room not found.' });
-  }
+  try {
+    const code = req.params.code.toUpperCase();
+    const room = await db.getRoom(code);
+    if (!room) {
+      return res.status(404).json({ error: 'Castle room not found.' });
+    }
 
-  const existingToken = req.body.playerToken;
-  if (existingToken && room.players[existingToken]) {
-    const existingPlayer = room.players[existingToken];
-    existingPlayer.connected = true;
+    const existingToken = req.body?.playerToken;
+    if (existingToken && room.players[existingToken]) {
+      const existingPlayer = room.players[existingToken];
+      existingPlayer.connected = true;
+      await db.saveRoom(room);
+      return res.json({
+        roomCode: code,
+        playerToken: existingToken,
+        playerId: existingPlayer.id,
+        name: existingPlayer.name,
+        seatNumber: existingPlayer.seatNumber,
+        isRoomCreator: !!existingPlayer.isRoomCreator,
+      });
+    }
+
+    const playersList = Object.values(room.players || {});
+    if (playersList.length >= 7) {
+      return res.status(400).json({ error: 'This castle room is already full (7 players seated).' });
+    }
+
+    const name = (req.body?.name || '').trim();
+    if (!name) {
+      return res.status(400).json({ error: 'Please enter your display name.' });
+    }
+
+    const existingNames = playersList.map(p => p.name.toLowerCase());
+    if (existingNames.includes(name.toLowerCase())) {
+      return res.status(400).json({ error: `A player named '${name}' is already seated in this room.` });
+    }
+
+    const newToken = generateId('token_');
+    const newPlayerId = generateId('p_');
+    const seatNumber = playersList.length + 1;
+
+    const newPlayer: Player = {
+      id: newPlayerId,
+      name,
+      isRoomCreator: false,
+      seatNumber,
+      connected: true,
+      score: 0,
+    };
+
+    room.players[newToken] = newPlayer;
+    room.state.seatingOrder.push(newPlayerId);
     await db.saveRoom(room);
-    return res.json({
+
+    res.json({
       roomCode: code,
-      playerToken: existingToken,
-      playerId: existingPlayer.id,
-      name: existingPlayer.name,
-      seatNumber: existingPlayer.seatNumber,
-      isRoomCreator: !!existingPlayer.isRoomCreator,
+      playerToken: newToken,
+      playerId: newPlayerId,
+      name,
+      seatNumber,
+      isRoomCreator: false,
     });
+  } catch (err: any) {
+    console.error(`Error in /api/rooms/${req.params.code}/join:`, err);
+    res.status(500).json({ error: err?.message || 'Failed to join castle room' });
   }
-
-  const playersList = Object.values(room.players);
-  if (playersList.length >= 7) {
-    return res.status(400).json({ error: 'This castle room is already full (7 players seated).' });
-  }
-
-  const name = (req.body.name || '').trim();
-  if (!name) {
-    return res.status(400).json({ error: 'Please enter your display name.' });
-  }
-
-  const existingNames = playersList.map(p => p.name.toLowerCase());
-  if (existingNames.includes(name.toLowerCase())) {
-    return res.status(400).json({ error: `A player named '${name}' is already seated in this room.` });
-  }
-
-  const newToken = generateId('token_');
-  const newPlayerId = generateId('p_');
-  const seatNumber = playersList.length + 1;
-
-  const newPlayer: Player = {
-    id: newPlayerId,
-    name,
-    isRoomCreator: false,
-    seatNumber,
-    connected: true,
-    score: 0,
-  };
-
-  room.players[newToken] = newPlayer;
-  room.state.seatingOrder.push(newPlayerId);
-  await db.saveRoom(room);
-
-  res.json({
-    roomCode: code,
-    playerToken: newToken,
-    playerId: newPlayerId,
-    name,
-    seatNumber,
-    isRoomCreator: false,
-  });
 });
 
 // Helper to initialize or re-seed the 7-player Instant Demo Castle

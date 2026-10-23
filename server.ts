@@ -13,18 +13,30 @@ async function startServer() {
     app.get('*', (req, res) => {
       res.sendFile(path.resolve('dist', 'index.html'));
     });
-  } else {
-    const { createServer } = await import('vite');
-    const vite = await createServer({
-      server: { middlewareMode: true },
-      appType: 'spa',
+    server.listen(port, '0.0.0.0', () => {
+      console.log(`🏰 Traitors Castle server running at http://0.0.0.0:${port}`);
     });
-    app.use(vite.middlewares);
-  }
+  } else {
+    const viteReadyPromise = import('vite').then(({ createServer }) =>
+      createServer({
+        server: { middlewareMode: true },
+        appType: 'spa',
+      })
+    );
 
-  server.listen(port, '0.0.0.0', () => {
-    console.log(`🏰 Traitors Castle server running at http://0.0.0.0:${port}`);
-  });
+    app.use(async (req, res, next) => {
+      try {
+        const vite = await viteReadyPromise;
+        return vite.middlewares(req, res, next);
+      } catch (err) {
+        next(err);
+      }
+    });
+
+    server.listen(port, '0.0.0.0', () => {
+      console.log(`🏰 Traitors Castle server running at http://0.0.0.0:${port}`);
+    });
+  }
 }
 
 if (!process.env.VERCEL) {

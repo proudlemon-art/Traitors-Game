@@ -60,13 +60,20 @@ export const HostScreen: React.FC<Props> = ({
       const joinUrl = storedPasscode
         ? `${window.location.origin}?room=${state.roomCode}&pwd=${encodeURIComponent(storedPasscode)}`
         : `${window.location.origin}?room=${state.roomCode}`;
-      QRCode.toDataURL(joinUrl, {
-        width: 200,
-        margin: 1,
-        color: { dark: '#d4a345', light: '#09090b' },
-      })
-        .then(url => setQrDataUrl(url))
-        .catch(err => console.warn('QR code error', err));
+      try {
+        const toDataUrlFn = QRCode?.toDataURL || (QRCode as any)?.default?.toDataURL;
+        if (typeof toDataUrlFn === 'function') {
+          toDataUrlFn(joinUrl, {
+            width: 200,
+            margin: 1,
+            color: { dark: '#d4a345', light: '#09090b' },
+          })
+            .then(url => setQrDataUrl(url))
+            .catch(err => console.warn('QR code error', err));
+        }
+      } catch (err) {
+        console.warn('QR code generation notice:', err);
+      }
     }
   }, [state.roomCode]);
 
@@ -105,25 +112,31 @@ export const HostScreen: React.FC<Props> = ({
   };
 
   const handleMoveSeat = async (index: number, direction: 'UP' | 'DOWN') => {
-    const newOrder = [...state.seatingOrder];
+    const seating = Array.isArray(state.seatingOrder) ? [...state.seatingOrder] : [];
     const targetIdx = direction === 'UP' ? index - 1 : index + 1;
-    if (targetIdx < 0 || targetIdx >= newOrder.length) return;
+    if (targetIdx < 0 || targetIdx >= seating.length) return;
 
-    const temp = newOrder[index];
-    newOrder[index] = newOrder[targetIdx];
-    newOrder[targetIdx] = temp;
+    const temp = seating[index];
+    seating[index] = seating[targetIdx];
+    seating[targetIdx] = temp;
 
-    await api.sendAction(state.roomCode, 'UPDATE_SEATING_ORDER', { seatingOrder: newOrder });
+    await api.sendAction(state.roomCode, 'UPDATE_SEATING_ORDER', { seatingOrder: seating });
   };
 
   // Timer formatting
-  const minutes = Math.floor(state.phaseTimeRemaining / 60);
-  const seconds = state.phaseTimeRemaining % 60;
+  const remainingSec =
+    typeof state.phaseTimeRemaining === 'number' && !isNaN(state.phaseTimeRemaining)
+      ? Math.max(0, state.phaseTimeRemaining)
+      : 480;
+  const minutes = Math.floor(remainingSec / 60);
+  const seconds = remainingSec % 60;
   const timeFormatted = `${minutes}:${seconds < 10 ? '0' : ''}${seconds}`;
 
   const finale = state.finaleState;
-  const survivors = state.players.filter(p => !p.isEliminated);
-  const eliminatedPlayers = state.players.filter(p => p.isEliminated);
+  const playersList = Array.isArray(state.players) ? state.players : [];
+  const seatingList = Array.isArray(state.seatingOrder) ? state.seatingOrder : [];
+  const survivors = playersList.filter(p => !p.isEliminated);
+  const eliminatedPlayers = playersList.filter(p => p.isEliminated);
 
   return (
     <div className="min-h-screen bg-castle-black text-amber-100 flex flex-col justify-between selection:bg-amber-900 selection:text-amber-100">
@@ -300,7 +313,7 @@ export const HostScreen: React.FC<Props> = ({
               <div className="flex items-center justify-between border-b border-zinc-800 pb-2">
                 <h3 className="font-serif font-bold text-amber-300 flex items-center gap-2 text-base">
                   <Users className="w-4 h-4 text-amber-500" />
-                  Seating Order ({state.players.length} / 7)
+                  Seating Order ({playersList.length} / 7)
                 </h3>
                 <span className="text-[11px] text-zinc-400 font-mono">
                   Order determines reveals
@@ -308,8 +321,8 @@ export const HostScreen: React.FC<Props> = ({
               </div>
 
               <div className="space-y-2">
-                {state.seatingOrder.map((playerId, idx) => {
-                  const player = state.players.find(p => p.id === playerId);
+                {seatingList.map((playerId, idx) => {
+                  const player = playersList.find(p => p.id === playerId);
                   return (
                     <div
                       key={playerId}
@@ -339,7 +352,7 @@ export const HostScreen: React.FC<Props> = ({
                         </button>
                         <button
                           onClick={() => handleMoveSeat(idx, 'DOWN')}
-                          disabled={idx === state.seatingOrder.length - 1}
+                          disabled={idx === seatingList.length - 1}
                           className="px-2 py-1 bg-zinc-800 hover:bg-zinc-700 disabled:opacity-30 rounded text-[10px] font-mono"
                         >
                           ▼
@@ -353,7 +366,7 @@ export const HostScreen: React.FC<Props> = ({
               <div className="pt-4 border-t border-zinc-800">
                 <button
                   onClick={() => api.sendAction(state.roomCode, 'START_GAME')}
-                  disabled={state.players.length < 7 && !state.isDemoRoom}
+                  disabled={playersList.length < 7 && !state.isDemoRoom}
                   className="w-full py-4 px-6 bg-gradient-to-r from-amber-600 via-amber-500 to-amber-600 hover:from-amber-500 hover:to-amber-400 text-black font-serif font-black text-sm uppercase tracking-wider rounded-lg shadow-lg hover:shadow-[0_0_25px_rgba(212,163,69,0.5)] transition duration-200 disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                 >
                   <span>Begin Libby’s Birthday: Trust Nobody</span>
@@ -512,7 +525,7 @@ export const HostScreen: React.FC<Props> = ({
                 Votes Sealed in Wax
               </span>
               <div className="text-4xl md:text-5xl font-mono font-bold text-amber-300">
-                {state.players.filter(p => p.hasLockedVote).length} / {state.players.length}
+                {playersList.filter(p => p.hasLockedVote).length} / {playersList.length}
               </div>
             </div>
 

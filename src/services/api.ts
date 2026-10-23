@@ -112,6 +112,8 @@ class ApiService {
     };
   }
 
+  private inFlightFetches: Map<string, Promise<ClientGameState | null>> = new Map();
+
   /**
    * Fetches room state snapshot from serverless backend.
    */
@@ -128,35 +130,49 @@ class ApiService {
    * Fetches room state snapshot from serverless backend.
    */
   public async fetchState(roomCode: string, playerToken?: string, isHost?: boolean): Promise<ClientGameState | null> {
-    if (this.isFetching) return null;
-    this.isFetching = true;
-    try {
-      const code = roomCode.toUpperCase();
-      const token =
-        playerToken !== undefined
-          ? playerToken
-          : this.activePlayerToken || this.getStoredSession(code)?.playerToken || '';
-      const hostFlag = typeof isHost === 'boolean' ? isHost : this.activeIsHost;
-      const url = `/api/rooms/${code}/state?playerToken=${encodeURIComponent(token)}&isHost=${hostFlag ? 'true' : 'false'}&_t=${Date.now()}`;
-      
-      const res = await fetch(url, {
-        headers: { 'Cache-Control': 'no-cache' },
-      });
+    const code = roomCode.toUpperCase();
+    const token =
+      playerToken !== undefined
+        ? playerToken
+        : this.activePlayerToken || this.getStoredSession(code)?.playerToken || '';
+    const hostFlag = typeof isHost === 'boolean' ? isHost : this.activeIsHost;
+    const fetchKey = `${code}:${token}:${hostFlag}`;
 
-      if (!res.ok) {
-        return null;
-      }
-
-      const state: ClientGameState = await res.json();
-      this.lastState = state;
-      this.stateListeners.forEach(listener => listener(state));
-      return state;
-    } catch (err) {
-      console.warn('State sync poll error:', err);
-      return null;
-    } finally {
-      this.isFetching = false;
+    if (this.inFlightFetches.has(fetchKey)) {
+      return this.inFlightFetches.get(fetchKey)!;
     }
+
+    const fetchPromise = (async () => {
+      try {
+        const url = `/api/rooms/${code}/state?playerToken=${encodeURIComponent(token)}&isHost=${hostFlag ? 'true' : 'false'}&_t=${Date.now()}`;
+        const res = await fetch(url, {
+          headers: { 'Cache-Control': 'no-cache' },
+        });
+
+        if (!res.ok) {
+          return null;
+        }
+
+        const state: ClientGameState = await res.json();
+        this.lastState = state;
+        this.stateListeners.forEach(listener => {
+          try {
+            listener(state);
+          } catch (e) {
+            console.warn('Listener error in fetchState:', e);
+          }
+        });
+        return state;
+      } catch (err) {
+        console.warn('State sync poll error:', err);
+        return null;
+      } finally {
+        this.inFlightFetches.delete(fetchKey);
+      }
+    })();
+
+    this.inFlightFetches.set(fetchKey, fetchPromise);
+    return fetchPromise;
   }
 
   /**
@@ -169,12 +185,19 @@ class ApiService {
     isHost?: boolean,
     onState?: (state: ClientGameState) => void
   ): () => void {
-    if (onState) {
-      this.stateListeners.add(onState);
-      if (this.lastState) onState(this.lastState);
+    const normalizedCode = roomCode.toUpperCase();
+    if (this.activeRoomCode !== normalizedCode) {
+      this.lastState = null;
+      this.activeRoomCode = normalizedCode;
     }
 
-    this.activeRoomCode = roomCode.toUpperCase();
+    if (onState) {
+      this.stateListeners.add(onState);
+      if (this.lastState && this.lastState.roomCode === normalizedCode) {
+        onState(this.lastState);
+      }
+    }
+
     if (playerToken !== undefined) {
       this.activePlayerToken = playerToken;
     } else if (!this.activePlayerToken) {

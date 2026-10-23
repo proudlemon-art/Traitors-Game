@@ -1,0 +1,49 @@
+{
+  "code": "8ZAL3",
+  "creatorToken": "token_uorn4g2",
+  "state": {
+    "roomCode": "8ZAL3",
+    "currentRound": 1,
+    "phase": "LOBBY",
+    "phaseTimeRemaining": 480,
+    "timerDurationSec": 480,
+    "timerDeadline": 1792766423262,
+    "isTimerPaused": false,
+    "totalGoldPot": 0,
+    "roundGold": 0,
+    "seatingOrder": [
+      "p_4peyh7m"
+    ],
+    "currentRevealIndex": 0,
+    "tieCandidateIds": [],
+    "tieRevealIndex": 0,
+    "isTieRevote": false,
+    "traitorId": null,
+    "traitorName": null,
+    "traitorObjective": null,
+    "roundHistory": [],
+    "latestDialogue": "Welcome to Jasmine’s Castle. Trust absolutely nobody.",
+    "isDemoRoom": false,
+    "exhibitAState": {
+      "stage": "COLLECTION",
+      "objects": [],
+      "isListLocked": false,
+      "acknowledgedPlayerIds": [],
+      "evidenceVotes": {},
+      "isEvidenceVoteLocked": false,
+      "evidenceVoteRevealed": false,
+      "isEvidenceTieRevote": false,
+      "tiedObjectIds": []
+    }
+  },
+  "players": {
+    "token_uorn4g2": {
+      "id": "p_4peyh7m",
+      "name": "Libby",
+      "isRoomCreator": true,
+      "seatNumber": 1,
+      "connected": true,
+      "score": 0
+    }
+  }
+}

@@ -33,13 +33,15 @@ export const ExhibitAMission: React.FC<Props> = ({ state, isHostDisplay, playerT
   // Accurately resolve planted object name from exhibitState, objects list, or secret mission
   const resolvedPlantedName =
     exhibitState?.plantedObjectName ||
-    (exhibitState?.plantedObjectId
+    (exhibitState?.plantedObjectId && Array.isArray(exhibitState.objects)
       ? exhibitState.objects.find(o => o.id === exhibitState.plantedObjectId)?.name
       : undefined) ||
     (state.mySecretMission && state.mySecretMission.includes('planted evidence is: ')
       ? state.mySecretMission.split('planted evidence is: ')[1]?.split('.')[0]?.replace(/^["']|["']$/g, '').trim()
       : undefined) ||
-    (exhibitState?.objects && exhibitState.objects.length > 0 ? exhibitState.objects[0].name : 'Contender Evidence');
+    (Array.isArray(exhibitState?.objects) && exhibitState.objects.length > 0 && typeof exhibitState.objects[0]?.name === 'string'
+      ? exhibitState.objects[0].name
+      : 'Contender Evidence');
 
   // Local state for registering/editing object
   const [objectNameInput, setObjectNameInput] = useState('');
@@ -55,10 +57,12 @@ export const ExhibitAMission: React.FC<Props> = ({ state, isHostDisplay, playerT
     );
   }
 
-  const myObject = exhibitState.objects.find(o => o.contributorId === myPlayerId);
-  const hasSubmittedMyObject = !!myObject && myObject.name.trim().length > 0;
-  const hasAcknowledgedBriefing = myPlayerId ? exhibitState.acknowledgedPlayerIds.includes(myPlayerId) : false;
-  const myEvidenceVote = myPlayerId ? exhibitState.evidenceVotes[myPlayerId] : undefined;
+  const objectsList = Array.isArray(exhibitState.objects) ? exhibitState.objects : [];
+  const ackList = Array.isArray(exhibitState.acknowledgedPlayerIds) ? exhibitState.acknowledgedPlayerIds : [];
+  const myObject = objectsList.find(o => o.contributorId === myPlayerId);
+  const hasSubmittedMyObject = !!myObject && typeof myObject.name === 'string' && myObject.name.trim().length > 0;
+  const hasAcknowledgedBriefing = myPlayerId ? ackList.includes(myPlayerId) : false;
+  const myEvidenceVote = myPlayerId && exhibitState.evidenceVotes ? exhibitState.evidenceVotes[myPlayerId] : undefined;
   const hasVotedEvidence = !!myEvidenceVote;
 
   // -------------------------------------------------------------------
@@ -296,11 +300,11 @@ export const ExhibitAMission: React.FC<Props> = ({ state, isHostDisplay, playerT
             <div className="max-w-md mx-auto bg-black/60 border border-amber-900/50 rounded-xl p-4">
               <div className="text-xs font-mono uppercase text-amber-400 mb-3 flex items-center justify-between">
                 <span>Player Acknowledgement</span>
-                <span>{exhibitState.acknowledgedPlayerIds.length} / 7 Ready</span>
+                <span>{ackList.length} / 7 Ready</span>
               </div>
               <div className="grid grid-cols-2 gap-2 text-left">
                 {state.players.map(p => {
-                  const ack = exhibitState.acknowledgedPlayerIds.includes(p.id);
+                  const ack = ackList.includes(p.id);
                   return (
                     <div
                       key={p.id}
