@@ -470,6 +470,39 @@ class AdminMediaService {
       return false;
     }
   }
+
+  // Aliases for component convenience:
+  public setVoiceClip(id: string, clip: VoiceClipData) {
+    this.setSceneVoiceClip(id, clip);
+  }
+
+  public removeVoiceClip(id: string) {
+    this.removeSceneVoiceClip(id);
+  }
+
+  public setImage(id: string, imageUrl: string) {
+    this.updateSceneImage(id, imageUrl);
+  }
+
+  public resetImageToDefault(id: string) {
+    this.resetSceneImage(id);
+  }
+
+  public setText(id: string, customText: string) {
+    this.updateSceneText(id, customText);
+  }
+
+  public resetTextToDefault(id: string) {
+    this.resetSceneText(id);
+  }
+
+  public exportJsonConfig(): string {
+    return this.exportConfigJson();
+  }
+
+  public importJsonConfig(jsonStr: string): boolean {
+    return this.importConfigJson(jsonStr);
+  }
 }
 
 export const adminMediaService = new AdminMediaService();

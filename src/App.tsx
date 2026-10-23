@@ -73,6 +73,8 @@ export default function App() {
   const [showAdminStudio, setShowAdminStudio] = useState(false);
   const [adminStudioSceneId, setAdminStudioSceneId] = useState<string | undefined>(undefined);
 
+  const [isDeviceFrameMode, setIsDeviceFrameMode] = useState<boolean>(true);
+
   const handleLockCastle = () => {
     if (typeof localStorage !== 'undefined') {
       localStorage.removeItem('traitors_castle_unlocked');
@@ -84,6 +86,12 @@ export default function App() {
   const handleOpenAdminStudio = (sceneId?: string) => {
     setAdminStudioSceneId(sceneId);
     setShowAdminStudio(true);
+  };
+
+  const handleJumpToRound = async (round: number, phase: string = 'INTRO') => {
+    const code = currentRoomCode || 'DEMO7';
+    await api.sendAction(code, 'DEMO_JUMP_TO_ROUND', { round, phase });
+    setShowAdminStudio(false);
   };
 
   // Form states for Lobby
@@ -207,6 +215,12 @@ export default function App() {
 
   // If inside an active room:
   if (gameState) {
+    const activeDemoPlayer = DEMO_PLAYERS.find(p => p.token === playerToken) || DEMO_PLAYERS[0];
+    const isPlayerTraitor = activeDemoPlayer.id === gameState.traitorId;
+    const activeIndex = DEMO_PLAYERS.findIndex(p => p.token === playerToken);
+    const prevPlayer = DEMO_PLAYERS[(activeIndex - 1 + DEMO_PLAYERS.length) % DEMO_PLAYERS.length];
+    const nextPlayer = DEMO_PLAYERS[(activeIndex + 1) % DEMO_PLAYERS.length];
+
     return (
       <div className="relative min-h-screen bg-castle-black text-amber-100 flex flex-col">
         {/* Demo Switcher Bar if active demo */}
@@ -215,6 +229,10 @@ export default function App() {
             state={gameState}
             currentRoleView={viewMode === 'HOST' ? 'HOST' : playerToken}
             onSelectView={handleSelectDemoView}
+            onOpenAdminPlan={() => {
+              setAdminStudioSceneId(undefined);
+              setShowAdminStudio(true);
+            }}
           />
         )}
 
@@ -265,6 +283,94 @@ export default function App() {
               onOpenGuide={() => setShowGuide(true)}
               onOpenAdminStudio={handleOpenAdminStudio}
             />
+          ) : gameState.isDemoRoom ? (
+            /* Mobile Device Simulator Frame for Testing */
+            <div className="flex-1 flex flex-col items-center justify-start p-2 sm:p-6 bg-gradient-to-b from-castle-black via-zinc-950 to-castle-black">
+              {/* Mobile Device Tester HUD */}
+              <div className="w-full max-w-2xl bg-zinc-900/95 border border-amber-900/60 rounded-xl p-3 mb-4 shadow-xl flex flex-wrap items-center justify-between gap-3 text-xs">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <button
+                    onClick={() => handleSelectDemoView('HOST')}
+                    className="px-2.5 py-1 bg-amber-500 hover:bg-amber-400 text-black font-serif font-bold rounded flex items-center gap-1 shadow transition"
+                  >
+                    <Tv className="w-3.5 h-3.5" />
+                    <span>Back to TV Host</span>
+                  </button>
+
+                  <div className="flex items-center gap-1.5 font-mono">
+                    <span className="text-zinc-400">Testing View:</span>
+                    <strong className="text-amber-200">{activeDemoPlayer.name}</strong>
+                    <span className="text-zinc-500">(Seat #{activeDemoPlayer.seat})</span>
+                    {isPlayerTraitor ? (
+                      <span className="px-1.5 py-0.5 bg-red-950 text-red-300 border border-red-700/60 rounded text-[10px] font-bold">
+                        🗡️ TRAITOR
+                      </span>
+                    ) : (
+                      <span className="px-1.5 py-0.5 bg-emerald-950 text-emerald-300 border border-emerald-700/60 rounded text-[10px]">
+                        🛡️ FAITHFUL
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-1.5">
+                  <button
+                    onClick={() => handleSelectDemoView(prevPlayer.token)}
+                    className="px-2 py-1 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 rounded text-xs font-mono"
+                    title={`Switch to ${prevPlayer.name}`}
+                  >
+                    ← Prev
+                  </button>
+                  <button
+                    onClick={() => handleSelectDemoView(nextPlayer.token)}
+                    className="px-2 py-1 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 rounded text-xs font-mono"
+                    title={`Switch to ${nextPlayer.name}`}
+                  >
+                    Next →
+                  </button>
+                  <button
+                    onClick={() => setIsDeviceFrameMode(!isDeviceFrameMode)}
+                    className="px-2.5 py-1 bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 text-amber-300 rounded text-xs font-mono flex items-center gap-1"
+                  >
+                    <Smartphone className="w-3.5 h-3.5" />
+                    <span>{isDeviceFrameMode ? 'Full Screen' : 'Phone Frame'}</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Realistic Smartphone Shell or Full Screen */}
+              {isDeviceFrameMode ? (
+                <div className="w-full max-w-[420px] rounded-[42px] border-[10px] border-zinc-800 bg-castle-black shadow-[0_25px_70px_rgba(0,0,0,0.9),0_0_30px_rgba(212,163,69,0.15)] overflow-hidden relative flex flex-col my-2">
+                  {/* Phone Dynamic Island / Speaker Bezel */}
+                  <div className="bg-zinc-950 pt-3 pb-2 px-6 flex items-center justify-between border-b border-zinc-900 select-none">
+                    <span className="text-[11px] font-mono font-bold text-zinc-400">9:41</span>
+                    <div className="w-24 h-4 bg-black rounded-full border border-zinc-800 flex items-center justify-center">
+                      <div className="w-2.5 h-2.5 rounded-full bg-zinc-900" />
+                    </div>
+                    <div className="flex items-center gap-1 text-[10px] text-zinc-400 font-mono">
+                      <span>5G</span>
+                      <div className="w-4 h-2 border border-zinc-400 rounded-sm p-0.5">
+                        <div className="w-full h-full bg-zinc-400 rounded-xs" />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Scrollable Device Content */}
+                  <div className="p-4 overflow-y-auto max-h-[750px] min-h-[580px] custom-scrollbar flex-1 bg-castle-black">
+                    <PlayerScreen state={gameState} playerToken={playerToken} />
+                  </div>
+
+                  {/* Bottom Home Indicator Bar */}
+                  <div className="bg-zinc-950 py-2 flex justify-center border-t border-zinc-900 select-none">
+                    <div className="w-32 h-1 bg-zinc-600 rounded-full" />
+                  </div>
+                </div>
+              ) : (
+                <div className="w-full max-w-2xl mx-auto p-4">
+                  <PlayerScreen state={gameState} playerToken={playerToken} />
+                </div>
+              )}
+            </div>
           ) : (
             <PlayerScreen state={gameState} playerToken={playerToken} />
           )}
@@ -285,6 +391,8 @@ export default function App() {
             isOpen={showAdminStudio}
             onClose={() => setShowAdminStudio(false)}
             initialSceneId={adminStudioSceneId}
+            roomCode={currentRoomCode || 'DEMO7'}
+            onJumpToRound={handleJumpToRound}
           />
         )}
       </div>

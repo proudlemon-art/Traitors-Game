@@ -312,6 +312,8 @@ export interface ClientGameState {
   isDemoRoom?: boolean;
   totalGoldPot?: number;
   roundGold?: number;
+  traitorId?: string | null;
+  traitorName?: string | null;
 
   // Player-specific private fields:
   myPlayerId?: string;

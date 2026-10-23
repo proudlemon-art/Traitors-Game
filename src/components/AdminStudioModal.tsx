@@ -31,19 +31,225 @@ import {
   ChevronRight,
   Radio,
   Loader2,
+  BookOpen,
+  Calendar,
+  Trophy,
+  Target,
+  Shield,
+  Skull,
+  Zap,
+  CheckCircle2,
+  Clock,
+  ArrowRight,
+  Flame,
+  Award,
+  Users,
 } from 'lucide-react';
 
 interface Props {
   isOpen: boolean;
   onClose: () => void;
   initialSceneId?: string;
+  roomCode?: string;
+  onJumpToRound?: (round: number, phase?: string) => void;
 }
+
+export interface RoundPlanItem {
+  round: number;
+  title: string;
+  subtitle: string;
+  theme: string;
+  missionName: string;
+  missionDescription: string;
+  mechanics: string[];
+  faithfulObjective: string;
+  traitorObjective: {
+    title: string;
+    description: string;
+    conversationalGoal: string;
+    successCondition: string;
+  };
+  scoring: string;
+  imageUrl: string;
+  sampleScript: string;
+}
+
+export const ROUNDS_PLAN_DATA: RoundPlanItem[] = [
+  {
+    round: 1,
+    title: 'Round 1: The Castle Heist',
+    subtitle: 'Forensic collection & secret planted evidence',
+    theme: 'Physical Investigation & Planted Evidence',
+    missionName: 'Exhibit A: The Crime Scene',
+    missionDescription:
+      'Each guest fetches one ordinary household item and brings it to the table. One object will be chosen as Exhibit A. Eight crucial clues rest upon the candlelit desk.',
+    mechanics: [
+      'Each of the 7 players registers 1 ordinary household object on their phone slate.',
+      '8 crime scene clues are featured on the table (Brass Key, Glove, Poison Flask, Pocket Watch, Damask Handkerchief, Sealed Letter, Silver Spoon, Forensics Bag).',
+      'Forensic Presentations: 30 seconds for each player to argue why their item is suspicious.',
+      'Secret Mobile Voting: All players cast private votes for which item becomes Exhibit A.',
+      'Round Table Accusation: Full table debate on who was steering the evidence.',
+    ],
+    faithfulObjective: 'Deduce which object is an innocent piece of evidence and avoid voting for the Traitor’s planted item.',
+    traitorObjective: {
+      title: 'The Planted Exhibit',
+      description: 'Persuade the group to choose your secret planted household object as Exhibit A.',
+      conversationalGoal: 'Steer the investigation so everyone believes selecting your planted object was their own brilliant idea.',
+      successCondition: 'The Traitor’s secret planted object is chosen as the final Exhibit A.',
+    },
+    scoring: 'If Exhibit A is the Traitor’s planted item: Traitor steals +10 Gold. Otherwise: +10 Gold to the Faithful Prize Pot.',
+    imageUrl: '/assets/aistudio/The_Candlelit_Castle_Mystery_891f6711.png',
+    sampleScript:
+      '“Welcome to Jasmine’s Castle. One of you will be murdered, several banished, and the rest deeply untrustworthy. Look at each other... because by tonight, one of you is a Traitor.”',
+  },
+  {
+    round: 2,
+    title: 'Round 2: The Birthday Majority',
+    subtitle: 'Social consensus predictions & comical roasts',
+    theme: 'Consensus Manipulation & Social Comedy',
+    missionName: 'The Birthday Majority',
+    missionDescription:
+      'Five spicy, comical questions about the party guests. Phase 1: Nominate who fits the prompt. Phase 2: Predict the room’s consensus!',
+    mechanics: [
+      '5 personalized multiple-choice questions about the guests (e.g. “Who would hear last orders and buy enough drinks to turn going home into tomorrow’s problem?”).',
+      'Step 1 (Anonymous Consensus): Every player anonymously selects who best fits the prompt.',
+      'Step 2 (Prediction Stakes): Players predict who the majority selected.',
+      'Consensus Reveal: The TV host screen tallies the votes and crowns the majority answer.',
+      'Debate Phase: Who tried to sway opinions on the questions before votes locked?',
+    ],
+    faithfulObjective: 'Accurately read the room and predict the majority consensus to earn individual gold coins.',
+    traitorObjective: {
+      title: 'The Deliberate Detour',
+      description: 'Convince your assigned target Faithful to submit an incorrect prediction on a specified question.',
+      conversationalGoal: 'Lobby or sway opinion casually during the discussion before predictions are locked.',
+      successCondition: 'Target Faithful locks an incorrect majority prediction on the assigned question.',
+    },
+    scoring: '+2 Gold per correct prediction for Faithful. Traitor earns +10 Gold if their target was successfully misled.',
+    imageUrl: '/src/assets/images/round_table_chamber_1792491572609.jpg',
+    sampleScript:
+      '“You think you know your friends? You don’t. You know their curated social media and polite dinner party faces. Now we find out what they really think of you.”',
+  },
+  {
+    round: 3,
+    title: 'Round 3: The Forgery Gallery',
+    subtitle: 'Silent sketch divergence & art interrogation',
+    theme: 'Visual Forgery & Observational Forensics',
+    missionName: 'The Forgery Gallery',
+    missionDescription:
+      'Two minutes of silent sketching on paper. Faithful and Traitor receive subtly different brief pairs. Spot the forgery!',
+    mechanics: [
+      'Two minutes of dead silence. Players draw their private prompt on scrap paper or mobile.',
+      'Faithful Prompt: e.g. A smug butler serving high tea in the castle courtyard with a dachshund and a grandfather clock.',
+      'Traitor Prompt: e.g. A frantic waiter balancing a wedding cake on a windy Scottish golf course with a terrier and a sundial.',
+      'Simultaneous Reveal: All drawings presented together for group interrogation.',
+      'Round Table Accusations: Cross-examining discrepancies in the details.',
+    ],
+    faithfulObjective: 'Present an authentic drawing and identify the subtle imposter prompt among the sketches.',
+    traitorObjective: {
+      title: 'Framing the Artist',
+      description: 'You received a slightly different drawing prompt. Get another player to accuse an innocent Faithful of having the wrong drawing.',
+      conversationalGoal: 'During sketch presentations, playfully question strange details in an innocent Faithful player’s drawing.',
+      successCondition: 'Another guest publicly suspects or accuses an innocent Faithful of having the wrong drawing.',
+    },
+    scoring: '+10 Gold to Faithful pot if Traitor sketch is identified. Traitor steals +10 Gold if an innocent Faithful is accused.',
+    imageUrl: '/src/assets/images/claudia_cloak_reveal_1792491590255.jpg',
+    sampleScript:
+      '“Two minutes of dead silence. Put pencil to paper. One among you has a forged brief. When I say show, reveal your slates to the table!”',
+  },
+  {
+    round: 4,
+    title: 'Round 4: Body Disposal Committee',
+    subtitle: 'Escape luggage rationing & cooperative storytelling',
+    theme: 'Survival Committee & Contraband Smuggling',
+    missionName: 'Body Disposal Committee',
+    missionDescription:
+      'A body has been found in the wine cellar! The group must flee on a tandem bicycle and debate which 5 items out of 7 make the getaway basket.',
+    mechanics: [
+      '7 unusual household items fetched and nominated by players.',
+      'Committee Debate: The 7 players must reach agreement on exactly 5 items to pack.',
+      '60-Second Story Challenge: One nominated storyteller must weave all 5 items into a coherent 60-second escape narrative.',
+      'Timer Discipline: If story exceeds 60 seconds or misses an item, mission fails.',
+    ],
+    faithfulObjective: 'Pack practical items and deliver the 60-second escape story with all 5 items incorporated.',
+    traitorObjective: {
+      title: 'The Contraband Smuggle',
+      description: 'You are secretly assigned 1 specific object. You must get another player to fetch or nominate that object into the committee’s final five.',
+      conversationalGoal: 'Convince someone else that your assigned object is vital for the tandem bicycle getaway.',
+      successCondition: 'Another player fetches or votes your assigned item into the final five.',
+    },
+    scoring: '+10 Gold if the 60-second escape story succeeds. Traitor steals +10 Gold if their contraband item is packed.',
+    imageUrl: '/src/assets/images/claudia_host_castle_1792491589363.jpg',
+    sampleScript:
+      '“A body has been found in the wine cellar. You must flee on a two-seater bicycle across the moors. You can only pack five items. Choose wisely.”',
+  },
+  {
+    round: 5,
+    title: 'Round 5: The Counterfeit Expert',
+    subtitle: 'High-speed invention pitching & linguistic deduction',
+    theme: 'Rapid Deception & Linguistic Sleight of Hand',
+    missionName: 'The Counterfeit Expert',
+    missionDescription:
+      'A bizarre high-tech invention is announced. Each player has 30 seconds to pitch it. Faithful have 3 required words; Traitor only has 2 and must deduce the 3rd!',
+    mechanics: [
+      'An absurd product announced (e.g. The Subterranean Escapement Loom).',
+      'Faithful receive 3 secret keywords they must naturally weave into their 30-second pitch.',
+      'The Traitor receives only 2 keywords and a question mark for the 3rd.',
+      'Traitor must listen to early pitches, deduce the missing word, and use it in their pitch or guess it!',
+      'Fast-paced 30-second speaking order around the table.',
+    ],
+    faithfulObjective: 'Deliver smooth pitches using all 3 words without telegraphing the secret keywords to the Traitor.',
+    traitorObjective: {
+      title: 'The Counterfeit Smuggler',
+      description: 'You only received 2 required words (missing the 3rd). Listen carefully to the pitches, deduce the missing word, and use it in your pitch or guess it.',
+      conversationalGoal: 'Deliver a convincing 30-second pitch while smoothly sneaking in the deduced 3rd word.',
+      successCondition: 'Traitor uses or correctly identifies the missing 3rd word.',
+    },
+    scoring: '+10 Gold to Faithful if Traitor fails to use or identify the word. Traitor steals +10 Gold if 3rd word is deduced.',
+    imageUrl: '/src/assets/images/traitors_castle_mist_1792491571213.jpg',
+    sampleScript:
+      '“High finance. Unregulated tech. Thirty seconds on the clock. Pitch for your lives.”',
+  },
+  {
+    round: 6,
+    title: 'Round 6: The Getaway Auction & The Grand Finale',
+    subtitle: 'High-stakes bidding, the Final Four dilemma & the Jasmine Forfeit',
+    theme: 'Auction Depletion, Banishment Gauntlet & Crown Decider',
+    missionName: 'The Getaway Auction & Grand Finale',
+    missionDescription:
+      'Each player starts with 12 gold coins to bid on 6 mystery escape lots. Then the survivors enter the Final Four End-or-Banish showdown, culminating in the Jasmine Forfeit Apology!',
+    mechanics: [
+      'Part 1 (The Auction): 6 mystery lots auctioned sequentially (Tandem Bicycle, Highland Map, Lord’s Passport, Decoy Cloak, False Alibi, Castle Master Key).',
+      'Secret Traitor Auction Goal: Drive up bidding and ensure target Faithful wins 0 lots or exhausts all coins on low-value items.',
+      'Part 2 (Final Banishments): Survivors hold decisive round table votes until 4 remain.',
+      'Part 3 (End the Game or Banish Again): All remaining players vote privately. If all vote END, game stops. If even ONE votes BANISH, another banishment is held!',
+      'Part 4 (The Ultimate Victory): If ANY Traitor survives, the Traitor STEALS the entire gold pot! If only Faithful remain, the highest scoring Faithful takes the Crown!',
+      'Part 5 (The Jasmine Forfeit): Jasmine takes the floor and recites the dramatic public apology to Libby in front of everyone!',
+    ],
+    faithfulObjective: 'Manage coin economy in the auction, eliminate the remaining Traitor, and vote to END only when confident no Traitors remain.',
+    traitorObjective: {
+      title: 'The Grand Depletion & Final Survival',
+      description: 'Manipulate bidding so target Faithful wins 0 lots, survive the final round table votes, and convince Faithful to END the game with you still standing.',
+      conversationalGoal: 'Play the trusted friend, vote with the majority, and survive to the bitter end to steal the entire pot.',
+      successCondition: 'Survive the final banishments as a Traitor to claim the entire prize pot.',
+    },
+    scoring: 'Winner takes all! A surviving Traitor takes the ENTIRE gold pot. If all Traitors banished, the top-scoring Faithful wins.',
+    imageUrl: '/assets/aistudio/Screenshot_2026-10-20_at_11.50.13_adceafb3.png',
+    sampleScript:
+      '“The auction is over. Your money has gone. Your Traitor hasn’t. From this moment, if you’re banished, you are finished.”',
+  },
+];
 
 export const AdminStudioModal: React.FC<Props> = ({
   isOpen,
   onClose,
   initialSceneId,
+  roomCode,
+  onJumpToRound,
 }) => {
+  const [activeTab, setActiveTab] = useState<'GAME_PLAN' | 'MEDIA_STUDIO'>(
+    initialSceneId ? 'MEDIA_STUDIO' : 'GAME_PLAN'
+  );
+  const [planFilter, setPlanFilter] = useState<number | 'ALL'>('ALL');
   const [scenes, setScenes] = useState<SceneMediaConfig[]>(() => adminMediaService.getAllScenes());
   const [selectedSceneId, setSelectedSceneId] = useState<string>(initialSceneId || 'ROUND_1_INTRO');
   const [filterCategory, setFilterCategory] = useState<string>('ALL');
@@ -110,6 +316,7 @@ export const AdminStudioModal: React.FC<Props> = ({
   useEffect(() => {
     if (initialSceneId) {
       setSelectedSceneId(initialSceneId);
+      setActiveTab('MEDIA_STUDIO');
     }
   }, [initialSceneId]);
 
@@ -148,14 +355,18 @@ export const AdminStudioModal: React.FC<Props> = ({
       const audio = new Audio(selectedScene.voiceClip.audioUrl);
       audioPreviewRef.current = audio;
       setIsPlayingCurrentClip(true);
-      audio.onended = () => setIsPlayingCurrentClip(false);
+      audio.onended = () => {
+        setIsPlayingCurrentClip(false);
+        audioPreviewRef.current = null;
+      };
       audio.onerror = () => {
         setIsPlayingCurrentClip(false);
-        showNotification('Audio playback failed.');
+        audioPreviewRef.current = null;
+        showNotification('Could not play audio clip');
       };
       audio.play().catch(e => {
+        console.warn('Audio play error:', e);
         setIsPlayingCurrentClip(false);
-        console.warn('Playback error', e);
       });
     }
   };
@@ -163,43 +374,34 @@ export const AdminStudioModal: React.FC<Props> = ({
   // ----------------------------------------------------
   // Microphone Recording
   // ----------------------------------------------------
-  const startRecording = async () => {
+  const handleStartRecording = async () => {
+    stopAudioPreview();
     try {
-      stopAudioPreview();
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       audioChunksRef.current = [];
-      const mediaRecorder = new MediaRecorder(stream);
+      const mediaRecorder = new MediaRecorder(stream, { mimeType: 'audio/webm' });
       mediaRecorderRef.current = mediaRecorder;
 
-      mediaRecorder.ondataavailable = e => {
-        if (e.data.size > 0) {
-          audioChunksRef.current.push(e.data);
+      mediaRecorder.ondataavailable = event => {
+        if (event.data && event.data.size > 0) {
+          audioChunksRef.current.push(event.data);
         }
       };
 
-      mediaRecorder.onstop = () => {
+      mediaRecorder.onstop = async () => {
         const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
-        showNotification('Writing audio clip to persistent storage...');
         const reader = new FileReader();
-        reader.onloadend = async () => {
-          const base64Url = reader.result as string;
-          const fileName = `Mic_Recording_${selectedScene.id}.webm`;
-          const savedUrl = await adminMediaService.uploadMedia(
-            base64Url,
-            'audio',
-            fileName,
-            selectedScene.id
-          );
-          const clip: VoiceClipData = {
-            audioUrl: savedUrl,
-            fileName,
+        reader.onloadend = () => {
+          const base64data = reader.result as string;
+          const newClip: VoiceClipData = {
+            audioUrl: base64data,
+            fileName: `recorded_voice_${selectedScene.id}.webm`,
             durationSec: recordingSeconds,
-            recordedAt: new Date().toLocaleTimeString(),
+            recordedAt: new Date().toISOString(),
             isRecorded: true,
           };
-          adminMediaService.setSceneVoiceClip(selectedScene.id, clip);
-          await adminMediaService.save();
-          showNotification('Microphone voice clip permanently saved!');
+          adminMediaService.setVoiceClip(selectedScene.id, newClip);
+          showNotification(`Recorded voice clip attached to ${selectedScene.title}`);
         };
         reader.readAsDataURL(audioBlob);
 
@@ -207,230 +409,171 @@ export const AdminStudioModal: React.FC<Props> = ({
         stream.getTracks().forEach(track => track.stop());
       };
 
-      mediaRecorder.start();
+      mediaRecorder.start(250);
       setIsRecording(true);
       setRecordingSeconds(0);
       recordingTimerRef.current = setInterval(() => {
         setRecordingSeconds(sec => sec + 1);
       }, 1000);
-    } catch (err) {
-      console.error('Mic access error:', err);
-      showNotification('Microphone permission denied or unavailable.');
+    } catch (err: any) {
+      alert('Microphone access denied or not available: ' + err.message);
     }
   };
 
-  const stopRecordingAndSave = () => {
-    if (mediaRecorderRef.current && isRecording) {
+  const handleStopRecording = () => {
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
       mediaRecorderRef.current.stop();
-      setIsRecording(false);
-      if (recordingTimerRef.current) clearInterval(recordingTimerRef.current);
     }
-  };
-
-  const cancelRecording = () => {
-    stopRecordingCleanup();
-    showNotification('Recording cancelled.');
+    setIsRecording(false);
+    if (recordingTimerRef.current) {
+      clearInterval(recordingTimerRef.current);
+      recordingTimerRef.current = null;
+    }
   };
 
   // ----------------------------------------------------
   // Audio File Upload
   // ----------------------------------------------------
-function compressImageFile(file: File, maxDimension = 1200, quality = 0.82): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onerror = reject;
-    reader.onload = ev => {
-      const img = new Image();
-      img.onerror = reject;
-      img.onload = () => {
-        let { width, height } = img;
-        if (width > maxDimension || height > maxDimension) {
-          if (width > height) {
-            height = Math.round((height * maxDimension) / width);
-            width = maxDimension;
-          } else {
-            width = Math.round((width * maxDimension) / height);
-            height = maxDimension;
-          }
-        }
-        const canvas = document.createElement('canvas');
-        canvas.width = width;
-        canvas.height = height;
-        const ctx = canvas.getContext('2d');
-        if (!ctx) {
-          resolve(ev.target?.result as string);
-          return;
-        }
-        ctx.drawImage(img, 0, 0, width, height);
-        const compressed = canvas.toDataURL('image/jpeg', quality);
-        resolve(compressed);
-      };
-      img.src = ev.target?.result as string;
-    };
-    reader.readAsDataURL(file);
-  });
-}
-
-  const handleAudioUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleUploadAudioFile = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    if (file.size > 5 * 1024 * 1024) {
-      showNotification('Audio file is too large (max 5MB). Please choose a shorter clip.');
-      e.target.value = '';
+    if (file.size > 15 * 1024 * 1024) {
+      alert('Audio file must be under 15MB');
       return;
     }
 
-    showNotification(`Uploading audio: ${file.name}...`);
     const reader = new FileReader();
-    reader.onload = async ev => {
-      const base64Url = ev.target?.result as string;
-      const savedUrl = await adminMediaService.uploadMedia(
-        base64Url,
-        'audio',
-        file.name,
-        selectedScene.id
-      );
-      const clip: VoiceClipData = {
-        audioUrl: savedUrl,
+    reader.onload = event => {
+      const base64Url = event.target?.result as string;
+      const newClip: VoiceClipData = {
+        audioUrl: base64Url,
         fileName: file.name,
-        recordedAt: new Date().toLocaleTimeString(),
+        recordedAt: new Date().toISOString(),
         isRecorded: false,
       };
-      adminMediaService.setSceneVoiceClip(selectedScene.id, clip);
-      await adminMediaService.save();
-      showNotification(`Voice clip permanently saved: ${file.name}`);
+      adminMediaService.setVoiceClip(selectedScene.id, newClip);
+      showNotification(`Uploaded voice clip for ${selectedScene.title}`);
     };
     reader.readAsDataURL(file);
     e.target.value = '';
   };
 
-  const handleRemoveVoiceClip = async () => {
+  const handleDeleteVoiceClip = () => {
     stopAudioPreview();
-    adminMediaService.removeSceneVoiceClip(selectedScene.id);
-    await adminMediaService.save();
-    showNotification('Voice clip removed.');
+    adminMediaService.removeVoiceClip(selectedScene.id);
+    showNotification('Voice clip removed');
   };
 
   // ----------------------------------------------------
-  // Text Script Editing
+  // Image Upload & Selection
   // ----------------------------------------------------
-  const handleTextChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    adminMediaService.updateSceneText(selectedScene.id, e.target.value);
+  const handleSelectPresetImage = (url: string) => {
+    adminMediaService.setImage(selectedScene.id, url);
+    showNotification('Visual image updated');
   };
 
-  const handleResetText = async () => {
-    adminMediaService.resetSceneText(selectedScene.id);
-    await adminMediaService.save();
-    showNotification('Script text reset to default.');
-  };
-
-  // ----------------------------------------------------
-  // Image Customization
-  // ----------------------------------------------------
-  const handleSelectPresetImage = async (url: string) => {
-    adminMediaService.updateSceneImage(selectedScene.id, url);
-    await adminMediaService.save();
-    showNotification('Scene visual updated from castle gallery.');
-  };
-
-  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleUploadCustomImage = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    showNotification(`Optimizing & saving image: ${file.name}...`);
-    try {
-      const base64Url = await compressImageFile(file, 1200, 0.82);
-      const savedUrl = await adminMediaService.uploadMedia(
-        base64Url,
-        'image',
-        file.name,
-        selectedScene.id
-      );
-      adminMediaService.updateSceneImage(selectedScene.id, savedUrl);
-      const ok = await adminMediaService.save();
-      if (ok) {
-        showNotification(`Custom image permanently saved: ${file.name}`);
-      } else {
-        showNotification(`Image saved locally: ${file.name}`);
-      }
-    } catch (err) {
-      console.error('Image upload failed', err);
-      showNotification('Failed to process image upload.');
+    if (file.size > 15 * 1024 * 1024) {
+      alert('Image file must be under 15MB');
+      return;
     }
+
+    const reader = new FileReader();
+    reader.onload = event => {
+      const base64Url = event.target?.result as string;
+      adminMediaService.setImage(selectedScene.id, base64Url);
+      showNotification('Custom image uploaded');
+    };
+    reader.readAsDataURL(file);
     e.target.value = '';
   };
 
-  const handleResetImage = async () => {
-    adminMediaService.resetSceneImage(selectedScene.id);
-    await adminMediaService.save();
-    showNotification('Scene image reset to default.');
+  const handleResetImage = () => {
+    adminMediaService.resetImageToDefault(selectedScene.id);
+    showNotification('Image reset to castle default');
   };
 
   // ----------------------------------------------------
-  // Scene Reset
+  // Script / Caption Text Editing
   // ----------------------------------------------------
-  const handleResetCurrentScene = async () => {
-    stopAudioPreview();
-    adminMediaService.resetScene(selectedScene.id);
-    await adminMediaService.save();
-    showNotification(`Reset ${selectedScene.title} to default settings.`);
+  const handleUpdateText = (text: string) => {
+    adminMediaService.setText(selectedScene.id, text);
+  };
+
+  const handleResetText = () => {
+    adminMediaService.resetTextToDefault(selectedScene.id);
+    showNotification('Script text reset to original default');
   };
 
   // ----------------------------------------------------
-  // Export & Import
+  // JSON Import & Export
   // ----------------------------------------------------
   const handleExportJson = () => {
-    const json = adminMediaService.exportConfigJson();
-    const blob = new Blob([json], { type: 'application/json' });
+    const jsonStr = adminMediaService.exportJsonConfig();
+    const blob = new Blob([jsonStr], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `traitors_castle_media_config_${Date.now()}.json`;
+    a.download = `traitors_castle_media_${Date.now()}.json`;
     a.click();
     URL.revokeObjectURL(url);
-    showNotification('Setup exported to JSON file.');
+    showNotification('Media configuration exported');
   };
 
   const handleImportJson = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+
     const reader = new FileReader();
-    reader.onload = ev => {
-      const content = ev.target?.result as string;
-      const success = adminMediaService.importConfigJson(content);
-      if (success) {
-        showNotification('Setup successfully imported!');
-      } else {
-        showNotification('Failed to import JSON setup file.');
+    reader.onload = event => {
+      try {
+        const jsonStr = event.target?.result as string;
+        const success = adminMediaService.importJsonConfig(jsonStr);
+        if (success) {
+          showNotification('Media configuration imported successfully');
+        } else {
+          alert('Invalid configuration file');
+        }
+      } catch (err: any) {
+        alert('Could not parse configuration file: ' + err.message);
       }
     };
     reader.readAsText(file);
     e.target.value = '';
   };
 
-  // Filter scenes
-  const filteredScenes = scenes.filter(s => {
-    const matchesFilter =
+  // Filter scenes for Media Studio
+  const filteredScenes = allAvailableScenes.filter(s => {
+    const matchesCategory =
       filterCategory === 'ALL' ||
       (filterCategory === 'GENERAL' && !s.round) ||
       (filterCategory.startsWith('R') && s.round === parseInt(filterCategory.replace('R', ''), 10));
 
     const matchesSearch =
       searchQuery.trim() === '' ||
-      s.title?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      s.subtitle?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (s.customText || s.defaultText || '').toLowerCase().includes(searchQuery.toLowerCase());
+      s.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      s.subtitle.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (s.customText && s.customText.toLowerCase().includes(searchQuery.toLowerCase())) ||
+      s.defaultText.toLowerCase().includes(searchQuery.toLowerCase());
 
-    return matchesFilter && matchesSearch;
+    return matchesCategory && matchesSearch;
   });
 
-  const activeDisplayText = selectedScene?.customText ?? selectedScene?.defaultText ?? '';
-  const activeDisplayImage = selectedScene?.customImageUrl || selectedScene?.defaultImageUrl || '';
+  const activeDisplayImage = selectedScene.customImageUrl || selectedScene.defaultImageUrl;
+  const activeDisplayText = selectedScene.customText ?? selectedScene.defaultText;
+
+  // Filter rounds for Game Plan
+  const displayedRounds =
+    planFilter === 'ALL' ? ROUNDS_PLAN_DATA : ROUNDS_PLAN_DATA.filter(r => r.round === planFilter);
 
   return (
     <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-2 sm:p-4 md:p-6 animate-fadeIn">
-      <div className="bg-zinc-950 border-2 border-amber-500/60 rounded-xl w-full max-w-7xl h-[92vh] flex flex-col text-amber-100 shadow-[0_0_50px_rgba(212,163,69,0.25)] overflow-hidden">
+      <div className="bg-zinc-950 border-2 border-amber-500/60 rounded-xl w-full max-w-7xl h-[94vh] flex flex-col text-amber-100 shadow-[0_0_50px_rgba(212,163,69,0.25)] overflow-hidden">
+        
         {/* Top Header Bar */}
         <div className="bg-zinc-900/90 border-b border-amber-900/50 px-4 sm:px-6 py-3.5 flex items-center justify-between gap-4">
           <div className="flex items-center gap-3">
@@ -440,14 +583,14 @@ function compressImageFile(file: File, maxDimension = 1200, quality = 0.82): Pro
             <div>
               <div className="flex items-center gap-2">
                 <h2 className="font-serif font-black text-lg sm:text-xl text-amber-200 tracking-wider">
-                  CASTLE MEDIA & HOST STUDIO
+                  CASTLE ADMIN & MASTER GAME PLAN
                 </h2>
                 <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30 uppercase">
                   Admin View
                 </span>
               </div>
               <p className="text-xs text-zinc-400 font-sans hidden sm:block">
-                Manage custom voice clips, broadcast script text, and scene visual imagery
+                View all planned rounds & missions, or customize media clips, broadcast scripts, and images
               </p>
             </div>
           </div>
@@ -501,506 +644,601 @@ function compressImageFile(file: File, maxDimension = 1200, quality = 0.82): Pro
           </div>
         </div>
 
-        {/* Studio Body: Two Panels */}
-        <div className="flex-1 flex flex-col md:flex-row overflow-hidden">
-          {/* LEFT PANEL: Scene List Navigator */}
-          <div className="w-full md:w-80 lg:w-96 border-b md:border-b-0 md:border-r border-amber-900/40 bg-zinc-950/70 flex flex-col shrink-0">
-            {/* Search and Filters */}
-            <div className="p-3 border-b border-zinc-800 space-y-2 bg-zinc-900/30">
-              <div className="relative">
-                <Search className="w-3.5 h-3.5 text-zinc-500 absolute left-2.5 top-1/2 -translate-y-1/2" />
-                <input
-                  type="text"
-                  placeholder="Search scenes or scripts..."
-                  value={searchQuery}
-                  onChange={e => setSearchQuery(e.target.value)}
-                  className="w-full pl-8 pr-3 py-1.5 bg-black border border-zinc-800 rounded text-xs text-amber-200 placeholder-zinc-500 focus:outline-none focus:border-amber-500"
-                />
+        {/* PRIMARY TAB SWITCHER: ALL ROUNDS PLAN vs MEDIA STUDIO */}
+        <div className="bg-zinc-950 border-b border-amber-900/50 px-4 sm:px-6 py-2.5 flex flex-wrap items-center justify-between gap-3 bg-gradient-to-r from-burgundy-950/60 via-zinc-950 to-burgundy-950/60">
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setActiveTab('GAME_PLAN')}
+              className={`px-4 py-2 rounded-lg text-xs font-serif font-bold transition-all flex items-center gap-2 ${
+                activeTab === 'GAME_PLAN'
+                  ? 'bg-gradient-to-r from-amber-500 to-amber-400 text-black shadow-lg ring-2 ring-amber-300'
+                  : 'bg-zinc-900 text-zinc-300 hover:text-amber-200 hover:bg-zinc-800 border border-zinc-800'
+              }`}
+            >
+              <BookOpen className="w-4 h-4" />
+              <span>All Rounds Master Plan & Timeline</span>
+            </button>
+
+            <button
+              onClick={() => setActiveTab('MEDIA_STUDIO')}
+              className={`px-4 py-2 rounded-lg text-xs font-serif font-bold transition-all flex items-center gap-2 ${
+                activeTab === 'MEDIA_STUDIO'
+                  ? 'bg-gradient-to-r from-amber-500 to-amber-400 text-black shadow-lg ring-2 ring-amber-300'
+                  : 'bg-zinc-900 text-zinc-300 hover:text-amber-200 hover:bg-zinc-800 border border-zinc-800'
+              }`}
+            >
+              <Film className="w-4 h-4" />
+              <span>Media Studio & Voice Clips</span>
+            </button>
+          </div>
+
+          <span className="text-[11px] font-mono text-amber-400/80 hidden md:inline">
+            {activeTab === 'GAME_PLAN'
+              ? 'Complete overview of all 6 rounds, missions, traitor objectives & rules'
+              : 'Customize images, voice clips and broadcast scripts scene-by-scene'}
+          </span>
+        </div>
+
+        {/* TAB 1: ALL ROUNDS MASTER GAME PLAN & TIMELINE */}
+        {activeTab === 'GAME_PLAN' ? (
+          <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-6 custom-scrollbar bg-black/50">
+            {/* Quick Game Architecture Card */}
+            <div className="bg-gradient-to-r from-burgundy-950 via-zinc-900 to-burgundy-950 border border-amber-500/50 rounded-xl p-5 shadow-xl flex flex-wrap items-center justify-between gap-4">
+              <div className="space-y-1">
+                <span className="text-[11px] font-mono uppercase tracking-widest text-amber-400 font-bold block">
+                  Game Architecture · 7 Players · 6 Standalone Rounds
+                </span>
+                <h3 className="text-xl sm:text-2xl font-serif font-black text-amber-100">
+                  Libby’s Birthday: Trust Nobody Master Plan
+                </h3>
+                <p className="text-xs text-zinc-300 max-w-2xl font-sans leading-relaxed">
+                  Every round deals a new secret Traitor in the dark. Accumulated individual points carry forward. In Round 6, survivors bid in the Getaway Auction, endure the Final Four Banishments, and decide whether to End or Banish Again.
+                </p>
               </div>
 
-              {/* Category Pills */}
-              <div className="flex items-center gap-1 overflow-x-auto pb-1 text-[11px] font-mono custom-scrollbar">
-                {[
-                  { id: 'ALL', label: 'All' },
-                  { id: 'R1', label: 'Rnd 1' },
-                  { id: 'R2', label: 'Rnd 2' },
-                  { id: 'R3', label: 'Rnd 3' },
-                  { id: 'R4', label: 'Rnd 4' },
-                  { id: 'R5', label: 'Rnd 5' },
-                  { id: 'R6', label: 'Rnd 6' },
-                  { id: 'GENERAL', label: 'Banish' },
-                ].map(cat => (
+              {/* Quick round jump filter */}
+              <div className="flex items-center gap-1.5 flex-wrap">
+                <span className="text-[11px] font-mono text-zinc-400 uppercase mr-1">Filter:</span>
+                <button
+                  onClick={() => setPlanFilter('ALL')}
+                  className={`px-3 py-1 rounded text-xs font-mono font-bold transition ${
+                    planFilter === 'ALL'
+                      ? 'bg-amber-500 text-black shadow'
+                      : 'bg-zinc-900 text-zinc-400 hover:text-white border border-zinc-800'
+                  }`}
+                >
+                  All (1–6)
+                </button>
+                {[1, 2, 3, 4, 5, 6].map(r => (
                   <button
-                    key={cat.id}
-                    onClick={() => setFilterCategory(cat.id)}
-                    className={`px-2.5 py-1 rounded whitespace-nowrap transition-all ${
-                      filterCategory === cat.id
-                        ? 'bg-amber-500 text-black font-bold shadow'
-                        : 'bg-zinc-900 text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800'
+                    key={r}
+                    onClick={() => setPlanFilter(r)}
+                    className={`px-2.5 py-1 rounded text-xs font-mono font-bold transition ${
+                      planFilter === r
+                        ? 'bg-amber-500 text-black shadow'
+                        : 'bg-zinc-900 text-zinc-400 hover:text-white border border-zinc-800'
                     }`}
                   >
-                    {cat.label}
+                    R{r}
                   </button>
                 ))}
               </div>
             </div>
 
-            {/* Scenes List */}
-            <div className="flex-1 overflow-y-auto divide-y divide-zinc-900 p-2 space-y-1 custom-scrollbar">
-              {filteredScenes.map(scene => {
-                const isSelected = scene.id === selectedScene.id;
-                const hasVoice = !!scene.voiceClip;
-                const hasCustomImage = !!scene.customImageUrl;
-                const hasCustomText = !!scene.customText;
-
-                return (
-                  <button
-                    key={scene.id}
-                    onClick={() => {
-                      stopAudioPreview();
-                      setSelectedSceneId(scene.id);
-                    }}
-                    className={`w-full text-left p-3 rounded-lg transition-all flex items-start justify-between gap-2 ${
-                      isSelected
-                        ? 'bg-burgundy-950/80 border-2 border-amber-500/80 shadow-[0_0_15px_rgba(212,163,69,0.2)]'
-                        : 'bg-zinc-900/30 hover:bg-zinc-900/70 border border-zinc-800/60'
-                    }`}
-                  >
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-2 mb-1">
-                        {scene.round ? (
-                          <span className="px-1.5 py-0.5 rounded text-[10px] font-mono bg-zinc-800 text-amber-400 font-bold">
-                            R{scene.round}
+            {/* Rounds List Grid */}
+            <div className="space-y-6">
+              {displayedRounds.map(r => (
+                <div
+                  key={r.round}
+                  className="bg-zinc-950/90 border-2 border-amber-900/60 hover:border-amber-500/80 rounded-2xl overflow-hidden shadow-2xl transition-all"
+                >
+                  {/* Round Banner */}
+                  <div className="p-4 sm:p-5 bg-gradient-to-r from-zinc-900 via-burgundy-950/70 to-zinc-900 border-b border-amber-900/50 flex flex-wrap items-center justify-between gap-4">
+                    <div className="flex items-center gap-3">
+                      <span className="w-10 h-10 rounded-xl bg-amber-500 text-black font-serif font-black text-lg flex items-center justify-center shadow-lg">
+                        {r.round}
+                      </span>
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <h4 className="font-serif font-black text-lg sm:text-xl text-amber-200">
+                            {r.title}
+                          </h4>
+                          <span className="px-2 py-0.5 bg-burgundy-900/80 border border-amber-600/40 text-amber-300 text-[10px] font-mono rounded uppercase">
+                            {r.theme}
                           </span>
-                        ) : (
-                          <span className="px-1.5 py-0.5 rounded text-[10px] font-mono bg-zinc-800 text-zinc-400">
-                            General
-                          </span>
-                        )}
-                        <h4 className="font-serif font-bold text-xs text-amber-200 truncate">
-                          {scene.title}
-                        </h4>
-                      </div>
-
-                      <p className="text-[11px] text-zinc-400 truncate mb-2">
-                        {scene.subtitle}
-                      </p>
-
-                      {/* Status Badges */}
-                      <div className="flex flex-wrap items-center gap-1.5 text-[10px] font-mono">
-                        {hasVoice ? (
-                          <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-emerald-950/70 text-emerald-300 border border-emerald-800/50">
-                            <Mic className="w-2.5 h-2.5" /> Voice Clip
-                          </span>
-                        ) : (
-                          <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-zinc-800/60 text-zinc-500">
-                            <MicOff className="w-2.5 h-2.5" /> No Voice
-                          </span>
-                        )}
-
-                        {hasCustomImage && (
-                          <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-amber-950/70 text-amber-300 border border-amber-800/50">
-                            <ImageIcon className="w-2.5 h-2.5" /> Image
-                          </span>
-                        )}
-
-                        {hasCustomText && (
-                          <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-sky-950/70 text-sky-300 border border-sky-800/50">
-                            <FileText className="w-2.5 h-2.5" /> Script
-                          </span>
-                        )}
+                        </div>
+                        <p className="text-xs text-zinc-400 font-sans mt-0.5">
+                          {r.subtitle}
+                        </p>
                       </div>
                     </div>
 
-                    <ChevronRight className={`w-4 h-4 shrink-0 mt-2 transition-transform ${isSelected ? 'text-amber-400 rotate-90 md:rotate-0' : 'text-zinc-600'}`} />
-                  </button>
-                );
-              })}
+                    {/* Action buttons for this round */}
+                    <div className="flex items-center gap-2">
+                      {onJumpToRound && (
+                        <button
+                          onClick={() => {
+                            onJumpToRound(r.round, 'INTRO');
+                            onClose();
+                          }}
+                          className="px-3.5 py-1.5 bg-gradient-to-r from-emerald-600 to-emerald-500 hover:from-emerald-500 hover:to-emerald-400 text-black font-serif font-bold text-xs uppercase tracking-wider rounded-lg shadow-lg flex items-center gap-1.5 transition active:scale-95"
+                          title={`Instantly jump demo room to Round ${r.round}`}
+                        >
+                          <Zap className="w-3.5 h-3.5 fill-black" />
+                          <span>Test Round {r.round} in Demo</span>
+                        </button>
+                      )}
+
+                      <button
+                        onClick={() => {
+                          setActiveTab('MEDIA_STUDIO');
+                          setSelectedSceneId(`ROUND_${r.round}_INTRO`);
+                        }}
+                        className="px-3 py-1.5 bg-zinc-900 hover:bg-zinc-800 text-amber-300 border border-amber-900/60 rounded-lg text-xs font-mono flex items-center gap-1.5 transition"
+                        title="Customize voice clip and image for this round in Media Studio"
+                      >
+                        <Film className="w-3.5 h-3.5" />
+                        <span>Customize Media</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Round Body Details */}
+                  <div className="p-4 sm:p-6 grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+                    {/* Left: Image & Host Script */}
+                    <div className="lg:col-span-5 space-y-4">
+                      <div className="rounded-xl overflow-hidden border border-amber-900/60 bg-black aspect-video relative group">
+                        <img
+                          src={r.imageUrl}
+                          alt={r.title}
+                          className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                        />
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent flex items-end p-3">
+                          <span className="text-[11px] font-mono text-amber-300 font-bold">
+                            Visual Stage: {r.missionName}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Sample Host Prologue */}
+                      <div className="bg-black/60 border border-zinc-800 rounded-xl p-3.5 space-y-1.5">
+                        <span className="text-[10px] font-mono uppercase tracking-widest text-amber-400 block font-bold">
+                          Host Opening Speech (Claudia / Voice Clip)
+                        </span>
+                        <p className="text-xs text-amber-100/90 font-serif italic leading-relaxed">
+                          {r.sampleScript}
+                        </p>
+                      </div>
+
+                      {/* Scoring rule */}
+                      <div className="bg-amber-950/30 border border-amber-500/40 rounded-xl p-3 flex items-center gap-2.5 text-xs text-amber-200">
+                        <Trophy className="w-4 h-4 text-amber-400 shrink-0" />
+                        <span><strong>Stakes:</strong> {r.scoring}</span>
+                      </div>
+                    </div>
+
+                    {/* Right: Mission Mechanics & Secret Traitor Objective */}
+                    <div className="lg:col-span-7 space-y-4">
+                      {/* Mission Premise & Mechanics */}
+                      <div className="bg-zinc-900/60 border border-zinc-800 rounded-xl p-4 space-y-3">
+                        <div className="flex items-center justify-between border-b border-zinc-800 pb-2">
+                          <div className="flex items-center gap-2 font-serif font-bold text-amber-100 text-sm">
+                            <Layers className="w-4 h-4 text-amber-400" />
+                            <span>Mission: {r.missionName}</span>
+                          </div>
+                          <span className="text-[10px] font-mono text-emerald-400 uppercase">
+                            Faithful & Traitor Challenge
+                          </span>
+                        </div>
+                        <p className="text-xs text-zinc-300 leading-relaxed font-sans">
+                          {r.missionDescription}
+                        </p>
+
+                        <div className="space-y-1.5 pt-1">
+                          <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-400 font-bold block">
+                            Key Interactive Steps:
+                          </span>
+                          {r.mechanics.map((step, idx) => (
+                            <div key={idx} className="flex items-start gap-2 text-xs text-zinc-300">
+                              <span className="text-amber-500 font-mono text-[11px] mt-0.5">#{idx + 1}</span>
+                              <span>{step}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Secret Traitor Objective Card */}
+                      <div className="bg-gradient-to-r from-red-950/60 via-zinc-950 to-red-950/60 border-2 border-red-700/60 rounded-xl p-4 space-y-2.5 shadow-lg">
+                        <div className="flex items-center justify-between border-b border-red-900/50 pb-1.5">
+                          <span className="flex items-center gap-1.5 text-xs font-serif font-bold text-red-300 uppercase tracking-wider">
+                            <Skull className="w-4 h-4 text-red-400" />
+                            Secret Traitor Mission: “{r.traitorObjective.title}”
+                          </span>
+                          <span className="text-[10px] font-mono text-red-400">Classified</span>
+                        </div>
+
+                        <p className="text-xs text-red-100/90 font-serif leading-relaxed">
+                          {r.traitorObjective.description}
+                        </p>
+
+                        <div className="bg-black/60 rounded p-2 text-xs space-y-1 font-mono text-[11px]">
+                          <div>
+                            <span className="text-zinc-400 uppercase">Conversational Goal: </span>
+                            <span className="text-amber-300">{r.traitorObjective.conversationalGoal}</span>
+                          </div>
+                          <div>
+                            <span className="text-zinc-400 uppercase">Success Condition: </span>
+                            <span className="text-emerald-400">{r.traitorObjective.successCondition}</span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
-
-          {/* RIGHT PANEL: Scene Editor & Stage Simulator */}
-          <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-6 custom-scrollbar bg-black/40">
-            {/* Scene Header & Info */}
-            <div className="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-amber-900/40">
-              <div>
-                <div className="flex items-center gap-2">
-                  <span className="px-2 py-0.5 rounded text-[10px] font-mono uppercase bg-amber-500/20 text-amber-300 border border-amber-500/30">
-                    Phase: {selectedScene.phase}
-                  </span>
-                  {selectedScene.round && (
-                    <span className="px-2 py-0.5 rounded text-[10px] font-mono uppercase bg-burgundy-900/60 text-amber-200 border border-amber-800/40">
-                      Round {selectedScene.round} of 6
-                    </span>
-                  )}
+        ) : (
+          /* TAB 2: ORIGINAL MEDIA STUDIO & VOICE CLIPS EDITOR */
+          <div className="flex-1 flex flex-col md:flex-row overflow-hidden">
+            {/* LEFT PANEL: Scene List Navigator */}
+            <div className="w-full md:w-80 lg:w-96 border-b md:border-b-0 md:border-r border-amber-900/40 bg-zinc-950/70 flex flex-col shrink-0">
+              {/* Search and Filters */}
+              <div className="p-3 border-b border-zinc-800 space-y-2 bg-zinc-900/30">
+                <div className="relative">
+                  <Search className="w-3.5 h-3.5 text-zinc-500 absolute left-2.5 top-1/2 -translate-y-1/2" />
+                  <input
+                    type="text"
+                    placeholder="Search scenes or scripts..."
+                    value={searchQuery}
+                    onChange={e => setSearchQuery(e.target.value)}
+                    className="w-full pl-8 pr-3 py-1.5 bg-black border border-zinc-800 rounded text-xs text-amber-200 placeholder-zinc-500 focus:outline-none focus:border-amber-500"
+                  />
                 </div>
-                <h3 className="font-serif font-black text-xl text-amber-200 mt-1">
-                  {selectedScene.title}
-                </h3>
-                <p className="text-xs text-zinc-400 font-sans mt-0.5">
-                  {selectedScene.subtitle}
-                </p>
+
+                {/* Category Pills */}
+                <div className="flex items-center gap-1 overflow-x-auto pb-1 text-[11px] font-mono custom-scrollbar">
+                  {[
+                    { id: 'ALL', label: 'All' },
+                    { id: 'R1', label: 'Rnd 1' },
+                    { id: 'R2', label: 'Rnd 2' },
+                    { id: 'R3', label: 'Rnd 3' },
+                    { id: 'R4', label: 'Rnd 4' },
+                    { id: 'R5', label: 'Rnd 5' },
+                    { id: 'R6', label: 'Rnd 6' },
+                    { id: 'GENERAL', label: 'Banish' },
+                  ].map(cat => (
+                    <button
+                      key={cat.id}
+                      onClick={() => setFilterCategory(cat.id)}
+                      className={`px-2.5 py-1 rounded whitespace-nowrap transition-all ${
+                        filterCategory === cat.id
+                          ? 'bg-amber-500 text-black font-bold shadow'
+                          : 'bg-zinc-900 text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800'
+                      }`}
+                    >
+                      {cat.label}
+                    </button>
+                  ))}
+                </div>
               </div>
 
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={handleResetCurrentScene}
-                  className="px-3 py-1.5 bg-zinc-900 hover:bg-zinc-800 text-zinc-300 hover:text-amber-200 border border-zinc-800 text-xs font-mono rounded flex items-center gap-1.5 transition-all"
-                  title="Reset text, image, and voice clip for this scene"
-                >
-                  <RotateCcw className="w-3.5 h-3.5" /> Reset Scene
-                </button>
+              {/* Scenes List */}
+              <div className="flex-1 overflow-y-auto divide-y divide-zinc-900 p-2 space-y-1 custom-scrollbar">
+                {filteredScenes.map(scene => {
+                  const isSelected = scene.id === selectedScene.id;
+                  const hasVoice = !!scene.voiceClip;
+                  const hasCustomImage = !!scene.customImageUrl;
+                  const hasCustomText = !!scene.customText;
+
+                  return (
+                    <button
+                      key={scene.id}
+                      onClick={() => {
+                        stopAudioPreview();
+                        setSelectedSceneId(scene.id);
+                      }}
+                      className={`w-full text-left p-3 rounded-lg transition-all flex items-start justify-between gap-2 ${
+                        isSelected
+                          ? 'bg-burgundy-950/80 border-2 border-amber-500/80 shadow-[0_0_15px_rgba(212,163,69,0.2)]'
+                          : 'bg-zinc-900/30 hover:bg-zinc-900/70 border border-zinc-800/60'
+                      }`}
+                    >
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2 mb-1">
+                          {scene.round ? (
+                            <span className="px-1.5 py-0.5 rounded text-[10px] font-mono bg-zinc-800 text-amber-400 font-bold">
+                              R{scene.round}
+                            </span>
+                          ) : (
+                            <span className="px-1.5 py-0.5 rounded text-[10px] font-mono bg-zinc-800 text-zinc-400">
+                              General
+                            </span>
+                          )}
+                          <h4 className="font-serif font-bold text-xs text-amber-200 truncate">
+                            {scene.title}
+                          </h4>
+                        </div>
+
+                        <p className="text-[11px] text-zinc-400 truncate mb-2">
+                          {scene.subtitle}
+                        </p>
+
+                        {/* Status Badges */}
+                        <div className="flex flex-wrap items-center gap-1.5 text-[10px] font-mono">
+                          {hasVoice ? (
+                            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-emerald-950/70 text-emerald-300 border border-emerald-800/50">
+                              <Mic className="w-2.5 h-2.5" /> Voice Clip
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-zinc-800/60 text-zinc-500">
+                              <MicOff className="w-2.5 h-2.5" /> No Voice
+                            </span>
+                          )}
+
+                          {hasCustomImage && (
+                            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-amber-950/70 text-amber-300 border border-amber-800/50">
+                              <ImageIcon className="w-2.5 h-2.5" /> Custom Img
+                            </span>
+                          )}
+
+                          {hasCustomText && (
+                            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-purple-950/70 text-purple-300 border border-purple-800/50">
+                              <FileText className="w-2.5 h-2.5" /> Custom Script
+                            </span>
+                          )}
+                        </div>
+                      </div>
+
+                      <ChevronRight className={`w-4 h-4 shrink-0 transition-transform ${isSelected ? 'text-amber-400 translate-x-0.5' : 'text-zinc-600'}`} />
+                    </button>
+                  );
+                })}
               </div>
             </div>
 
-            {/* SECTION 1: VOICE CLIP REPLACEMENT */}
-            <div className="bg-zinc-950/90 border border-amber-900/60 rounded-xl p-4 sm:p-5 space-y-4 shadow-lg">
-              <div className="flex items-center justify-between">
+            {/* RIGHT PANEL: Scene Editor Canvas */}
+            <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-6 custom-scrollbar bg-black/40">
+              {/* Scene Title Header */}
+              <div className="flex flex-wrap items-center justify-between gap-4 border-b border-zinc-800 pb-4">
+                <div>
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="px-2 py-0.5 bg-amber-500/20 text-amber-300 font-mono text-[10px] font-bold uppercase rounded border border-amber-500/40">
+                      Scene ID: {selectedScene.id}
+                    </span>
+                    {selectedScene.round && (
+                      <span className="text-xs font-mono text-zinc-400">
+                        Round {selectedScene.round} · Phase: {selectedScene.phase}
+                      </span>
+                    )}
+                  </div>
+                  <h3 className="font-serif font-black text-xl sm:text-2xl text-amber-200">
+                    {selectedScene.title}
+                  </h3>
+                  <p className="text-xs text-zinc-400">{selectedScene.subtitle}</p>
+                </div>
+
                 <div className="flex items-center gap-2">
-                  <Mic className="w-5 h-5 text-amber-400" />
-                  <div>
-                    <h4 className="font-serif font-bold text-sm text-amber-200">
-                      1. Custom Voice Clip (Replaces Host Voice)
-                    </h4>
-                    <p className="text-xs text-zinc-400">
-                      The default synthetic voice has been removed. Record your own voice or upload an audio file to play during this announcement.
-                    </p>
+                  {onJumpToRound && selectedScene.round && (
+                    <button
+                      onClick={() => {
+                        onJumpToRound(selectedScene.round!, selectedScene.phase);
+                        onClose();
+                      }}
+                      className="px-3 py-1.5 bg-emerald-600/30 hover:bg-emerald-600/50 text-emerald-300 border border-emerald-500/50 rounded text-xs font-mono flex items-center gap-1.5"
+                      title="Jump demo room straight to this scene"
+                    >
+                      <Zap className="w-3.5 h-3.5 text-emerald-400" />
+                      <span>Jump Demo Here</span>
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* 1. VISUAL IMAGE ASSET */}
+              <div className="bg-zinc-950 border border-amber-900/40 rounded-xl p-4 sm:p-5 space-y-4">
+                <div className="flex items-center justify-between border-b border-zinc-800 pb-3">
+                  <div className="flex items-center gap-2 font-serif font-bold text-amber-200 text-sm">
+                    <ImageIcon className="w-4 h-4 text-amber-400" />
+                    <span>Visual Stage Backdrop</span>
+                  </div>
+                  {selectedScene.customImageUrl && (
+                    <button
+                      onClick={handleResetImage}
+                      className="text-xs text-zinc-400 hover:text-amber-300 flex items-center gap-1 underline font-mono"
+                    >
+                      <RotateCcw className="w-3 h-3" /> Reset to Default
+                    </button>
+                  )}
+                </div>
+
+                <div className="grid sm:grid-cols-12 gap-4 items-center">
+                  <div className="sm:col-span-5 relative rounded-lg overflow-hidden border border-amber-900/60 bg-black aspect-video flex items-center justify-center">
+                    <img
+                      src={activeDisplayImage}
+                      alt={selectedScene.title}
+                      className="w-full h-full object-contain"
+                    />
+                    {selectedScene.customImageUrl && (
+                      <div className="absolute top-2 left-2 px-2 py-0.5 rounded bg-amber-500 text-black text-[10px] font-mono font-bold uppercase shadow">
+                        Custom Image
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="sm:col-span-7 space-y-3">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <label className="cursor-pointer px-3 py-1.5 bg-zinc-900 hover:bg-zinc-800 text-amber-200 border border-zinc-700 rounded text-xs font-mono flex items-center gap-1.5 transition shadow">
+                        <Upload className="w-3.5 h-3.5 text-amber-400" />
+                        <span>Upload Custom Photo</span>
+                        <input
+                          type="file"
+                          accept="image/*"
+                          onChange={handleUploadCustomImage}
+                          className="hidden"
+                        />
+                      </label>
+                    </div>
+
+                    <div>
+                      <span className="text-[10px] font-mono text-zinc-400 uppercase tracking-wider block mb-1.5">
+                        Or select from castle gallery presets:
+                      </span>
+                      <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
+                        {PRESET_CASTLE_IMAGES.map(img => {
+                          const isPresetActive = activeDisplayImage === img.url;
+                          return (
+                            <button
+                              key={img.id}
+                              onClick={() => handleSelectPresetImage(img.url)}
+                              className={`relative rounded overflow-hidden aspect-video border transition-all ${
+                                isPresetActive
+                                  ? 'border-amber-400 ring-2 ring-amber-400/50 scale-105'
+                                  : 'border-zinc-800 hover:border-zinc-600 opacity-70 hover:opacity-100'
+                              }`}
+                              title={img.name}
+                            >
+                              <img src={img.url} alt={img.name} className="w-full h-full object-cover" />
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>
 
-              {/* Active Clip Status Card */}
-              {selectedScene.voiceClip ? (
-                <div className="bg-emerald-950/40 border border-emerald-600/40 p-4 rounded-lg flex flex-wrap items-center justify-between gap-3">
-                  <div className="flex items-center gap-3">
+              {/* 2. AUDIO & VOICE CLIP RECORDER */}
+              <div className="bg-zinc-950 border border-amber-900/40 rounded-xl p-4 sm:p-5 space-y-4">
+                <div className="flex items-center justify-between border-b border-zinc-800 pb-3">
+                  <div className="flex items-center gap-2 font-serif font-bold text-amber-200 text-sm">
+                    <Volume2 className="w-4 h-4 text-amber-400" />
+                    <span>Host Audio & Voice Clip</span>
+                  </div>
+                  {selectedScene.voiceClip && (
                     <button
-                      onClick={handleTogglePlayClip}
-                      className={`w-11 h-11 rounded-full flex items-center justify-center transition-all ${
-                        isPlayingCurrentClip
-                          ? 'bg-amber-400 text-black shadow-lg scale-105'
-                          : 'bg-emerald-600 hover:bg-emerald-500 text-white'
-                      }`}
-                      title={isPlayingCurrentClip ? 'Pause' : 'Play Voice Clip'}
+                      onClick={handleDeleteVoiceClip}
+                      className="text-xs text-rose-400 hover:text-rose-300 flex items-center gap-1 underline font-mono"
                     >
-                      {isPlayingCurrentClip ? (
-                        <Pause className="w-5 h-5 fill-current" />
-                      ) : (
-                        <Play className="w-5 h-5 fill-current ml-0.5" />
-                      )}
+                      <Trash2 className="w-3 h-3" /> Remove Clip
                     </button>
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <span className="font-serif font-bold text-sm text-emerald-200">
+                  )}
+                </div>
+
+                <div className="grid sm:grid-cols-2 gap-4 items-center">
+                  {/* Status & Player */}
+                  <div className="bg-zinc-900/70 border border-zinc-800 rounded-lg p-3 space-y-2">
+                    <div className="flex items-center justify-between text-xs font-mono">
+                      <span className="text-zinc-400">Current Status:</span>
+                      {selectedScene.voiceClip ? (
+                        <span className="text-emerald-400 font-bold flex items-center gap-1">
+                          <Check className="w-3.5 h-3.5" /> Voice Clip Attached
+                        </span>
+                      ) : (
+                        <span className="text-zinc-500">Text-to-Speech Synth</span>
+                      )}
+                    </div>
+
+                    {selectedScene.voiceClip && (
+                      <div className="flex items-center justify-between pt-1">
+                        <button
+                          onClick={handleTogglePlayClip}
+                          className="px-3 py-1.5 bg-amber-500 hover:bg-amber-400 text-black font-mono font-bold text-xs rounded flex items-center gap-1.5 transition shadow"
+                        >
+                          {isPlayingCurrentClip ? (
+                            <>
+                              <Pause className="w-3.5 h-3.5" /> Pause Clip
+                            </>
+                          ) : (
+                            <>
+                              <Play className="w-3.5 h-3.5" /> Preview Audio
+                            </>
+                          )}
+                        </button>
+                        <span className="text-[11px] font-mono text-zinc-400 truncate max-w-[150px]">
                           {selectedScene.voiceClip.fileName}
                         </span>
-                        <span className="px-1.5 py-0.5 rounded text-[10px] font-mono bg-emerald-900/60 text-emerald-300">
-                          Active Voice
-                        </span>
                       </div>
-                      <p className="text-[11px] font-mono text-zinc-400">
-                        {selectedScene.voiceClip.isRecorded ? 'Direct Mic Recording' : 'Uploaded Audio Clip'}
-                        {selectedScene.voiceClip.durationSec ? ` · ~${selectedScene.voiceClip.durationSec}s` : ''}
-                        {selectedScene.voiceClip.recordedAt ? ` · Saved at ${selectedScene.voiceClip.recordedAt}` : ''}
-                      </p>
+                    )}
+                  </div>
+
+                  {/* Record or Upload Controls */}
+                  <div className="space-y-2">
+                    <div className="flex flex-wrap items-center gap-2">
+                      {!isRecording ? (
+                        <button
+                          onClick={handleStartRecording}
+                          className="px-3.5 py-1.5 bg-rose-950/80 hover:bg-rose-900 border border-rose-600/60 text-rose-200 rounded text-xs font-mono flex items-center gap-1.5 transition shadow"
+                        >
+                          <Mic className="w-3.5 h-3.5 text-rose-400" />
+                          <span>Record Voice Clip</span>
+                        </button>
+                      ) : (
+                        <button
+                          onClick={handleStopRecording}
+                          className="px-3.5 py-1.5 bg-rose-600 hover:bg-rose-500 text-white rounded text-xs font-mono font-bold flex items-center gap-1.5 animate-pulse shadow-lg"
+                        >
+                          <MicOff className="w-3.5 h-3.5" />
+                          <span>Stop Recording ({recordingSeconds}s)</span>
+                        </button>
+                      )}
+
+                      <label className="cursor-pointer px-3 py-1.5 bg-zinc-900 hover:bg-zinc-800 text-amber-200 border border-zinc-700 rounded text-xs font-mono flex items-center gap-1.5 transition shadow">
+                        <Upload className="w-3.5 h-3.5 text-amber-400" />
+                        <span>Upload Audio (MP3/WAV/WebM)</span>
+                        <input
+                          type="file"
+                          accept="audio/*"
+                          onChange={handleUploadAudioFile}
+                          className="hidden"
+                        />
+                      </label>
                     </div>
                   </div>
-
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={handleTogglePlayClip}
-                      className="px-3 py-1.5 bg-zinc-900 hover:bg-zinc-800 text-amber-200 border border-amber-900/50 rounded text-xs font-mono flex items-center gap-1.5"
-                    >
-                      {isPlayingCurrentClip ? <VolumeX className="w-3.5 h-3.5" /> : <Volume2 className="w-3.5 h-3.5" />}
-                      {isPlayingCurrentClip ? 'Stop Preview' : 'Test Audio'}
-                    </button>
-                    <button
-                      onClick={handleRemoveVoiceClip}
-                      className="p-1.5 text-zinc-400 hover:text-rose-400 hover:bg-zinc-900 rounded border border-zinc-800"
-                      title="Remove this voice clip"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                  </div>
                 </div>
-              ) : (
-                <div className="bg-zinc-900/40 border border-zinc-800 p-3.5 rounded-lg flex items-center justify-between text-xs text-zinc-400 font-mono">
-                  <div className="flex items-center gap-2">
-                    <MicOff className="w-4 h-4 text-zinc-500" />
-                    <span>No voice clip added. When this scene is reached, captions display silently.</span>
+              </div>
+
+              {/* 3. BROADCAST SCRIPT TEXT EDITOR */}
+              <div className="bg-zinc-950 border border-amber-900/40 rounded-xl p-4 sm:p-5 space-y-3">
+                <div className="flex items-center justify-between border-b border-zinc-800 pb-3">
+                  <div className="flex items-center gap-2 font-serif font-bold text-amber-200 text-sm">
+                    <FileText className="w-4 h-4 text-amber-400" />
+                    <span>Broadcast Dialogue Script</span>
                   </div>
-                </div>
-              )}
-
-              {/* Add Voice Clip Options: Mic Record OR File Upload */}
-              <div className="grid sm:grid-cols-2 gap-3 pt-1">
-                {/* Option A: Microphone Recording */}
-                <div className="border border-zinc-800 hover:border-amber-900/60 p-3.5 rounded-lg bg-zinc-900/30 flex flex-col justify-between space-y-3">
-                  <div>
-                    <h5 className="font-serif font-bold text-xs text-amber-300 flex items-center gap-1.5">
-                      <Mic className="w-3.5 h-3.5 text-amber-400" /> Record with Microphone
-                    </h5>
-                    <p className="text-[11px] text-zinc-400 mt-1">
-                      Speak your dramatic announcement directly into your computer or phone microphone.
-                    </p>
-                  </div>
-
-                  {isRecording ? (
-                    <div className="space-y-2">
-                      <div className="flex items-center justify-between px-3 py-2 bg-red-950/80 border border-red-800 rounded text-xs font-mono">
-                        <div className="flex items-center gap-2">
-                          <span className="w-2.5 h-2.5 rounded-full bg-red-500 animate-ping" />
-                          <span className="text-red-200 font-bold">Recording: {recordingSeconds}s</span>
-                        </div>
-                        <div className="flex items-center gap-1">
-                          <div className="w-1 h-3 bg-red-400 animate-bounce" />
-                          <div className="w-1 h-5 bg-red-400 animate-pulse" />
-                          <div className="w-1 h-4 bg-red-400 animate-bounce" />
-                        </div>
-                      </div>
-
-                      <div className="flex items-center gap-2">
-                        <button
-                          onClick={stopRecordingAndSave}
-                          className="flex-1 py-1.5 px-3 bg-emerald-700 hover:bg-emerald-600 text-white rounded text-xs font-serif font-bold uppercase tracking-wider flex items-center justify-center gap-1.5 shadow"
-                        >
-                          <Check className="w-3.5 h-3.5" /> Stop & Save Clip
-                        </button>
-                        <button
-                          onClick={cancelRecording}
-                          className="py-1.5 px-3 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 rounded text-xs font-mono"
-                        >
-                          Cancel
-                        </button>
-                      </div>
-                    </div>
-                  ) : (
+                  {selectedScene.customText && (
                     <button
-                      onClick={startRecording}
-                      className="w-full py-2 px-4 bg-red-950/60 hover:bg-red-900/80 border border-red-800/60 text-red-200 rounded text-xs font-serif font-bold uppercase tracking-wider flex items-center justify-center gap-2 transition-all shadow"
+                      onClick={handleResetText}
+                      className="text-xs text-zinc-400 hover:text-amber-300 flex items-center gap-1 underline font-mono"
                     >
-                      <Mic className="w-3.5 h-3.5 text-red-400" /> Start Recording Mic
+                      <RotateCcw className="w-3 h-3" /> Reset to Original Script
                     </button>
                   )}
                 </div>
 
-                {/* Option B: Audio File Upload */}
-                <div className="border border-zinc-800 hover:border-amber-900/60 p-3.5 rounded-lg bg-zinc-900/30 flex flex-col justify-between space-y-3">
-                  <div>
-                    <h5 className="font-serif font-bold text-xs text-amber-300 flex items-center gap-1.5">
-                      <Upload className="w-3.5 h-3.5 text-amber-400" /> Upload Audio File
-                    </h5>
-                    <p className="text-[11px] text-zinc-400 mt-1">
-                      Upload any prerecorded MP3, WAV, M4A, or AAC file from your computer.
-                    </p>
-                  </div>
-
-                  <label className="w-full py-2 px-4 bg-burgundy-950 hover:bg-burgundy-900 border border-amber-600/40 text-amber-200 rounded text-xs font-serif font-bold uppercase tracking-wider flex items-center justify-center gap-2 cursor-pointer transition-all shadow">
-                    <Upload className="w-3.5 h-3.5 text-amber-400" />
-                    Select Audio File
-                    <input
-                      type="file"
-                      accept="audio/*,.mp3,.wav,.m4a,.aac,.ogg,.webm"
-                      onChange={handleAudioUpload}
-                      className="hidden"
-                    />
-                  </label>
-                </div>
-              </div>
-            </div>
-
-            {/* SECTION 2: EDIT TEXT PRESENTED WITH SCENE */}
-            <div className="bg-zinc-950/90 border border-amber-900/60 rounded-xl p-4 sm:p-5 space-y-3 shadow-lg">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <FileText className="w-5 h-5 text-amber-400" />
-                  <div>
-                    <h4 className="font-serif font-bold text-sm text-amber-200">
-                      2. Broadcast Script Text
-                    </h4>
-                    <p className="text-xs text-zinc-400">
-                      The exact dialogue presented on the TV host screen and subtitles for this announcement.
-                    </p>
-                  </div>
-                </div>
-
-                {selectedScene.customText && (
-                  <button
-                    onClick={handleResetText}
-                    className="text-xs text-amber-400 hover:text-amber-200 underline font-mono flex items-center gap-1"
-                  >
-                    <RotateCcw className="w-3 h-3" /> Revert to Default
-                  </button>
-                )}
-              </div>
-
-              <div className="relative">
                 <textarea
-                  rows={6}
                   value={activeDisplayText}
-                  onChange={handleTextChange}
-                  className="w-full bg-black/80 border border-amber-900/60 p-3.5 rounded-lg text-sm text-amber-100 font-serif leading-relaxed focus:outline-none focus:border-amber-400 custom-scrollbar"
-                  placeholder="Enter the host announcement text here..."
+                  onChange={e => handleUpdateText(e.target.value)}
+                  rows={4}
+                  className="w-full bg-black border border-amber-900/60 rounded-lg p-3 text-sm text-amber-100 font-serif leading-relaxed focus:outline-none focus:border-amber-400 resize-y"
+                  placeholder="Enter custom speech script text for this scene..."
                 />
-                <div className="flex items-center justify-between text-[11px] font-mono text-zinc-500 mt-1">
-                  <span>
-                    {selectedScene.customText ? '★ Custom Script Active' : 'Default Script'}
-                  </span>
-                  <span>{activeDisplayText.length} characters · {activeDisplayText.split(/\s+/).filter(Boolean).length} words</span>
-                </div>
-              </div>
-            </div>
 
-            {/* SECTION 3: CHANGE DISPLAYED IMAGE */}
-            <div className="bg-zinc-950/90 border border-amber-900/60 rounded-xl p-4 sm:p-5 space-y-4 shadow-lg">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <ImageIcon className="w-5 h-5 text-amber-400" />
-                  <div>
-                    <h4 className="font-serif font-bold text-sm text-amber-200">
-                      3. Stage Visual Image
-                    </h4>
-                    <p className="text-xs text-zinc-400">
-                      Change the background image displayed on the TV stage broadcast during this scene.
-                    </p>
-                  </div>
-                </div>
-
-                {selectedScene.customImageUrl && (
+                <div className="flex items-center justify-between text-xs text-zinc-500 font-mono">
+                  <span>Changes are saved automatically to persistent disk storage</span>
                   <button
-                    onClick={handleResetImage}
-                    className="text-xs text-amber-400 hover:text-amber-200 underline font-mono flex items-center gap-1"
+                    onClick={() => {
+                      audioHost.speak(activeDisplayText, selectedScene.phase, selectedScene.round);
+                      showNotification('Testing broadcast audio on TV stage!');
+                    }}
+                    className="py-1 px-3 bg-amber-500 hover:bg-amber-400 text-black font-serif font-bold text-xs rounded shadow flex items-center gap-1.5"
                   >
-                    <RotateCcw className="w-3 h-3" /> Reset Image
+                    <Radio className="w-3.5 h-3.5" /> Test Audio Now
                   </button>
-                )}
-              </div>
-
-              {/* Current Image Banner Preview */}
-              <div className="relative w-full h-48 sm:h-56 rounded-lg overflow-hidden border border-amber-500/50 shadow">
-                <img
-                  src={activeDisplayImage}
-                  alt={selectedScene.title}
-                  referrerPolicy="no-referrer"
-                  className="w-full h-full object-cover"
-                />
-                <div className="absolute inset-0 bg-gradient-to-t from-black via-black/30 to-transparent pointer-events-none" />
-
-                <div className="absolute top-2.5 left-2.5 px-2.5 py-1 bg-black/80 border border-amber-500/40 rounded text-[10px] font-mono uppercase text-amber-300">
-                  {selectedScene.customImageUrl ? '★ Custom Image Active' : 'Default Scene Image'}
-                </div>
-
-                <div className="absolute bottom-2.5 left-3 right-3 text-left">
-                  <span className="text-[10px] font-mono uppercase tracking-widest text-amber-400 block">
-                    TV Host Preview
-                  </span>
-                  <p className="font-serif italic text-xs text-amber-100 truncate">
-                    “{activeDisplayText.slice(0, 100)}...”
-                  </p>
                 </div>
               </div>
-
-              {/* Image Selection Options: Presets vs Upload vs URL */}
-              <div className="space-y-3">
-                <span className="text-xs font-mono uppercase text-amber-400 block">
-                  Select from Castle Gallery Presets:
-                </span>
-                <div className="grid grid-cols-2 sm:grid-cols-5 gap-2.5">
-                  {PRESET_CASTLE_IMAGES.map(img => {
-                    const isCurrent = activeDisplayImage === img.url;
-                    return (
-                      <button
-                        key={img.id}
-                        onClick={() => handleSelectPresetImage(img.url)}
-                        className={`group relative rounded-lg overflow-hidden border-2 text-left transition-all ${
-                          isCurrent
-                            ? 'border-amber-400 shadow-[0_0_15px_rgba(212,163,69,0.5)] scale-[1.02]'
-                            : 'border-zinc-800 hover:border-amber-900/80 opacity-80 hover:opacity-100'
-                        }`}
-                      >
-                        <div className="h-20 w-full overflow-hidden bg-black">
-                          <img
-                            src={img.url}
-                            alt={img.name}
-                            referrerPolicy="no-referrer"
-                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                          />
-                        </div>
-                        <div className="p-1.5 bg-zinc-950 text-[10px] font-serif text-amber-200 truncate">
-                          {img.name}
-                        </div>
-                        {isCurrent && (
-                          <div className="absolute top-1 right-1 w-4 h-4 rounded-full bg-amber-400 text-black flex items-center justify-center">
-                            <Check className="w-2.5 h-2.5" />
-                          </div>
-                        )}
-                      </button>
-                    );
-                  })}
-                </div>
-
-                {/* Upload Custom Image File or Enter URL */}
-                <div className="flex flex-wrap items-center gap-3 pt-2">
-                  <label className="py-2 px-4 bg-burgundy-950 hover:bg-burgundy-900 border border-amber-600/40 text-amber-200 text-xs font-serif font-bold uppercase tracking-wider rounded cursor-pointer flex items-center gap-1.5 transition-all shadow">
-                    <Upload className="w-3.5 h-3.5 text-amber-400" />
-                    Upload Image File
-                    <input
-                      type="file"
-                      accept="image/*,.jpg,.jpeg,.png,.webp,.gif"
-                      onChange={handleImageUpload}
-                      className="hidden"
-                    />
-                  </label>
-
-                  <div className="flex-1 min-w-[240px] flex items-center gap-1.5 bg-black border border-zinc-800 px-3 py-1.5 rounded text-xs">
-                    <Link className="w-3.5 h-3.5 text-zinc-500" />
-                    <input
-                      type="url"
-                      placeholder="Or paste external image URL..."
-                      onKeyDown={async e => {
-                        if (e.key === 'Enter') {
-                          const val = (e.target as HTMLInputElement).value;
-                          if (val.trim()) {
-                            adminMediaService.updateSceneImage(selectedScene.id, val.trim());
-                            await adminMediaService.save();
-                            showNotification('Image URL permanently saved.');
-                          }
-                        }
-                      }}
-                      className="w-full bg-transparent text-amber-200 placeholder-zinc-500 focus:outline-none"
-                    />
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* SECTION 4: STAGE SIMULATION PREVIEW */}
-            <div className="bg-gradient-to-r from-burgundy-950/60 to-zinc-950 border border-amber-600/40 p-4 rounded-xl flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-full bg-amber-500/20 border border-amber-500/50 flex items-center justify-center">
-                  <Tv className="w-5 h-5 text-amber-400" />
-                </div>
-                <div>
-                  <h4 className="font-serif font-bold text-sm text-amber-200">
-                    Live Broadcast Simulation
-                  </h4>
-                  <p className="text-xs text-zinc-400">
-                    Test how this scene’s custom voice clip, text, and imagery perform on the big screen.
-                  </p>
-                </div>
-              </div>
-
-              <button
-                onClick={() => {
-                  audioHost.speak(activeDisplayText, selectedScene.phase, selectedScene.round);
-                  showNotification('Testing broadcast audio on TV stage!');
-                }}
-                className="py-2.5 px-5 bg-amber-500 hover:bg-amber-400 text-black font-serif font-bold text-xs uppercase tracking-wider rounded-lg shadow-lg flex items-center gap-2 transition-all"
-              >
-                <Radio className="w-4 h-4" /> Test Broadcast Now
-              </button>
             </div>
           </div>
-        </div>
+        )}
 
         {/* Footer Bar */}
         <div className="bg-zinc-900/95 border-t border-amber-900/40 px-6 py-3 flex items-center justify-between text-xs text-zinc-400">
@@ -1018,7 +1256,7 @@ function compressImageFile(file: File, maxDimension = 1200, quality = 0.82): Pro
             ) : (
               <span className="flex items-center gap-1.5 text-emerald-400">
                 <Check className="w-3.5 h-3.5" />
-                All media edits permanently saved to disk
+                All media edits and game plans permanently saved
               </span>
             )}
           </div>
@@ -1033,7 +1271,7 @@ function compressImageFile(file: File, maxDimension = 1200, quality = 0.82): Pro
             className="px-6 py-2 bg-amber-600 hover:bg-amber-500 text-black font-serif font-bold uppercase tracking-wider text-xs rounded transition-all shadow flex items-center gap-1.5"
           >
             <Check className="w-3.5 h-3.5" />
-            Save & Exit Studio
+            Exit Admin Studio
           </button>
         </div>
       </div>

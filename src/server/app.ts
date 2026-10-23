@@ -378,6 +378,8 @@ function sanitizeState(
     roundHistory: s.roundHistory,
     latestDialogue: s.latestDialogue,
     isDemoRoom: s.isDemoRoom,
+    traitorId: s.isDemoRoom || isHostDisplay ? s.traitorId : undefined,
+    traitorName: s.isDemoRoom || isHostDisplay ? s.traitorName : undefined,
   };
 
   // 3. Populate private calling player fields
@@ -2182,6 +2184,53 @@ app.post('/api/rooms/:code/action', async (req, res) => {
           }
         });
         s.finaleState.endOrBanishRevealed = true;
+      }
+      break;
+    }
+
+    case 'DEMO_JUMP_TO_ROUND': {
+      if (s.isDemoRoom) {
+        const targetRound = Math.min(6, Math.max(1, payload?.round || 1));
+        const targetPhase: GamePhase = payload?.phase || 'INTRO';
+        s.currentRound = targetRound;
+
+        // Reset elimination for demo testing unless jumping to finale
+        if (targetRound < 6) {
+          Object.values(room.players).forEach(p => {
+            p.isEliminated = false;
+          });
+        }
+
+        assignSecretRoles(s, room.players);
+
+        // Pre-fill mission requirements if jumping straight to MISSION
+        if (targetPhase === 'MISSION') {
+          if (targetRound === 1 && s.exhibitAState) {
+            const defaultPool = [
+              'Antique Pocket Watch',
+              'Black Leather Glove',
+              'Crimson Handkerchief',
+              'Ornate Brass Key',
+              'Poison Decanter Flask',
+              'Wax-Sealed Letter',
+              'Engraved Silver Spoon',
+            ];
+            s.exhibitAState.objects = [];
+            Object.values(room.players).forEach((p, idx) => {
+              s.exhibitAState!.objects.push({
+                id: `obj_${p.id}`,
+                contributorId: p.id,
+                contributorName: p.name,
+                name: defaultPool[idx] || `Artifact ${idx + 1}`,
+                hasPresented: true,
+              });
+            });
+            s.exhibitAState.stage = 'PRESENTATIONS';
+          }
+        }
+
+        const dialogue = await getDialogueForPhase(targetPhase, targetRound);
+        setPhaseWithTimer(s, targetPhase, 420, dialogue);
       }
       break;
     }
