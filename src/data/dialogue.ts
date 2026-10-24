@@ -105,10 +105,11 @@ export const HOST_SCRIPTS: Record<number, HostDialogueSet> = {
     intro:
       "Round Three, my loves! Paranoia has truly set in. The tea is cold, the glances are frosty. Six Faithful. One Traitor. I am wearing my fourth pair of woollen socks, and I can literally smell the betrayal in the air. Fresh lots have been drawn. Prepare yourselves.",
     roleBriefing:
-      "Phones out. Look into the glowing screen. Memorise your identity. If you are the Traitor... do not let your eyebrows dance. If you are Faithful... good luck, you're going to need it.",
+      "Phones out. Look into the glowing screen. Memorise your identity. If you are the Traitor... do not let your eyebrows dance, Jamie. If you are Faithful... good luck, you're going to need it.",
     missionStart:
       "Mission Three: The Forgery Gallery! Pen and scrap paper ready. The Faithful have been given one secret drawing brief. The Traitor has been given something slightly... well, different. You will all sketch in deadly silence for two minutes, then reveal on my count.",
-    roundTable: SHARED_ROUND_TABLE_SCRIPT,
+    roundTable:
+      "Take your seats at the Round Table. Put the sketches down before the Louvre calls the police. One of you was drawing from a forged brief, and yet somehow all seven of your drawings look equally unhinged. Who hesitated before putting pen to paper? Who was peeking across the table to copy someone else's homework? And who is hiding pure treachery behind crimes against art? Interrogate the artists. The debate begins now.",
     votingOpen: SHARED_VOTING_OPEN_SCRIPT,
     allVotesLocked: SHARED_ALL_VOTES_LOCKED_SCRIPT,
     phoneSlateTurn: (playerName: string) =>
@@ -128,11 +129,13 @@ export const HOST_SCRIPTS: Record<number, HostDialogueSet> = {
   },
   4: {
     intro:
-      "Round Four! More than halfway through the evening, and the friendships are fraying at the seams. The lots have been cast anew. One Traitor. Six Faithful. Steel yourselves.",
-    roleBriefing: "Inspect your screens. Keep your poker face intact.",
+      "Round Four, my darlings. More than halfway through Libby’s birthday, and the trust in this room is thinner than cheap prosecco. New roles are being dealt in the shadows. Yesterday’s Faithful could be tonight’s cold-blooded Traitor. Look at your friends. One of them is about to lie to your face.",
+    roleBriefing:
+      "Phones out, eyes down. Check your new allegiance in complete silence. One Traitor with a secret contraband agenda; six Faithful trying to keep it together. Lock your poker faces in place and put your phones away.",
     missionStart:
-      "Mission Four: The Body Disposal Committee! A completely absurd storytelling crisis. The Duchess has died during dessert. The inspector is five minutes away, your getaway vehicle is a bicycle, and the police already know you're here. Together, pick five objects and tell an absurd story under sixty seconds!",
-    roundTable: SHARED_ROUND_TABLE_SCRIPT,
+      "Mission Four: The Body Disposal Committee! A disaster during dessert — the Duchess is dead on the dining room rug, the Inspector is five minutes away, and your only getaway vehicle is a tandem bicycle. Gemma, I appreciate that we've sprung this on you, but I do need you to look slightly less prepared. You must choose exactly five household objects to pack and weave them into a coherent sixty-second escape story. Beware: the Traitor has been secretly ordered to smuggle one utterly ridiculous item into your final five.",
+    roundTable:
+      "Back to the Round Table. Well, that escape story was an absolute masterclass in panic. Now ask yourselves: who fought tooth and nail to pack a completely useless object onto that bicycle? Who hijacked the committee, and who quietly let someone else do their dirty work? The alibis are crumbling. Point your fingers — the debate begins now.",
     votingOpen: SHARED_VOTING_OPEN_SCRIPT,
     allVotesLocked: SHARED_ALL_VOTES_LOCKED_SCRIPT,
     phoneSlateTurn: (playerName: string) =>
@@ -152,12 +155,13 @@ export const HOST_SCRIPTS: Record<number, HostDialogueSet> = {
   },
   5: {
     intro:
-      "Round Five! The penultimate chapter. Paranoia has reached boiling point. One Traitor walks among you with a velvet smirk. Six Faithful are desperate for points.",
+      "Round Five! The penultimate chapter, and the paranoia is practically dripping down the castle walls. We are dangerously close to the Grand Finale. Fresh cloaks have been dealt one more time before the end. Nobody is safe, and nobody is above suspicion.",
     roleBriefing:
-      "Look down at your screens. Memorise your identity and your secret briefing.",
+      "Shield your screens. Discover your Round Five identity. Faithful, you will receive three secret pass-words for the mission ahead. Traitor, you only get two — and you’ll have to bluff for your life. Memorise your brief in silence.",
     missionStart:
-      "Mission Five: The Counterfeit Expert! Everyone must pitch the exact same ridiculous invention in thirty seconds. Faithful have three secret required words to smuggle into their pitch. The Traitor only has two words, and must infer the third! Listen closely to every pitch.",
-    roundTable: SHARED_ROUND_TABLE_SCRIPT,
+      "Mission Five: The Counterfeit Expert! You each have thirty seconds to pitch the exact same absurd invention to the room. Every Faithful has the same three mandatory keywords to slip naturally into their pitch. The Traitor only knows two of them and must listen closely to deduce and steal the third word. Speak clearly, watch who stumbles, and spot the imposter.",
+    roundTable:
+      "Take your seats at the Round Table. After those pitches, I wouldn't buy a toaster from any of you. Who sounded like they were making it up on the spot? Who was listening a little too hard to everyone else's keywords before taking their turn? And who slipped a stolen word in at the very last second? Tear those pitches apart. The debate begins now.",
     votingOpen: SHARED_VOTING_OPEN_SCRIPT,
     allVotesLocked: SHARED_ALL_VOTES_LOCKED_SCRIPT,
     phoneSlateTurn: (playerName: string) =>
@@ -175,12 +179,13 @@ export const HOST_SCRIPTS: Record<number, HostDialogueSet> = {
   },
   6: {
     intro:
-      "The Sixth and Final Round! The grand climax of Libby’s Birthday: Trust Nobody. One last Traitor. Six final Faithful. Up to six decisive points remain. Everything is on the line.",
+      "The Sixth and Final Round! The grand climax of Libby’s Birthday: Trust Nobody. One final Traitor has been chosen, and from this moment on, roles are locked until the bitter end. To claim the crown, you must survive the final banishments. If even one Traitor is left standing at the end, they steal the entire victory.",
     roleBriefing:
-      "The Traitor chosen for this round stays the Traitor until the game ends.\n\nLook down at your screens. Absorb your true allegiance. One Traitor. Six Faithful. Make history tonight, my loves.",
+      "For the final time tonight, look down at your phones. The Traitor chosen right now stays the Traitor for the rest of the game. Absorb your final allegiance in dead silence. Make history tonight, my loves.",
     missionStart:
-      "Mission Six: The Getaway Auction! Everyone starts with twelve auction coins. Six fictional getaway lots will be auctioned in ascending value. Highest sealed bid wins the lot and pays their bid. Who will hoard the most escape points? Persuade, bluff, and bid wisely!",
-    roundTable: SHARED_ROUND_TABLE_SCRIPT,
+      "Mission Six: The Getaway Auction! You each have twelve gold coins to bid on six mystery escape lots. Sealed bids on your phones — highest bidder takes the lot and the points inside, while the Traitor is secretly trying to drain your wallets and sabotage the bidding. Spend wisely, bluff boldly, and watch who is driving up the price.",
+    roundTable:
+      "Welcome to the Final Round Table. The auction is over, your coins are spent, and the castle doors are bolted shut. From this moment on, if you are banished, you are out of the game for good. Look around this table: who manipulated the bidding, who has been playing the loyal friend all night, and who is sitting there in a Traitor's cloak waiting to steal Libby's birthday crown? Speak now, or lose everything.",
     votingOpen: SHARED_VOTING_OPEN_SCRIPT,
     allVotesLocked: SHARED_ALL_VOTES_LOCKED_SCRIPT,
     phoneSlateTurn: (playerName: string) =>

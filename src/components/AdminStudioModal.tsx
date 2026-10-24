@@ -125,7 +125,7 @@ export const ROUNDS_PLAN_DATA: RoundPlanItem[] = [
       successCondition: 'Target Faithful locks an incorrect majority prediction on the assigned question.',
     },
     scoring: '+2 Gold per correct prediction for Faithful. Traitor earns +10 Gold if their target was successfully misled.',
-    imageUrl: '/src/assets/images/round_table_chamber_1792491572609.jpg',
+    imageUrl: '/assets/aistudio/Birthday_Majority_in_the_Castle_925a5814.png',
     sampleScript:
       '“You think you know your friends? You don’t. You know their curated social media and polite dinner party faces. Now we find out what they really think of you.”',
   },
@@ -152,7 +152,7 @@ export const ROUNDS_PLAN_DATA: RoundPlanItem[] = [
       successCondition: 'Another guest publicly suspects or accuses an innocent Faithful of having the wrong drawing.',
     },
     scoring: '+10 Gold to Faithful pot if Traitor sketch is identified. Traitor steals +10 Gold if an innocent Faithful is accused.',
-    imageUrl: '/src/assets/images/claudia_cloak_reveal_1792491590255.jpg',
+    imageUrl: '/assets/aistudio/The_Forgery_Gallery_efeeaa3f.png',
     sampleScript:
       '“Two minutes of dead silence. Put pencil to paper. One among you has a forged brief. When I say show, reveal your slates to the table!”',
   },
@@ -178,7 +178,7 @@ export const ROUNDS_PLAN_DATA: RoundPlanItem[] = [
       successCondition: 'Another player fetches or votes your assigned item into the final five.',
     },
     scoring: '+10 Gold if the 60-second escape story succeeds. Traitor steals +10 Gold if their contraband item is packed.',
-    imageUrl: '/src/assets/images/claudia_host_castle_1792491589363.jpg',
+    imageUrl: '/assets/aistudio/Pirate_s_Tandem_Escape_Plan_b8d68311.png',
     sampleScript:
       '“A body has been found in the wine cellar. You must flee on a two-seater bicycle across the moors. You can only pack five items. Choose wisely.”',
   },
@@ -205,7 +205,7 @@ export const ROUNDS_PLAN_DATA: RoundPlanItem[] = [
       successCondition: 'Traitor uses or correctly identifies the missing 3rd word.',
     },
     scoring: '+10 Gold to Faithful if Traitor fails to use or identify the word. Traitor steals +10 Gold if 3rd word is deduced.',
-    imageUrl: '/src/assets/images/traitors_castle_mist_1792491571213.jpg',
+    imageUrl: '/assets/aistudio/Woman_Presenting_a_Brass_Teacup_Invention_8d0dc60f.png',
     sampleScript:
       '“High finance. Unregulated tech. Thirty seconds on the clock. Pitch for your lives.”',
   },

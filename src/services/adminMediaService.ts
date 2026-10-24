@@ -54,6 +54,24 @@ export const PRESET_CASTLE_IMAGES = [
     url: '/assets/aistudio/Birthday_Majority_in_the_Castle_925a5814.png',
   },
   {
+    id: 'forgery_gallery_mission',
+    name: 'The Forgery Gallery (Mission 3)',
+    description: 'Mission Three: The Forgery Gallery — Masterpiece or misdirection?',
+    url: '/assets/aistudio/The_Forgery_Gallery_efeeaa3f.png',
+  },
+  {
+    id: 'body_disposal_mission',
+    name: 'The Body Disposal Committee (Mission 4)',
+    description: 'Mission Four: The Body Disposal Committee — Tandem bicycle & household objects',
+    url: '/assets/aistudio/Pirate_s_Tandem_Escape_Plan_b8d68311.png',
+  },
+  {
+    id: 'counterfeit_expert_mission',
+    name: 'The Counterfeit Expert (Mission 5)',
+    description: 'Mission Five: The Counterfeit Expert — Brass teacup invention pitch',
+    url: '/assets/aistudio/Woman_Presenting_a_Brass_Teacup_Invention_8d0dc60f.png',
+  },
+  {
     id: 'round_table_chamber',
     name: 'The Round Table Chamber',
     description: 'Circular candlelit council table with 7 leather seats',
@@ -79,7 +97,7 @@ export const PRESET_CASTLE_IMAGES = [
   },
 ];
 
-const STORAGE_KEY = 'traitors_castle_admin_media_v5';
+const STORAGE_KEY = 'traitors_castle_admin_media_v13';
 
 function buildInitialScenes(): SceneMediaConfig[] {
   const scenes: SceneMediaConfig[] = [];
@@ -97,14 +115,7 @@ function buildInitialScenes(): SceneMediaConfig[] {
       phase: 'INTRO',
       defaultText: s.intro,
       defaultImageUrl: PRESET_CASTLE_IMAGES[1].url,
-      ...(r === 1
-        ? {
-            voiceClip: {
-              audioUrl: '/uploads/audio_ROUND_1_INTRO_1792587571220_ffeb8.webm',
-              fileName: 'Round_1_Prologue_Claudia.webm',
-            },
-          }
-        : r === 2
+      ...(r === 2
         ? {
             voiceClip: {
               audioUrl:
@@ -125,6 +136,16 @@ function buildInitialScenes(): SceneMediaConfig[] {
       phase: 'ROLE_BRIEFING',
       defaultText: s.roleBriefing,
       defaultImageUrl: PRESET_CASTLE_IMAGES[1].url,
+      ...(r === 5
+        ? {
+            voiceClip: {
+              audioUrl:
+                '/assets/aistudio/ElevenLabs_2026-10-24T15_32_44_Claudia_ivc_sp100_s50_sb75_v4__1__ab52da49.mp3',
+              fileName: 'Round_5_Role_Briefing_Claudia.mp3',
+              durationSec: 16,
+            },
+          }
+        : {}),
     });
 
     // 3. Mission
@@ -150,7 +171,13 @@ function buildInitialScenes(): SceneMediaConfig[] {
           ? '/assets/aistudio/The_Candlelit_Castle_Mystery_891f6711.png'
           : r === 2
           ? '/assets/aistudio/Birthday_Majority_in_the_Castle_925a5814.png'
-          : PRESET_CASTLE_IMAGES[7].url,
+          : r === 3
+          ? '/assets/aistudio/The_Forgery_Gallery_efeeaa3f.png'
+          : r === 4
+          ? '/assets/aistudio/Pirate_s_Tandem_Escape_Plan_b8d68311.png'
+          : r === 5
+          ? '/assets/aistudio/Woman_Presenting_a_Brass_Teacup_Invention_8d0dc60f.png'
+          : PRESET_CASTLE_IMAGES[10].url,
       ...(r === 2
         ? {
             voiceClip: {
@@ -160,10 +187,42 @@ function buildInitialScenes(): SceneMediaConfig[] {
               durationSec: 25,
             },
           }
+        : r === 4
+        ? {
+            voiceClip: {
+              audioUrl:
+                '/assets/aistudio/ElevenLabs_2026-10-24T15_20_21_Claudia_ivc_sp100_s50_sb75_v4_c4d3b012.mp3',
+              fileName: 'Round_4_Mission_Body_Disposal_Claudia.mp3',
+              durationSec: 34,
+            },
+          }
+        : r === 5
+        ? {
+            voiceClip: {
+              audioUrl:
+                '/assets/aistudio/ElevenLabs_2026-10-24T15_33_58_Claudia_ivc_sp100_s50_sb75_v4__1__6f7fd83c.mp3',
+              fileName: 'Round_5_Mission_Counterfeit_Expert_Claudia.mp3',
+              durationSec: 24,
+            },
+          }
         : {}),
     });
 
-    // 4. Round Table Debate (Same image across all rounds 1-6; Round 2 uses Poppy audio)
+    // 3b. Round 3 Forgery Gallery — Pens Down (Played automatically when the 2-minute timer finishes)
+    if (r === 3) {
+      scenes.push({
+        id: 'ROUND_3_PENS_DOWN',
+        title: 'Round 3: Forgery Gallery — Pens Down (Time Up!)',
+        subtitle: 'Auto-plays when the 2-minute sketching timer reaches 0:00',
+        round: 3,
+        phase: 'PENS_DOWN',
+        defaultText:
+          "Pens down! Your masterpieces are complete — I'm using that word very generously. Hold up your drawings in three, two, one! Have a good look around. The Faithful were all working from the same secret brief. The Traitor had something different. Who's drawn something suspicious, and who is simply terrible at drawing?",
+        defaultImageUrl: '/assets/aistudio/The_Forgery_Gallery_efeeaa3f.png',
+      });
+    }
+
+    // 4. Round Table Debate (Same image across all rounds 1-6; bespoke script & audio per round)
     scenes.push({
       id: `ROUND_${r}_ROUND_TABLE`,
       title: `Round ${r}: The Round Table`,
@@ -172,20 +231,43 @@ function buildInitialScenes(): SceneMediaConfig[] {
       phase: 'ROUND_TABLE',
       defaultText: s.roundTable,
       defaultImageUrl: '/assets/aistudio/Seven_Sealed_Slates_at_the_Round_Table_a2338a35.png',
-      voiceClip:
-        r === 2
-          ? {
+      ...(r === 1
+        ? {
+            voiceClip: {
+              audioUrl:
+                '/assets/aistudio/ElevenLabs_2026-10-20T17_01_04_Claudia_ivc_sp100_s50_sb75_v4_f3a7a8ee.mp3',
+              fileName: 'Round_1_Round_Table_Claudia.mp3',
+              durationSec: 24,
+            },
+          }
+        : r === 2
+        ? {
+            voiceClip: {
               audioUrl:
                 '/assets/aistudio/ElevenLabs_2026-10-24T14_27_59_Claudia_ivc_sp100_s50_sb75_v4_13301d74.mp3',
               fileName: 'Round_2_Round_Table_Claudia.mp3',
               durationSec: 14,
-            }
-          : {
-              audioUrl:
-                '/assets/aistudio/ElevenLabs_2026-10-20T17_01_04_Claudia_ivc_sp100_s50_sb75_v4_f3a7a8ee.mp3',
-              fileName: `Round_${r}_Round_Table_Claudia.mp3`,
-              durationSec: 24,
             },
+          }
+        : r === 3
+        ? {
+            voiceClip: {
+              audioUrl:
+                '/assets/aistudio/ElevenLabs_2026-10-24T15_14_49_Claudia_ivc_sp100_s50_sb75_v4_8da55de8.mp3',
+              fileName: 'Round_3_Round_Table_Claudia.mp3',
+              durationSec: 28,
+            },
+          }
+        : r === 6
+        ? {
+            voiceClip: {
+              audioUrl:
+                '/assets/aistudio/ElevenLabs_2026-10-24T15_48_08_Claudia_ivc_sp100_s50_sb75_v4_6dfe2fbc.mp3',
+              fileName: 'Round_6_Round_Table_Claudia.mp3',
+              durationSec: 28,
+            },
+          }
+        : {}),
     });
 
     // 5. Voting Slates Open (Duplicated across all rounds 1-6)
@@ -320,18 +402,45 @@ class AdminMediaService {
 
   private applySavedScenes(savedList: SceneMediaConfig[]) {
     if (!Array.isArray(savedList)) return;
+    const invalidUrls = new Set([
+      '/audio/round1_prologue.mp3',
+      '/uploads/audio_ROUND_1_INTRO_1792587571220_ffeb8.webm',
+      '/uploads/img_ROUND_1_INTRO_1792587579438_m8ogc.png',
+    ]);
     savedList.forEach(saved => {
       if (!saved || !saved.id) return;
       const existing = this.scenes.get(saved.id);
+      const validVoiceClip =
+        saved.voiceClip?.audioUrl && !invalidUrls.has(saved.voiceClip.audioUrl)
+          ? saved.voiceClip
+          : undefined;
+      const validCustomImage =
+        saved.customImageUrl && !invalidUrls.has(saved.customImageUrl)
+          ? saved.customImageUrl
+          : undefined;
+      const validCustomText =
+        saved.customText && saved.customText !== 'Welcome to the castle'
+          ? saved.customText
+          : undefined;
+
       if (existing) {
         this.scenes.set(saved.id, {
           ...existing,
-          customText: saved.customText ?? existing.customText,
-          customImageUrl: saved.customImageUrl ?? existing.customImageUrl,
-          voiceClip: saved.voiceClip ?? existing.voiceClip,
+          customText: validCustomText ?? existing.customText,
+          customImageUrl: validCustomImage ?? existing.customImageUrl,
+          voiceClip: existing.voiceClip?.audioUrl?.startsWith('/assets/aistudio/')
+            ? validVoiceClip?.audioUrl?.startsWith('data:')
+              ? validVoiceClip
+              : existing.voiceClip
+            : validVoiceClip ?? existing.voiceClip,
         });
       } else {
-        this.scenes.set(saved.id, saved);
+        this.scenes.set(saved.id, {
+          ...saved,
+          customText: validCustomText,
+          customImageUrl: validCustomImage,
+          voiceClip: validVoiceClip,
+        });
       }
     });
   }
@@ -451,6 +560,11 @@ class AdminMediaService {
   }
 
   public getActiveScene(phase: string, round: number = 1): SceneMediaConfig | undefined {
+    // 0. If an exact scene ID was passed (e.g. 'ROUND_3_PENS_DOWN'), return it directly
+    if (this.scenes.has(phase)) {
+      return this.scenes.get(phase);
+    }
+
     const normalizedPhaseMap: Record<string, string> = {
       FINALE_DISCUSSION: 'ROUND_TABLE',
       FINALE_AUCTION_RECAP: 'ROUND_TABLE',

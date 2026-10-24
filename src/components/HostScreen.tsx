@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react';
 import QRCode from 'qrcode';
 import { ClientGameState } from '../types/game';
 import { api } from '../services/api';
-import { audioHost } from '../services/audioHost';
+import { audioHost, AudioPlaybackState } from '../services/audioHost';
+import { adminMediaService } from '../services/adminMediaService';
 import { ClaudiaBroadcastVideo } from './ClaudiaBroadcastVideo';
 import { HostSidebarLeaderboard } from './HostSidebarLeaderboard';
 import { ExhibitAMission } from './Missions/ExhibitAMission';
@@ -21,6 +22,8 @@ import {
   HelpCircle,
   Play,
   Pause,
+  RotateCcw,
+  Volume2,
   Plus,
   Minus,
   CheckCircle2,
@@ -50,14 +53,64 @@ export const HostScreen: React.FC<Props> = ({
 }) => {
   const [caption, setCaption] = useState<string>('');
   const [qrDataUrl, setQrDataUrl] = useState<string>('');
-  const [audioUnlocked, setAudioUnlocked] = useState(false);
+  const [audioUnlocked, setAudioUnlocked] = useState(true);
+  const [playback, setPlayback] = useState<AudioPlaybackState>(audioHost.getPlaybackState());
   const [isAdminMode, setIsAdminMode] = useState(false);
   const [isBanishedRoleRevealed, setIsBanishedRoleRevealed] = useState(false);
 
-  // Reset role reveal toggle whenever the phase, round, or banished player changes
+  // Round 3 Forgery Gallery 2-minute (120s) sketch timer state
+  const [forgeryTimerSec, setForgeryTimerSec] = useState<number>(120);
+  const [isForgeryTimerRunning, setIsForgeryTimerRunning] = useState<boolean>(false);
+  const [hasForgeryTimerFinished, setHasForgeryTimerFinished] = useState<boolean>(false);
+
+  // Reset role reveal & Round 3 timer whenever the phase, round, or banished player changes
   useEffect(() => {
     setIsBanishedRoleRevealed(false);
+    if (state.phase !== 'MISSION' || state.currentRound !== 3) {
+      setIsForgeryTimerRunning(false);
+      setHasForgeryTimerFinished(false);
+      setForgeryTimerSec(120);
+    }
   }, [state.phase, state.currentRound, state.finaleState?.currentEliminatedPlayerId]);
+
+  const triggerRound3PensDown = () => {
+    setIsForgeryTimerRunning(false);
+    setForgeryTimerSec(0);
+    setHasForgeryTimerFinished(true);
+    const pensDownScene = adminMediaService.getActiveScene('ROUND_3_PENS_DOWN', 3);
+    const pensDownText =
+      pensDownScene?.customText ||
+      pensDownScene?.defaultText ||
+      "Pens down! Your masterpieces are complete — I'm using that word very generously. Hold up your drawings in three, two, one! Have a good look around. The Faithful were all working from the same secret brief. The Traitor had something different. Who's drawn something suspicious, and who is simply terrible at drawing?";
+    setCaption(pensDownText);
+    audioHost.speak(pensDownText, 'ROUND_3_PENS_DOWN', 3);
+  };
+
+  // Countdown tick for Round 3 2-minute sketch timer
+  useEffect(() => {
+    if (!isForgeryTimerRunning) return;
+    const interval = setInterval(() => {
+      setForgeryTimerSec(prev => {
+        if (prev <= 1) {
+          clearInterval(interval);
+          setTimeout(() => {
+            triggerRound3PensDown();
+          }, 0);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [isForgeryTimerRunning]);
+
+  // Subscribe to audio playback state for header Pause/Restart controls
+  useEffect(() => {
+    const unsub = audioHost.subscribePlaybackState(s => {
+      setPlayback(s);
+    });
+    return unsub;
+  }, []);
 
   // Generate QR code for mobile joining (embeds passcode if available for auto-unlock)
   useEffect(() => {
@@ -91,22 +144,44 @@ export const HostScreen: React.FC<Props> = ({
     return unsub;
   }, []);
 
-  // Update caption & trigger speech on dialogue change
+  // Keep caption synchronized with latest dialogue
   useEffect(() => {
     if (state.latestDialogue) {
       setCaption(state.latestDialogue);
-      if (audioUnlocked) {
-        audioHost.speak(state.latestDialogue, state.phase, state.currentRound);
-      }
     }
-  }, [state.latestDialogue, state.phase, state.currentRound, audioUnlocked]);
+  }, [state.latestDialogue]);
+
+  // Trigger scene voice clip when phase or round changes
+  useEffect(() => {
+    if (state.phase === 'LOBBY') {
+      audioHost.stop();
+      return;
+    }
+    const activeScene = adminMediaService.getActiveScene(state.phase, state.currentRound);
+    const dialogueText = state.latestDialogue || activeScene?.defaultText || '';
+    audioHost.speak(dialogueText, state.phase, state.currentRound);
+  }, [state.phase, state.currentRound]);
+
+  const effectiveBroadcastPhase =
+    state.phase === 'MISSION' && state.currentRound === 3 && hasForgeryTimerFinished
+      ? 'ROUND_3_PENS_DOWN'
+      : state.phase;
 
   const handleUnlockAudio = () => {
     audioHost.unlockAudio();
     setAudioUnlocked(true);
-    if (state.latestDialogue) {
-      audioHost.speak(state.latestDialogue, state.phase, state.currentRound);
-    }
+    const activeScene = adminMediaService.getActiveScene(effectiveBroadcastPhase, state.currentRound);
+    audioHost.togglePlayPause(activeScene?.voiceClip);
+  };
+
+  const handleHeaderAudioPlayPause = () => {
+    const activeScene = adminMediaService.getActiveScene(effectiveBroadcastPhase, state.currentRound);
+    audioHost.togglePlayPause(activeScene?.voiceClip);
+  };
+
+  const handleHeaderAudioRestart = () => {
+    const activeScene = adminMediaService.getActiveScene(effectiveBroadcastPhase, state.currentRound);
+    audioHost.restart(activeScene?.voiceClip);
   };
 
   const handleTimerToggle = async () => {
@@ -143,6 +218,9 @@ export const HostScreen: React.FC<Props> = ({
   const seatingList = Array.isArray(state.seatingOrder) ? state.seatingOrder : [];
   const survivors = playersList.filter(p => !p.isEliminated);
   const eliminatedPlayers = playersList.filter(p => p.isEliminated);
+  const currentSceneClip =
+    adminMediaService.getActiveScene(effectiveBroadcastPhase, state.currentRound)?.voiceClip ||
+    playback.activeClip;
 
   return (
     <div className="min-h-screen bg-castle-black text-amber-100 flex flex-col justify-between selection:bg-amber-900 selection:text-amber-100">
@@ -216,15 +294,50 @@ export const HostScreen: React.FC<Props> = ({
             </button>
           </div>
 
-          {/* Modals & Audio Actions */}
+          {/* Host Voice Audio Transport Controls (Play/Pause & Restart) */}
           <div className="flex items-center gap-2">
-            {!audioUnlocked && (
-              <button
-                onClick={handleUnlockAudio}
-                className="py-1 px-3 bg-amber-500 hover:bg-amber-400 text-black text-xs font-serif font-bold uppercase tracking-wider rounded transition-all shadow flex items-center gap-1.5"
-              >
-                <span>Enable Host Speech</span>
-              </button>
+            {currentSceneClip?.audioUrl && (
+              <div className="flex items-center gap-1.5 bg-zinc-900/90 border border-amber-500/50 px-2.5 py-1 rounded shadow">
+                <Volume2 className="w-3.5 h-3.5 text-amber-400" />
+                <span className="text-[11px] font-mono text-zinc-400 uppercase hidden sm:inline">
+                  Audio:
+                </span>
+                <button
+                  onClick={handleHeaderAudioPlayPause}
+                  className={`px-2 py-0.5 rounded text-xs font-mono font-bold flex items-center gap-1 transition ${
+                    playback.isPlaying
+                      ? 'bg-amber-500 hover:bg-amber-400 text-black'
+                      : 'bg-emerald-600 hover:bg-emerald-500 text-white'
+                  }`}
+                  title={
+                    playback.isPlaying
+                      ? 'Pause Host Audio'
+                      : playback.isPaused
+                      ? 'Resume Host Audio'
+                      : 'Play Host Audio'
+                  }
+                >
+                  {playback.isPlaying ? (
+                    <>
+                      <Pause className="w-3 h-3" />
+                      <span>Pause</span>
+                    </>
+                  ) : (
+                    <>
+                      <Play className="w-3 h-3" />
+                      <span>{playback.isPaused ? 'Resume' : 'Play'}</span>
+                    </>
+                  )}
+                </button>
+                <button
+                  onClick={handleHeaderAudioRestart}
+                  className="px-2 py-0.5 bg-zinc-800 hover:bg-zinc-700 text-amber-200 border border-amber-500/40 rounded text-xs font-mono font-bold flex items-center gap-1 transition"
+                  title="Restart Host Audio from Beginning"
+                >
+                  <RotateCcw className="w-3 h-3 text-amber-400" />
+                  <span>Restart</span>
+                </button>
+              </div>
             )}
 
             {onOpenAdminStudio && (
@@ -278,7 +391,7 @@ export const HostScreen: React.FC<Props> = ({
         <section className="w-full flex justify-center">
           <ClaudiaBroadcastVideo
             caption={caption}
-            phase={state.phase}
+            phase={effectiveBroadcastPhase}
             currentRound={state.currentRound}
             isHostAudioUnlocked={audioUnlocked}
             onUnlockAudio={handleUnlockAudio}
@@ -451,11 +564,127 @@ export const HostScreen: React.FC<Props> = ({
                     Mission 3 · The Forgery Gallery (Zero-Spoiler Broadcast)
                   </span>
                   <h3 className="text-3xl font-serif font-black text-amber-200 mt-1">
-                    Deadly Silence: Sketch Your Secret Briefs
+                    {hasForgeryTimerFinished
+                      ? 'Pens Down! Hold Up Your Masterpieces!'
+                      : 'Deadly Silence: Sketch Your Secret Briefs'}
                   </h3>
                   <p className="text-sm text-zinc-300 max-w-xl mx-auto font-serif mt-2">
-                    One random prompt pair has been dealt with a 50/50 coin-flip between Faithful and Traitor. Check your phones privately — the prompts are hidden from this TV screen so nobody has an advantage!
+                    {hasForgeryTimerFinished
+                      ? "“Pens down! Your masterpieces are complete — I'm using that word very generously. Hold up your drawings in three, two, one! Have a good look around.”"
+                      : 'One random prompt pair has been dealt with a 50/50 coin-flip between Faithful and Traitor. Check your phones privately — the prompts are hidden from this TV screen so nobody has an advantage!'}
                   </p>
+                </div>
+
+                {/* 2-MINUTE FORGERY GALLERY SKETCHING TIMER */}
+                <div
+                  className={`max-w-xl mx-auto rounded-2xl border-2 p-6 space-y-4 transition-all shadow-2xl ${
+                    hasForgeryTimerFinished
+                      ? 'bg-burgundy-950/70 border-amber-400 shadow-[0_0_40px_rgba(212,163,69,0.35)]'
+                      : isForgeryTimerRunning
+                      ? 'bg-black/80 border-amber-500/80 shadow-[0_0_30px_rgba(212,163,69,0.25)]'
+                      : 'bg-black/60 border-amber-900/60'
+                  }`}
+                >
+                  <div className="text-xs font-mono uppercase tracking-widest text-amber-400">
+                    {hasForgeryTimerFinished
+                      ? '⏰ 2-Minute Sketching Time Up — Pens Down Audio Triggered!'
+                      : isForgeryTimerRunning
+                      ? '⏱️ Deadly Silence — Sketching in Progress'
+                      : '⏱️ 2-Minute Silent Sketching Countdown'}
+                  </div>
+
+                  <div
+                    className={`text-5xl md:text-6xl font-mono font-black tracking-widest ${
+                      hasForgeryTimerFinished
+                        ? 'text-amber-300 animate-bounce'
+                        : forgeryTimerSec <= 15 && isForgeryTimerRunning
+                        ? 'text-rose-500 animate-pulse'
+                        : 'text-amber-200'
+                    }`}
+                  >
+                    {Math.floor(forgeryTimerSec / 60)}:
+                    {forgeryTimerSec % 60 < 10 ? '0' : ''}
+                    {forgeryTimerSec % 60}
+                  </div>
+
+                  <div className="flex flex-wrap items-center justify-center gap-3 pt-1">
+                    {!hasForgeryTimerFinished ? (
+                      <>
+                        <button
+                          onClick={() => setIsForgeryTimerRunning(prev => !prev)}
+                          className={`py-3 px-6 rounded-xl font-serif font-bold text-sm uppercase tracking-wider flex items-center gap-2 shadow-lg transition active:scale-95 ${
+                            isForgeryTimerRunning
+                              ? 'bg-amber-500 hover:bg-amber-400 text-black'
+                              : 'bg-emerald-600 hover:bg-emerald-500 text-white'
+                          }`}
+                        >
+                          {isForgeryTimerRunning ? (
+                            <>
+                              <Pause className="w-4 h-4" />
+                              <span>Pause 2-Min Timer</span>
+                            </>
+                          ) : (
+                            <>
+                              <Play className="w-4 h-4" />
+                              <span>
+                                {forgeryTimerSec < 120
+                                  ? 'Resume 2-Min Timer'
+                                  : 'Start 2-Minute Sketch Timer'}
+                              </span>
+                            </>
+                          )}
+                        </button>
+
+                        <button
+                          onClick={() => {
+                            setIsForgeryTimerRunning(false);
+                            setHasForgeryTimerFinished(false);
+                            setForgeryTimerSec(120);
+                          }}
+                          className="py-3 px-4 bg-zinc-900 hover:bg-zinc-800 border border-zinc-700 text-zinc-300 rounded-xl font-mono text-xs font-bold flex items-center gap-1.5 transition"
+                        >
+                          <RotateCcw className="w-3.5 h-3.5 text-amber-400" />
+                          <span>Reset 2:00</span>
+                        </button>
+
+                        <button
+                          onClick={triggerRound3PensDown}
+                          className="py-3 px-4 bg-burgundy-900/80 hover:bg-burgundy-800 border border-amber-500/50 text-amber-200 rounded-xl font-mono text-xs font-bold flex items-center gap-1.5 transition"
+                          title="Finish timer immediately and play Pens Down audio"
+                        >
+                          <span>Skip to 0:00 (Play Pens Down Audio)</span>
+                        </button>
+                      </>
+                    ) : (
+                      <>
+                        <button
+                          onClick={triggerRound3PensDown}
+                          className="py-2.5 px-5 bg-amber-500 hover:bg-amber-400 text-black rounded-xl font-serif font-bold text-xs uppercase tracking-wider flex items-center gap-1.5 shadow transition"
+                        >
+                          <RotateCcw className="w-3.5 h-3.5" />
+                          <span>Replay “Pens Down” Audio</span>
+                        </button>
+
+                        <button
+                          onClick={() => {
+                            setIsForgeryTimerRunning(false);
+                            setHasForgeryTimerFinished(false);
+                            setForgeryTimerSec(120);
+                            const missionScene = adminMediaService.getActiveScene('MISSION', 3);
+                            const missionText =
+                              missionScene?.customText ||
+                              missionScene?.defaultText ||
+                              HOST_SCRIPTS[3].missionStart;
+                            setCaption(missionText);
+                            audioHost.speak(missionText, 'MISSION', 3);
+                          }}
+                          className="py-2.5 px-4 bg-zinc-900 hover:bg-zinc-800 border border-zinc-700 text-zinc-300 rounded-xl font-mono text-xs flex items-center gap-1.5 transition"
+                        >
+                          <span>Reset 2:00 Timer & Return to Mission Intro</span>
+                        </button>
+                      </>
+                    )}
+                  </div>
                 </div>
 
                 {/* Forgery Milestones (+1 pt each, max 3 pts) */}

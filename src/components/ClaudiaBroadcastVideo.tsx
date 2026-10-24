@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { audioHost } from '../services/audioHost';
+import { audioHost, AudioPlaybackState } from '../services/audioHost';
 import { adminMediaService, SceneMediaConfig } from '../services/adminMediaService';
 import {
   Play,
+  Pause,
+  RotateCcw,
   Maximize2,
   Minimize2,
   Flame,
@@ -26,16 +28,21 @@ interface Props {
   onOpenAdminStudio?: (sceneId?: string) => void;
 }
 
+function formatSeconds(sec: number): string {
+  const s = Math.max(0, Math.floor(sec || 0));
+  const mins = Math.floor(s / 60);
+  const rem = s % 60;
+  return `${mins}:${rem < 10 ? '0' : ''}${rem}`;
+}
+
 export const ClaudiaBroadcastVideo: React.FC<Props> = ({
   caption,
   phase,
   currentRound = 1,
-  isHostAudioUnlocked,
-  onUnlockAudio,
   isAdminModeOn = false,
   onOpenAdminStudio,
 }) => {
-  const [isSpeaking, setIsSpeaking] = useState(false);
+  const [playback, setPlayback] = useState<AudioPlaybackState>(audioHost.getPlaybackState());
   const [isExpanded, setIsExpanded] = useState(false);
   const [isCaptionCollapsed, setIsCaptionCollapsed] = useState(false);
   const [isLightboxOpen, setIsLightboxOpen] = useState(false);
@@ -43,10 +50,10 @@ export const ClaudiaBroadcastVideo: React.FC<Props> = ({
     adminMediaService.getActiveScene(phase, currentRound)
   );
 
-  // Subscribe to audio playback state
+  // Subscribe to audio playback state (playing, paused, time, duration)
   useEffect(() => {
-    const unsub = audioHost.subscribeSpeaking(speaking => {
-      setIsSpeaking(speaking);
+    const unsub = audioHost.subscribePlaybackState(state => {
+      setPlayback(state);
     });
     return unsub;
   }, []);
@@ -73,8 +80,12 @@ export const ClaudiaBroadcastVideo: React.FC<Props> = ({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isLightboxOpen]);
 
-  // Determine active visual image:
-  // For Round 1 Mission, always default to the high-res mystery scene unless explicitly overridden
+  const isSpeaking = playback.isPlaying;
+  const isPaused = playback.isPaused;
+  const effectiveVoiceClip = activeScene?.voiceClip || playback.activeClip || undefined;
+  const hasCustomVoiceClip = !!effectiveVoiceClip?.audioUrl;
+
+  // Determine active visual image
   const displayImage =
     activeScene?.customImageUrl ||
     activeScene?.defaultImageUrl ||
@@ -82,6 +93,12 @@ export const ClaudiaBroadcastVideo: React.FC<Props> = ({
       ? '/assets/aistudio/The_Candlelit_Castle_Mystery_891f6711.png'
       : phase === 'MISSION' && currentRound === 2
       ? '/assets/aistudio/Birthday_Majority_in_the_Castle_925a5814.png'
+      : (phase === 'MISSION' || phase === 'ROUND_3_PENS_DOWN') && currentRound === 3
+      ? '/assets/aistudio/The_Forgery_Gallery_efeeaa3f.png'
+      : phase === 'MISSION' && currentRound === 4
+      ? '/assets/aistudio/Pirate_s_Tandem_Escape_Plan_b8d68311.png'
+      : phase === 'MISSION' && currentRound === 5
+      ? '/assets/aistudio/Woman_Presenting_a_Brass_Teacup_Invention_8d0dc60f.png'
       : '/assets/aistudio/Screenshot_2026-10-20_at_11.50.13_adceafb3.png');
 
   const sceneTitle =
@@ -96,7 +113,15 @@ export const ClaudiaBroadcastVideo: React.FC<Props> = ({
     activeScene?.defaultText ||
     'Welcome to Jasmine’s Castle. Trust absolutely nobody.';
 
-  const hasCustomVoiceClip = !!activeScene?.voiceClip?.audioUrl;
+  const handleTogglePlayPause = (e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    audioHost.togglePlayPause(effectiveVoiceClip);
+  };
+
+  const handleRestartAudio = (e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    audioHost.restart(effectiveVoiceClip);
+  };
 
   return (
     <>
@@ -113,7 +138,7 @@ export const ClaudiaBroadcastVideo: React.FC<Props> = ({
               : 'aspect-[16/9] max-h-[70vh] min-h-[360px] md:min-h-[500px] lg:min-h-[620px] xl:min-h-[700px]'
           }`}
         >
-          {/* Ambient Blurred Backdrop: Fills entire widescreen frame with matching tones so there are no raw black void bars */}
+          {/* Ambient Blurred Backdrop */}
           <img
             src={displayImage}
             alt=""
@@ -122,10 +147,10 @@ export const ClaudiaBroadcastVideo: React.FC<Props> = ({
             className="absolute inset-0 w-full h-full object-cover blur-3xl opacity-35 scale-110 pointer-events-none select-none transition-transform duration-1000"
           />
 
-          {/* Subtle Cinematic Vignette Around Edges (doesn't obscure table or items) */}
+          {/* Subtle Cinematic Vignette Around Edges */}
           <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-black/50 pointer-events-none z-[1]" />
 
-          {/* THE WHOLE IMAGE DISPLAYED IN FULL GLORY (object-contain ensures 100% visible, never cropped at top/bottom/sides) */}
+          {/* THE WHOLE IMAGE DISPLAYED IN FULL GLORY */}
           <div
             onClick={() => setIsLightboxOpen(true)}
             className="relative z-[2] w-full h-full flex items-center justify-center p-2 sm:p-4 cursor-pointer group"
@@ -150,17 +175,67 @@ export const ClaudiaBroadcastVideo: React.FC<Props> = ({
           </div>
 
           {/* Top TV Broadcast Badges & Controls */}
-          <div className="absolute top-3 left-3 right-3 flex items-center justify-between z-20 pointer-events-auto">
-            <div className="flex items-center gap-2">
+          <div className="absolute top-3 left-3 right-3 flex flex-wrap items-center justify-between gap-2 z-20 pointer-events-auto">
+            <div className="flex flex-wrap items-center gap-2">
               <div className="flex items-center gap-1.5 px-3 py-1 bg-red-950/90 border border-red-600/60 text-white rounded-lg text-[10px] sm:text-xs font-mono font-bold tracking-widest uppercase shadow-lg backdrop-blur">
-                <span className={`w-2.5 h-2.5 rounded-full bg-red-500 ${isSpeaking ? 'animate-ping' : ''}`} />
-                <span>{isSpeaking ? 'VOICE PLAYING' : 'CASTLE TV BROADCAST'}</span>
+                <span
+                  className={`w-2.5 h-2.5 rounded-full ${
+                    isSpeaking
+                      ? 'bg-red-500 animate-ping'
+                      : isPaused
+                      ? 'bg-amber-400'
+                      : 'bg-red-500'
+                  }`}
+                />
+                <span>
+                  {isSpeaking
+                    ? 'VOICE PLAYING'
+                    : isPaused
+                    ? 'VOICE PAUSED'
+                    : 'CASTLE TV BROADCAST'}
+                </span>
               </div>
 
+              {/* Direct On-Screen Audio Transport Controls (Play/Pause & Restart) */}
               {hasCustomVoiceClip && (
-                <div className="flex items-center gap-1 px-2.5 py-1 bg-emerald-950/90 border border-emerald-600/60 text-emerald-300 rounded-lg text-[10px] sm:text-xs font-mono shadow backdrop-blur">
-                  <Mic className="w-3.5 h-3.5 text-emerald-400" />
-                  <span className="hidden sm:inline">Voice Clip Active</span>
+                <div className="flex items-center gap-1.5 bg-black/85 border border-amber-500/70 rounded-lg px-2 py-1 shadow-lg backdrop-blur">
+                  <button
+                    onClick={handleTogglePlayPause}
+                    className={`px-2.5 py-1 rounded text-xs font-mono font-bold flex items-center gap-1.5 transition active:scale-95 ${
+                      isSpeaking
+                        ? 'bg-amber-500 hover:bg-amber-400 text-black'
+                        : 'bg-emerald-600 hover:bg-emerald-500 text-white'
+                    }`}
+                    title={isSpeaking ? 'Pause Audio' : isPaused ? 'Resume Audio' : 'Play Audio'}
+                  >
+                    {isSpeaking ? (
+                      <>
+                        <Pause className="w-3.5 h-3.5" />
+                        <span>Pause</span>
+                      </>
+                    ) : (
+                      <>
+                        <Play className="w-3.5 h-3.5" />
+                        <span>{isPaused ? 'Resume' : 'Play'}</span>
+                      </>
+                    )}
+                  </button>
+
+                  <button
+                    onClick={handleRestartAudio}
+                    className="px-2.5 py-1 bg-zinc-800 hover:bg-zinc-700 text-amber-200 border border-amber-500/40 rounded text-xs font-mono font-bold flex items-center gap-1 transition active:scale-95"
+                    title="Restart Audio from Beginning"
+                  >
+                    <RotateCcw className="w-3.5 h-3.5 text-amber-400" />
+                    <span>Restart</span>
+                  </button>
+
+                  {(playback.duration > 0 || playback.currentTime > 0) && (
+                    <span className="text-[11px] font-mono text-amber-300/90 px-1.5">
+                      {formatSeconds(playback.currentTime)}
+                      {playback.duration > 0 ? ` / ${formatSeconds(playback.duration)}` : ''}
+                    </span>
+                  )}
                 </div>
               )}
 
@@ -220,46 +295,68 @@ export const ClaudiaBroadcastVideo: React.FC<Props> = ({
 
           {/* Center Pulsing Audio Visualizer when audio is playing */}
           {isSpeaking && (
-            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 flex items-center gap-2 z-20 pointer-events-none bg-black/75 backdrop-blur-md px-6 py-3 rounded-full border-2 border-amber-500/70 shadow-[0_0_30px_rgba(212,163,69,0.5)]">
-              <div className="w-2 h-6 bg-amber-400 animate-bounce rounded-full" />
-              <div className="w-2 h-10 bg-amber-300 animate-pulse rounded-full" />
-              <div className="w-2 h-8 bg-amber-400 animate-bounce rounded-full" />
-              <div className="w-2 h-12 bg-amber-200 animate-pulse rounded-full" />
-              <div className="w-2 h-7 bg-amber-400 animate-bounce rounded-full" />
-              <div className="w-2 h-4 bg-amber-500 animate-pulse rounded-full" />
-              <span className="ml-2 font-mono text-xs sm:text-sm uppercase tracking-wider text-amber-300 font-bold">
-                Voice Clip Playing
+            <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-2 z-20 pointer-events-auto bg-black/85 backdrop-blur-md px-5 py-2.5 rounded-full border-2 border-amber-500/80 shadow-[0_0_30px_rgba(212,163,69,0.5)]">
+              <div className="w-1.5 h-4 bg-amber-400 animate-bounce rounded-full" />
+              <div className="w-1.5 h-7 bg-amber-300 animate-pulse rounded-full" />
+              <div className="w-1.5 h-5 bg-amber-400 animate-bounce rounded-full" />
+              <div className="w-1.5 h-8 bg-amber-200 animate-pulse rounded-full" />
+              <div className="w-1.5 h-4 bg-amber-400 animate-bounce rounded-full" />
+              <span className="ml-1.5 font-mono text-xs uppercase tracking-wider text-amber-300 font-bold">
+                Claudia Speaking
               </span>
+              <button
+                onClick={handleTogglePlayPause}
+                className="ml-2 px-2.5 py-1 bg-amber-500 hover:bg-amber-400 text-black font-mono text-xs font-bold rounded-full flex items-center gap-1 transition"
+              >
+                <Pause className="w-3 h-3" /> Pause
+              </button>
+              <button
+                onClick={handleRestartAudio}
+                className="px-2.5 py-1 bg-zinc-800 hover:bg-zinc-700 text-amber-200 border border-amber-500/50 font-mono text-xs font-bold rounded-full flex items-center gap-1 transition"
+              >
+                <RotateCcw className="w-3 h-3" /> Restart
+              </button>
             </div>
           )}
         </div>
 
-        {/* 2. SUBTITLE / SPEECH CAPTION BAR - Positioned UNDERNEATH the video frame so the photo remains 100% UNCOVERED */}
+        {/* 2. SUBTITLE / SPEECH CAPTION BAR - Positioned UNDERNEATH the video frame */}
         {!isCaptionCollapsed && (
           <div className="bg-gradient-to-b from-zinc-950 via-zinc-900 to-black border-t border-amber-900/60 p-3 sm:p-4 md:px-6 transition-all duration-300">
             <div className="max-w-5xl mx-auto flex flex-col gap-2">
-              <div className="flex items-center justify-between text-[11px] sm:text-xs font-mono uppercase tracking-widest text-amber-400 border-b border-zinc-800/80 pb-1.5">
+              <div className="flex flex-wrap items-center justify-between gap-2 text-[11px] sm:text-xs font-mono uppercase tracking-widest text-amber-400 border-b border-zinc-800/80 pb-1.5">
                 <span className="flex items-center gap-1.5 font-bold">
                   <Flame className="w-3.5 h-3.5 text-amber-500" />
                   {sceneTitle}
                 </span>
 
-                <div className="flex items-center gap-3">
-                  {!isHostAudioUnlocked ? (
-                    <button
-                      onClick={onUnlockAudio}
-                      className="px-2.5 py-1 bg-amber-500 text-black font-bold rounded text-xs animate-pulse shadow"
-                    >
-                      Enable Audio
-                    </button>
-                  ) : hasCustomVoiceClip ? (
-                    <button
-                      onClick={() => audioHost.replay()}
-                      className="hover:underline flex items-center gap-1 text-xs text-zinc-300 hover:text-amber-300"
-                    >
-                      <Play className="w-3.5 h-3.5 text-amber-400" /> Play Voice Clip
-                    </button>
-                  ) : null}
+                <div className="flex flex-wrap items-center gap-2">
+                  {hasCustomVoiceClip && (
+                    <>
+                      <button
+                        onClick={handleTogglePlayPause}
+                        className="px-2.5 py-1 bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/60 rounded flex items-center gap-1 text-xs text-amber-200 font-bold transition"
+                      >
+                        {isSpeaking ? (
+                          <>
+                            <Pause className="w-3.5 h-3.5 text-amber-400" /> Pause Voice
+                          </>
+                        ) : (
+                          <>
+                            <Play className="w-3.5 h-3.5 text-amber-400" />{' '}
+                            {isPaused ? 'Resume Voice' : 'Play Voice'}
+                          </>
+                        )}
+                      </button>
+
+                      <button
+                        onClick={handleRestartAudio}
+                        className="px-2.5 py-1 bg-zinc-900 hover:bg-zinc-800 border border-zinc-700 rounded flex items-center gap-1 text-xs text-zinc-200 hover:text-amber-300 transition"
+                      >
+                        <RotateCcw className="w-3.5 h-3.5 text-amber-400" /> Restart Voice
+                      </button>
+                    </>
+                  )}
 
                   <button
                     onClick={() => setIsLightboxOpen(true)}
