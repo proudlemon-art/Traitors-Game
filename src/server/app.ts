@@ -1041,6 +1041,65 @@ app.post('/api/admin/upload-media', (req, res) => {
   }
 });
 
+// Direct Workspace Asset Uploader (/public/assets/aistudio) for bulk audio & image drops
+app.post('/api/admin/upload-to-workspace', (req, res) => {
+  try {
+    const { files } = req.body as {
+      files?: Array<{ fileName: string; dataUrl: string }>;
+    };
+    if (!Array.isArray(files) || files.length === 0) {
+      return res.status(400).json({ success: false, error: 'No files provided' });
+    }
+
+    const targetDir = path.resolve('public/assets/aistudio');
+    if (!fs.existsSync(targetDir)) {
+      fs.mkdirSync(targetDir, { recursive: true });
+    }
+
+    const savedFiles: Array<{ originalName: string; savedName: string; url: string }> = [];
+
+    for (const item of files) {
+      if (!item?.dataUrl || !item?.fileName) continue;
+      const matches = item.dataUrl.match(/^data:([A-Za-z0-9-+/]+);base64,(.+)$/);
+      if (!matches || matches.length !== 3) continue;
+
+      const base64Data = matches[2];
+      const safeName = item.fileName
+        .replace(/[^a-zA-Z0-9._-]/g, '_')
+        .replace(/_+/g, '_');
+      const fullPath = path.join(targetDir, safeName);
+      fs.writeFileSync(fullPath, Buffer.from(base64Data, 'base64'));
+      savedFiles.push({
+        originalName: item.fileName,
+        savedName: safeName,
+        url: `/assets/aistudio/${safeName}`,
+      });
+    }
+
+    res.json({
+      success: true,
+      count: savedFiles.length,
+      savedFiles,
+    });
+  } catch (err: any) {
+    console.error('Failed to save workspace files:', err);
+    res.status(500).json({ success: false, error: err?.message || 'Failed to save workspace files' });
+  }
+});
+
+app.get('/api/admin/workspace-assets', (_req, res) => {
+  try {
+    const targetDir = path.resolve('public/assets/aistudio');
+    if (!fs.existsSync(targetDir)) {
+      return res.json({ success: true, files: [] });
+    }
+    const files = fs.readdirSync(targetDir).filter(f => !f.startsWith('.'));
+    res.json({ success: true, files });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err?.message || 'Failed to list workspace files' });
+  }
+});
+
 app.get('/api/admin/media', async (req, res) => {
   try {
     const media = await db.getMediaConfig();

@@ -233,7 +233,7 @@ export const ROUNDS_PLAN_DATA: RoundPlanItem[] = [
       successCondition: 'Survive the final banishments as a Traitor to claim the entire prize pot.',
     },
     scoring: 'Winner takes all! A surviving Traitor takes the ENTIRE gold pot. If all Traitors banished, the top-scoring Faithful wins.',
-    imageUrl: '/assets/aistudio/Screenshot_2026-10-20_at_11.50.13_adceafb3.png',
+    imageUrl: '/assets/aistudio/Seven_at_the_final_reveal_84c3c2c2.png',
     sampleScript:
       '“The auction is over. Your money has gone. Your Traitor hasn’t. From this moment, if you’re banished, you are finished.”',
   },

@@ -72,6 +72,18 @@ export const PRESET_CASTLE_IMAGES = [
     url: '/assets/aistudio/Woman_Presenting_a_Brass_Teacup_Invention_8d0dc60f.png',
   },
   {
+    id: 'getaway_auction_mission',
+    name: 'The Getaway Auction (Mission 6)',
+    description: 'Mission Six: The Getaway Auction — Mystery escape lots & gold coins',
+    url: '/assets/aistudio/Final_mission_The_getaway_auction.png',
+  },
+  {
+    id: 'finale_final_reveal',
+    name: 'The Final Reveal: The Finale',
+    description: 'The Finale — One last look around the table with 7 guests and golden goblet',
+    url: '/assets/aistudio/Seven_at_the_final_reveal_84c3c2c2.png',
+  },
+  {
     id: 'round_table_chamber',
     name: 'The Round Table Chamber',
     description: 'Circular candlelit council table with 7 leather seats',
@@ -97,16 +109,150 @@ export const PRESET_CASTLE_IMAGES = [
   },
 ];
 
-const STORAGE_KEY = 'traitors_castle_admin_media_v13';
+const STORAGE_KEY = 'traitors_castle_admin_media_v18';
 
 function buildInitialScenes(): SceneMediaConfig[] {
   const scenes: SceneMediaConfig[] = [];
+
+  const introAudioByRound: Record<number, { audioUrl: string; fileName: string; durationSec: number }> = {
+    1: {
+      audioUrl: '/assets/aistudio/ElevenLabs_2026-10-20T10_46_01_Claudia_ivc_sp100_s50_sb75_v4.mp3',
+      fileName: 'Round_1_Prologue_Claudia.mp3',
+      durationSec: 32,
+    },
+    2: {
+      audioUrl: '/assets/aistudio/ElevenLabs_2026-10-24T13_34_30_Claudia_ivc_sp100_s50_sb75_v4_2e1ac63c.mp3',
+      fileName: 'Round_2_Prologue_Claudia.mp3',
+      durationSec: 15,
+    },
+    3: {
+      audioUrl: '/assets/aistudio/ElevenLabs_2026-10-24T14_42_51_Claudia_ivc_sp100_s50_sb75_v4.mp3',
+      fileName: 'Round_3_Prologue_Claudia.mp3',
+      durationSec: 19,
+    },
+    4: {
+      audioUrl: '/assets/aistudio/ElevenLabs_2026-10-24T15_16_17_Claudia_ivc_sp100_s50_sb75_v4.mp3',
+      fileName: 'Round_4_Prologue_Claudia.mp3',
+      durationSec: 18,
+    },
+    5: {
+      audioUrl: '/assets/aistudio/ElevenLabs_2026-10-24T15_32_00_Claudia_ivc_sp100_s50_sb75_v4.mp3',
+      fileName: 'Round_5_Prologue_Claudia.mp3',
+      durationSec: 16,
+    },
+    6: {
+      audioUrl: '/assets/aistudio/ElevenLabs_2026-10-24T15_42_30_Claudia_ivc_sp100_s50_sb75_v4.mp3',
+      fileName: 'Round_6_Prologue_Claudia.mp3',
+      durationSec: 21,
+    },
+  };
+
+  const roleBriefingAudioByRound: Record<number, { audioUrl: string; fileName: string; durationSec: number }> = {
+    1: {
+      audioUrl: '/assets/aistudio/ElevenLabs_2026-10-20T13_49_46_Claudia_ivc_sp100_s50_sb75_v4.mp3',
+      fileName: 'Round_1_Role_Briefing_Claudia.mp3',
+      durationSec: 19,
+    },
+    2: {
+      audioUrl: '/assets/aistudio/ElevenLabs_2026-10-24T14_05_52_Claudia_ivc_sp100_s50_sb75_v4.mp3',
+      fileName: 'Round_2_Role_Briefing_Claudia.mp3',
+      durationSec: 9,
+    },
+    3: {
+      audioUrl: '/assets/aistudio/ElevenLabs_2026-10-24T14_48_06_Claudia_ivc_sp100_s50_sb75_v4.mp3',
+      fileName: 'Round_3_Role_Briefing_Claudia.mp3',
+      durationSec: 14,
+    },
+    4: {
+      audioUrl: '/assets/aistudio/ElevenLabs_2026-10-24T15_17_26_Claudia_ivc_sp100_s50_sb75_v4.mp3',
+      fileName: 'Round_4_Role_Briefing_Claudia.mp3',
+      durationSec: 15,
+    },
+    5: {
+      audioUrl: '/assets/aistudio/ElevenLabs_2026-10-24T15_32_44_Claudia_ivc_sp100_s50_sb75_v4__1__ab52da49.mp3',
+      fileName: 'Round_5_Role_Briefing_Claudia.mp3',
+      durationSec: 16,
+    },
+    6: {
+      audioUrl: '/assets/aistudio/ElevenLabs_2026-10-24T15_43_40_Claudia_ivc_sp100_s50_sb75_v4.mp3',
+      fileName: 'Round_6_Role_Briefing_Claudia.mp3',
+      durationSec: 15,
+    },
+  };
+
+  const missionAudioByRound: Record<number, { audioUrl: string; fileName: string; durationSec: number }> = {
+    1: {
+      audioUrl: '/assets/aistudio/ElevenLabs_2026-10-20T17_03_10_Claudia_ivc_sp100_s50_sb75_v4.mp3',
+      fileName: 'Round_1_Mission_Exhibit_A_Claudia.mp3',
+      durationSec: 28,
+    },
+    2: {
+      audioUrl: '/assets/aistudio/ElevenLabs_2026-10-24T14_12_33_Claudia_ivc_sp100_s50_sb75_v4_c621a2e3.mp3',
+      fileName: 'Round_2_Mission_Birthday_Majority_Claudia.mp3',
+      durationSec: 25,
+    },
+    3: {
+      audioUrl: '/assets/aistudio/ElevenLabs_2026-10-24T14_49_51_Claudia_ivc_sp100_s50_sb75_v4.mp3',
+      fileName: 'Round_3_Mission_Forgery_Gallery_Claudia.mp3',
+      durationSec: 19,
+    },
+    4: {
+      audioUrl: '/assets/aistudio/ElevenLabs_2026-10-24T15_20_21_Claudia_ivc_sp100_s50_sb75_v4_c4d3b012.mp3',
+      fileName: 'Round_4_Mission_Body_Disposal_Claudia.mp3',
+      durationSec: 34,
+    },
+    5: {
+      audioUrl: '/assets/aistudio/ElevenLabs_2026-10-24T15_33_58_Claudia_ivc_sp100_s50_sb75_v4__1__6f7fd83c.mp3',
+      fileName: 'Round_5_Mission_Counterfeit_Expert_Claudia.mp3',
+      durationSec: 24,
+    },
+    6: {
+      audioUrl: '/assets/aistudio/ElevenLabs_2026-10-24T15_44_45_Claudia_ivc_sp100_s50_sb75_v4.mp3',
+      fileName: 'Round_6_Mission_Getaway_Auction_Claudia.mp3',
+      durationSec: 22,
+    },
+  };
+
+  const roundTableAudioByRound: Record<number, { audioUrl: string; fileName: string; durationSec: number }> = {
+    1: {
+      audioUrl: '/assets/aistudio/ElevenLabs_2026-10-20T17_01_04_Claudia_ivc_sp100_s50_sb75_v4_f3a7a8ee.mp3',
+      fileName: 'Round_1_Round_Table_Claudia.mp3',
+      durationSec: 24,
+    },
+    2: {
+      audioUrl: '/assets/aistudio/ElevenLabs_2026-10-24T14_27_59_Claudia_ivc_sp100_s50_sb75_v4_13301d74.mp3',
+      fileName: 'Round_2_Round_Table_Claudia.mp3',
+      durationSec: 14,
+    },
+    3: {
+      audioUrl: '/assets/aistudio/ElevenLabs_2026-10-24T15_14_49_Claudia_ivc_sp100_s50_sb75_v4_8da55de8.mp3',
+      fileName: 'Round_3_Round_Table_Claudia.mp3',
+      durationSec: 28,
+    },
+    4: {
+      audioUrl: '/assets/aistudio/ElevenLabs_2026-10-24T15_30_37_Claudia_ivc_sp100_s50_sb75_v4.mp3',
+      fileName: 'Round_4_Round_Table_Claudia.mp3',
+      durationSec: 24,
+    },
+    5: {
+      audioUrl: '/assets/aistudio/ElevenLabs_2026-10-24T15_41_20_Claudia_ivc_sp100_s50_sb75_v4.mp3',
+      fileName: 'Round_5_Round_Table_Claudia.mp3',
+      durationSec: 24,
+    },
+    6: {
+      audioUrl: '/assets/aistudio/ElevenLabs_2026-10-24T15_48_08_Claudia_ivc_sp100_s50_sb75_v4_6dfe2fbc.mp3',
+      fileName: 'Round_6_Round_Table_Claudia.mp3',
+      durationSec: 28,
+    },
+  };
+
+  const FINALE_IMAGE_URL = '/assets/aistudio/Seven_at_the_final_reveal_84c3c2c2.png';
 
   // ROUNDS 1 TO 6 COMPLETE CATALOG
   for (let r = 1; r <= 6; r++) {
     const s = HOST_SCRIPTS[r] || HOST_SCRIPTS[1];
 
-    // 1. Prologue / Intro (Same image as Round 1 repeated across all rounds)
+    // 1. Prologue / Intro
     scenes.push({
       id: `ROUND_${r}_INTRO`,
       title: `Round ${r}: Prologue`,
@@ -114,20 +260,11 @@ function buildInitialScenes(): SceneMediaConfig[] {
       round: r,
       phase: 'INTRO',
       defaultText: s.intro,
-      defaultImageUrl: PRESET_CASTLE_IMAGES[1].url,
-      ...(r === 2
-        ? {
-            voiceClip: {
-              audioUrl:
-                '/assets/aistudio/ElevenLabs_2026-10-24T13_34_30_Claudia_ivc_sp100_s50_sb75_v4_2e1ac63c.mp3',
-              fileName: 'Round_2_Prologue_Claudia.mp3',
-              durationSec: 15,
-            },
-          }
-        : {}),
+      defaultImageUrl: r === 6 ? FINALE_IMAGE_URL : PRESET_CASTLE_IMAGES[1].url,
+      voiceClip: introAudioByRound[r],
     });
 
-    // 2. Role Briefing (Same image as Round 1 repeated across all rounds)
+    // 2. Role Briefing
     scenes.push({
       id: `ROUND_${r}_ROLE_BRIEFING`,
       title: `Round ${r}: Role Briefing`,
@@ -135,17 +272,8 @@ function buildInitialScenes(): SceneMediaConfig[] {
       round: r,
       phase: 'ROLE_BRIEFING',
       defaultText: s.roleBriefing,
-      defaultImageUrl: PRESET_CASTLE_IMAGES[1].url,
-      ...(r === 5
-        ? {
-            voiceClip: {
-              audioUrl:
-                '/assets/aistudio/ElevenLabs_2026-10-24T15_32_44_Claudia_ivc_sp100_s50_sb75_v4__1__ab52da49.mp3',
-              fileName: 'Round_5_Role_Briefing_Claudia.mp3',
-              durationSec: 16,
-            },
-          }
-        : {}),
+      defaultImageUrl: r === 6 ? FINALE_IMAGE_URL : PRESET_CASTLE_IMAGES[1].url,
+      voiceClip: roleBriefingAudioByRound[r],
     });
 
     // 3. Mission
@@ -163,9 +291,7 @@ function buildInitialScenes(): SceneMediaConfig[] {
       subtitle: r === 1 ? 'Examine the 8 crime scene objects and select Exhibit A' : `Instructions and rules for Round ${r} mission play`,
       round: r,
       phase: 'MISSION',
-      defaultText: r === 1
-        ? 'Look closely at the crime scene before you. Eight curious objects rest upon the table beside our slumbering Lord. One will be chosen as Exhibit A. One Traitor has secretly planted their mark.'
-        : s.missionStart,
+      defaultText: s.missionStart,
       defaultImageUrl:
         r === 1
           ? '/assets/aistudio/The_Candlelit_Castle_Mystery_891f6711.png'
@@ -177,35 +303,8 @@ function buildInitialScenes(): SceneMediaConfig[] {
           ? '/assets/aistudio/Pirate_s_Tandem_Escape_Plan_b8d68311.png'
           : r === 5
           ? '/assets/aistudio/Woman_Presenting_a_Brass_Teacup_Invention_8d0dc60f.png'
-          : PRESET_CASTLE_IMAGES[10].url,
-      ...(r === 2
-        ? {
-            voiceClip: {
-              audioUrl:
-                '/assets/aistudio/ElevenLabs_2026-10-24T14_12_33_Claudia_ivc_sp100_s50_sb75_v4_c621a2e3.mp3',
-              fileName: 'Round_2_Mission_Birthday_Majority_Claudia.mp3',
-              durationSec: 25,
-            },
-          }
-        : r === 4
-        ? {
-            voiceClip: {
-              audioUrl:
-                '/assets/aistudio/ElevenLabs_2026-10-24T15_20_21_Claudia_ivc_sp100_s50_sb75_v4_c4d3b012.mp3',
-              fileName: 'Round_4_Mission_Body_Disposal_Claudia.mp3',
-              durationSec: 34,
-            },
-          }
-        : r === 5
-        ? {
-            voiceClip: {
-              audioUrl:
-                '/assets/aistudio/ElevenLabs_2026-10-24T15_33_58_Claudia_ivc_sp100_s50_sb75_v4__1__6f7fd83c.mp3',
-              fileName: 'Round_5_Mission_Counterfeit_Expert_Claudia.mp3',
-              durationSec: 24,
-            },
-          }
-        : {}),
+          : '/assets/aistudio/Final_mission_The_getaway_auction.png',
+      voiceClip: missionAudioByRound[r],
     });
 
     // 3b. Round 3 Forgery Gallery — Pens Down (Played automatically when the 2-minute timer finishes)
@@ -219,10 +318,15 @@ function buildInitialScenes(): SceneMediaConfig[] {
         defaultText:
           "Pens down! Your masterpieces are complete — I'm using that word very generously. Hold up your drawings in three, two, one! Have a good look around. The Faithful were all working from the same secret brief. The Traitor had something different. Who's drawn something suspicious, and who is simply terrible at drawing?",
         defaultImageUrl: '/assets/aistudio/The_Forgery_Gallery_efeeaa3f.png',
+        voiceClip: {
+          audioUrl: '/assets/aistudio/ElevenLabs_2026-10-24T14_51_56_Claudia_ivc_sp100_s50_sb75_v4.mp3',
+          fileName: 'Round_3_Pens_Down_Claudia.mp3',
+          durationSec: 22,
+        },
       });
     }
 
-    // 4. Round Table Debate (Same image across all rounds 1-6; bespoke script & audio per round)
+    // 4. Round Table Debate
     scenes.push({
       id: `ROUND_${r}_ROUND_TABLE`,
       title: `Round ${r}: The Round Table`,
@@ -230,47 +334,14 @@ function buildInitialScenes(): SceneMediaConfig[] {
       round: r,
       phase: 'ROUND_TABLE',
       defaultText: s.roundTable,
-      defaultImageUrl: '/assets/aistudio/Seven_Sealed_Slates_at_the_Round_Table_a2338a35.png',
-      ...(r === 1
-        ? {
-            voiceClip: {
-              audioUrl:
-                '/assets/aistudio/ElevenLabs_2026-10-20T17_01_04_Claudia_ivc_sp100_s50_sb75_v4_f3a7a8ee.mp3',
-              fileName: 'Round_1_Round_Table_Claudia.mp3',
-              durationSec: 24,
-            },
-          }
-        : r === 2
-        ? {
-            voiceClip: {
-              audioUrl:
-                '/assets/aistudio/ElevenLabs_2026-10-24T14_27_59_Claudia_ivc_sp100_s50_sb75_v4_13301d74.mp3',
-              fileName: 'Round_2_Round_Table_Claudia.mp3',
-              durationSec: 14,
-            },
-          }
-        : r === 3
-        ? {
-            voiceClip: {
-              audioUrl:
-                '/assets/aistudio/ElevenLabs_2026-10-24T15_14_49_Claudia_ivc_sp100_s50_sb75_v4_8da55de8.mp3',
-              fileName: 'Round_3_Round_Table_Claudia.mp3',
-              durationSec: 28,
-            },
-          }
-        : r === 6
-        ? {
-            voiceClip: {
-              audioUrl:
-                '/assets/aistudio/ElevenLabs_2026-10-24T15_48_08_Claudia_ivc_sp100_s50_sb75_v4_6dfe2fbc.mp3',
-              fileName: 'Round_6_Round_Table_Claudia.mp3',
-              durationSec: 28,
-            },
-          }
-        : {}),
+      defaultImageUrl:
+        r === 6
+          ? FINALE_IMAGE_URL
+          : '/assets/aistudio/Seven_Sealed_Slates_at_the_Round_Table_a2338a35.png',
+      voiceClip: roundTableAudioByRound[r],
     });
 
-    // 5. Voting Slates Open (Duplicated across all rounds 1-6)
+    // 5. Voting Slates Open
     scenes.push({
       id: `ROUND_${r}_VOTING`,
       title: `Round ${r}: Voting Slates Open`,
@@ -278,10 +349,18 @@ function buildInitialScenes(): SceneMediaConfig[] {
       round: r,
       phase: 'VOTING',
       defaultText: s.votingOpen,
-      defaultImageUrl: '/assets/aistudio/Seven_Sealed_Slates_at_the_Round_Table_a2338a35.png',
+      defaultImageUrl:
+        r === 6
+          ? FINALE_IMAGE_URL
+          : '/assets/aistudio/Seven_Sealed_Slates_at_the_Round_Table_a2338a35.png',
+      voiceClip: {
+        audioUrl: '/assets/aistudio/ElevenLabs_2026-10-20T17_13_30_Claudia_ivc_sp100_s50_sb75_v4.mp3',
+        fileName: `Round_${r}_Voting_Open_Claudia.mp3`,
+        durationSec: 17,
+      },
     });
 
-    // 6. All Votes Locked (Duplicated across all rounds 1-6)
+    // 6. All Votes Locked
     scenes.push({
       id: `ROUND_${r}_ALL_LOCKED`,
       title: `Round ${r}: All Votes Locked`,
@@ -289,10 +368,18 @@ function buildInitialScenes(): SceneMediaConfig[] {
       round: r,
       phase: 'VOTE_REVEALS',
       defaultText: s.allVotesLocked,
-      defaultImageUrl: '/assets/aistudio/Seven_Sealed_Slates_at_the_Round_Table_a2338a35.png',
+      defaultImageUrl:
+        r === 6
+          ? FINALE_IMAGE_URL
+          : '/assets/aistudio/Seven_Sealed_Slates_at_the_Round_Table_a2338a35.png',
+      voiceClip: {
+        audioUrl: '/assets/aistudio/ElevenLabs_2026-10-20T17_14_29_Claudia_ivc_sp100_s50_sb75_v4.mp3',
+        fileName: `Round_${r}_All_Votes_Locked_Claudia.mp3`,
+        durationSec: 12,
+      },
     });
 
-    // 7. Banishment Reveal Ceremony (Duplicated across all rounds 1-6)
+    // 7. Banishment Reveal Ceremony
     scenes.push({
       id: `ROUND_${r}_BANISHMENT_OUTCOME`,
       title: `Round ${r}: Banishment Reveal`,
@@ -300,7 +387,10 @@ function buildInitialScenes(): SceneMediaConfig[] {
       round: r,
       phase: 'BANISHMENT_OUTCOME',
       defaultText: s.banishment('Someone', false),
-      defaultImageUrl: '/assets/aistudio/Candlelit_Banishment_Reveal_50dd669e.png',
+      defaultImageUrl:
+        r === 6
+          ? FINALE_IMAGE_URL
+          : '/assets/aistudio/Candlelit_Banishment_Reveal_50dd669e.png',
       voiceClip: {
         audioUrl:
           '/assets/aistudio/ElevenLabs_2026-10-24T13_04_48_Claudia_ivc_sp100_s50_sb75_v4_e982cd57.mp3',
@@ -318,7 +408,13 @@ function buildInitialScenes(): SceneMediaConfig[] {
     round: 6,
     phase: 'FINAL_RESULTS',
     defaultText: HOST_SCRIPTS[6].finalResults('The Grand Champion'),
-    defaultImageUrl: PRESET_CASTLE_IMAGES[5].url,
+    defaultImageUrl: FINALE_IMAGE_URL,
+    voiceClip: {
+      audioUrl:
+        '/assets/aistudio/ElevenLabs_2026-10-24T17_15_37_Claudia_ivc_sp100_s50_sb75_v4_f94b6dc6.mp3',
+      fileName: 'Round_6_Final_Results_Claudia.mp3',
+      durationSec: 21,
+    },
   });
 
   scenes.push({
@@ -341,8 +437,15 @@ function buildInitialScenes(): SceneMediaConfig[] {
     title: 'Deadlock & Tie Defence',
     subtitle: 'Pleading for your lives in sixty seconds before a revote',
     phase: 'TIE_DEFENCE',
-    defaultText: "A deadlock! An exact tie. You each have sixty seconds to plead for your lives before a revote.",
+    defaultText:
+      "Stop everything! A deadlock at the Round Table — an exact tie! Look at the screen to see who is in the firing line. You each have sixty seconds to plead for your lives and convince this table of your innocence before we go to a sudden-death revote. Your time starts now!",
     defaultImageUrl: PRESET_CASTLE_IMAGES[1].url,
+    voiceClip: {
+      audioUrl:
+        '/assets/aistudio/ElevenLabs_2026-10-24T17_24_00_Claudia_ivc_sp100_s50_sb75_v4_35c184ad.mp3',
+      fileName: 'Tie_Defence_Claudia.mp3',
+      durationSec: 19,
+    },
   });
 
   return scenes;
@@ -415,7 +518,12 @@ class AdminMediaService {
           ? saved.voiceClip
           : undefined;
       const validCustomImage =
-        saved.customImageUrl && !invalidUrls.has(saved.customImageUrl)
+        saved.customImageUrl &&
+        !invalidUrls.has(saved.customImageUrl) &&
+        !(
+          existing?.defaultImageUrl?.startsWith('/assets/aistudio/') &&
+          saved.customImageUrl.startsWith('/src/assets/images/')
+        )
           ? saved.customImageUrl
           : undefined;
       const validCustomText =
@@ -570,6 +678,7 @@ class AdminMediaService {
       FINALE_AUCTION_RECAP: 'ROUND_TABLE',
       FINALE_VOTING: 'VOTING',
       TIE_VOTING: 'VOTING',
+      FINALE_TIE_VOTING: 'VOTING',
       FINALE_VOTE_REVEALS: 'VOTE_REVEALS',
       TIE_REVEALS: 'VOTE_REVEALS',
       FINALE_TIE_REVEALS: 'VOTE_REVEALS',

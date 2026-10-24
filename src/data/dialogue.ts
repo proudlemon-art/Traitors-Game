@@ -47,6 +47,9 @@ export const SHARED_ALL_VOTES_LOCKED_SCRIPT =
 export const SHARED_BANISHMENT_REVEAL_SCRIPT =
   "The votes are in. The decision is final. One of you has just been banished by your own friends. Happy birthday, Libby. If you’ve received the most votes, please stand. Take a moment. Look around at the people who’ve done this to you. Some look terribly pleased with themselves. We’ll see how long that lasts. Before you leave, there is one thing we need to know. Are you a Faithful, or a Traitor?";
 
+export const SHARED_TIE_DEFENCE_SCRIPT =
+  "Stop everything! A deadlock at the Round Table — an exact tie! Look at the screen to see who is in the firing line. You each have sixty seconds to plead for your lives and convince this table of your innocence before we go to a sudden-death revote. Your time starts now!";
+
 export const HOST_SCRIPTS: Record<number, HostDialogueSet> = {
   1: {
     intro:
@@ -54,7 +57,7 @@ export const HOST_SCRIPTS: Record<number, HostDialogueSet> = {
     roleBriefing:
       "Round One. Look down at your phones. Shield your glass screens. One Traitor has been chosen; six of you are Faithful. Traitor... memorise your secret assignment. Faithful... observe every nervous gulp. When you are ready, lock away your screens.",
     missionStart:
-      "The lord of the castle is dead. Seven objects were recovered from the scene. One of them is going in the evidence bag. Unfortunately, our entire forensic department is you.\n\nOne object was planted by the Traitor. Their assignment is to persuade you to choose it as Exhibit A. You know what they’re trying to do. You don’t know which object they need you to choose.",
+      "The lord of the castle is dead. Kyle is gone. His eyebrows are expected to arrive at the mortuary sometime tomorrow. Seven objects were recovered from the scene. One of them is going in the evidence bag. Unfortunately, our entire forensic department is you.\n\nOne object was planted by the Traitor. Their assignment is to persuade you to choose it as Exhibit A. You know what they’re trying to do. You don’t know which object they need you to choose.",
     roundTable: SHARED_ROUND_TABLE_SCRIPT,
     votingOpen: SHARED_VOTING_OPEN_SCRIPT,
     allVotesLocked: SHARED_ALL_VOTES_LOCKED_SCRIPT,
@@ -63,8 +66,7 @@ export const HOST_SCRIPTS: Record<number, HostDialogueSet> = {
     voteConfirmedSlate: (voterName: string, targetName: string) =>
       `${voterName} has accused ${targetName}! Oh, the betrayal. The drama is delicious.`,
     banishment: (_targetName: string, _isTraitor: boolean) => SHARED_BANISHMENT_REVEAL_SCRIPT,
-    tieOccurred: (names: string[]) =>
-      `A deadlock! An exact tie between ${names.join(' and ')}. You each have sixty seconds to plead for your lives before a revote.`,
+    tieOccurred: (_names: string[]) => SHARED_TIE_DEFENCE_SCRIPT,
     tieBanishmentFailed:
       "A second tie! By castle decree, nobody is banished tonight. The Traitor survives to laugh another day.",
     assignmentReveal: (traitorName: string, _objectiveTitle: string) =>
@@ -90,8 +92,7 @@ export const HOST_SCRIPTS: Record<number, HostDialogueSet> = {
     voteConfirmedSlate: (voterName: string, targetName: string) =>
       `${voterName} points the finger directly at ${targetName}. Chills, literal chills.`,
     banishment: (_targetName: string, _isTraitor: boolean) => SHARED_BANISHMENT_REVEAL_SCRIPT,
-    tieOccurred: (names: string[]) =>
-      `We have an exact tie between ${names.join(' and ')}. Sixty seconds on the clock to save yourselves. Go!`,
+    tieOccurred: (_names: string[]) => SHARED_TIE_DEFENCE_SCRIPT,
     tieBanishmentFailed:
       "Still tied! Nobody leaves tonight. The Traitor has survived another trial.",
     assignmentReveal: (traitorName: string, objectiveTitle: string) =>
@@ -117,8 +118,7 @@ export const HOST_SCRIPTS: Record<number, HostDialogueSet> = {
     voteConfirmedSlate: (voterName: string, targetName: string) =>
       `${voterName} accuses ${targetName}. Oh, the cruelty! I love it.`,
     banishment: (_targetName: string, _isTraitor: boolean) => SHARED_BANISHMENT_REVEAL_SCRIPT,
-    tieOccurred: (names: string[]) =>
-      `We have a deadlock between ${names.join(' and ')}. Revote required immediately!`,
+    tieOccurred: (_names: string[]) => SHARED_TIE_DEFENCE_SCRIPT,
     tieBanishmentFailed:
       "No banishment! The Traitor survives another trial. Unbelievable scenes.",
     assignmentReveal: (traitorName: string, objectiveTitle: string) =>
@@ -143,8 +143,7 @@ export const HOST_SCRIPTS: Record<number, HostDialogueSet> = {
     voteConfirmedSlate: (voterName: string, targetName: string) =>
       `${voterName} casts their vote against ${targetName}.`,
     banishment: (_targetName: string, _isTraitor: boolean) => SHARED_BANISHMENT_REVEAL_SCRIPT,
-    tieOccurred: (names: string[]) =>
-      `Tied vote between ${names.join(' and ')}! Defend your lives!`,
+    tieOccurred: (_names: string[]) => SHARED_TIE_DEFENCE_SCRIPT,
     tieBanishmentFailed:
       "Tie unbroken. No banishment tonight. The Traitor smiles in the shadows.",
     assignmentReveal: (traitorName: string, objectiveTitle: string) =>
@@ -169,7 +168,7 @@ export const HOST_SCRIPTS: Record<number, HostDialogueSet> = {
     voteConfirmedSlate: (voterName: string, targetName: string) =>
       `${voterName} points the finger at ${targetName}.`,
     banishment: (_targetName: string, _isTraitor: boolean) => SHARED_BANISHMENT_REVEAL_SCRIPT,
-    tieOccurred: (names: string[]) => `Deadlock between ${names.join(' and ')}. Revote!`,
+    tieOccurred: (_names: string[]) => SHARED_TIE_DEFENCE_SCRIPT,
     tieBanishmentFailed: "No banishment! The Traitor survives to the grand finale.",
     assignmentReveal: (traitorName: string, objectiveTitle: string) =>
       `${traitorName} had to guess the missing word: '${objectiveTitle}'. Did they pull it off?`,
@@ -193,16 +192,15 @@ export const HOST_SCRIPTS: Record<number, HostDialogueSet> = {
     voteConfirmedSlate: (voterName: string, targetName: string) =>
       `${voterName} delivers their accusation against ${targetName}.`,
     banishment: (_targetName: string, _isTraitor: boolean) => SHARED_BANISHMENT_REVEAL_SCRIPT,
-    tieOccurred: (names: string[]) =>
-      `A tie in the final hour between ${names.join(' and ')}! Defend yourselves!`,
+    tieOccurred: (_names: string[]) => SHARED_TIE_DEFENCE_SCRIPT,
     tieBanishmentFailed:
       "Tied revote! No banishment! Discussion must resume until an elimination is decided.",
     assignmentReveal: (traitorName: string, objectiveTitle: string) =>
       `The final Traitor was ${traitorName}. Their secret mission: '${objectiveTitle}'.`,
     roundSummary: (_roundNum: number, _winnerTeam: string) =>
       `The six rounds are concluded! It is time for the Grand Awards ceremony. Bring out the cake!`,
-    finalResults: (winnerName: string) =>
-      `What an evening of sheer theatrical drama, Scottish mist, and breathtaking deceit. Our Grand Champion is ${winnerName}! Happy Birthday Libby!`,
+    finalResults: (_winnerName: string) =>
+      "What an evening of sheer theatrical drama, Scottish mist, and breathtaking deceit at Jasmine’s Castle! The dust has settled, the cloaks are off, and the final scores are locked in. Look up at the castle screen right now to behold our Grand Champion and tonight’s awards. Raise a glass, and Happy Birthday, Libby!",
   },
 };
 

@@ -86,9 +86,16 @@ export const ClaudiaBroadcastVideo: React.FC<Props> = ({
   const hasCustomVoiceClip = !!effectiveVoiceClip?.audioUrl;
 
   // Determine active visual image
+  const isFinalePhase =
+    phase.startsWith('FINALE_') ||
+    phase === 'FINAL_RESULTS' ||
+    (currentRound === 6 && phase !== 'MISSION');
+
   const displayImage =
     activeScene?.customImageUrl ||
-    activeScene?.defaultImageUrl ||
+    (isFinalePhase
+      ? '/assets/aistudio/Seven_at_the_final_reveal_84c3c2c2.png'
+      : activeScene?.defaultImageUrl) ||
     (phase === 'MISSION' && currentRound === 1
       ? '/assets/aistudio/The_Candlelit_Castle_Mystery_891f6711.png'
       : phase === 'MISSION' && currentRound === 2
@@ -99,6 +106,8 @@ export const ClaudiaBroadcastVideo: React.FC<Props> = ({
       ? '/assets/aistudio/Pirate_s_Tandem_Escape_Plan_b8d68311.png'
       : phase === 'MISSION' && currentRound === 5
       ? '/assets/aistudio/Woman_Presenting_a_Brass_Teacup_Invention_8d0dc60f.png'
+      : phase === 'MISSION' && currentRound === 6
+      ? '/assets/aistudio/Final_mission_The_getaway_auction.png'
       : '/assets/aistudio/Screenshot_2026-10-20_at_11.50.13_adceafb3.png');
 
   const sceneTitle =
