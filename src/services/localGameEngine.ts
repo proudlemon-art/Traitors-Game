@@ -570,7 +570,8 @@ export function sanitizeLocalState(
     const canRevealThisPlayerRole =
       (isRound1to5PostBanishment && s.currentRound < 6) ||
       isFinalResultsRevealed ||
-      (s.phase === 'FINALE_FINAL_REVEAL' && s.finaleState?.revealedSurvivorIds.includes(p.id));
+      (s.phase === 'FINALE_FINAL_REVEAL' && s.finaleState?.revealedSurvivorIds.includes(p.id)) ||
+      (s.phase === 'FINALE_ELIMINATION' && s.finaleState?.currentEliminatedPlayerId === p.id);
 
     return {
       id: p.id,
@@ -1766,7 +1767,7 @@ class LocalGameEngine {
             s.finaleState.eliminationCount += 1;
             s.phase = 'FINALE_ELIMINATION';
             s.finaleState.stage = 'ELIMINATION_OUTCOME';
-            s.latestDialogue = `The circle has closed. ${banishedPlayer?.name || 'Someone'} has been permanently eliminated. Their identity remains shrouded in mist.`;
+            s.latestDialogue = HOST_SCRIPTS[6].banishment(banishedPlayer?.name || 'Someone', false);
           }
         }
         break;
@@ -2046,7 +2047,7 @@ class LocalGameEngine {
           s,
           'FINALE_DISCUSSION',
           180,
-          `Discussion Cycle ${s.finaleState.cycleNumber}. Four minutes on the clock to question the survivors.`
+          HOST_SCRIPTS[6].roundTable
         );
         break;
       }
@@ -2059,7 +2060,7 @@ class LocalGameEngine {
           s,
           'FINALE_VOTING',
           120,
-          'Banishment — vote for a PERSON. Permanent elimination. Choose with utmost care.'
+          HOST_SCRIPTS[6].votingOpen
         );
         Object.values(room.players).forEach(p => {
           p.hasLockedVote = false;
@@ -2091,7 +2092,7 @@ class LocalGameEngine {
           s.phase = 'FINALE_VOTE_REVEALS';
           s.finaleState.stage = 'VOTE_REVEALS';
           s.currentRevealIndex = 0;
-          s.latestDialogue = 'All surviving slates locked. Let the slates turn in seating order.';
+          s.latestDialogue = HOST_SCRIPTS[6].allVotesLocked;
         }
         break;
       }
@@ -2163,7 +2164,7 @@ class LocalGameEngine {
             s.finaleState.eliminationCount += 1;
             s.phase = 'FINALE_ELIMINATION';
             s.finaleState.stage = 'ELIMINATION_OUTCOME';
-            s.latestDialogue = `The circle has closed. ${banishedPlayer?.name || 'Someone'} has been permanently eliminated. Their identity remains shrouded in mist.`;
+            s.latestDialogue = HOST_SCRIPTS[6].banishment(banishedPlayer?.name || 'Someone', false);
           }
         }
         break;

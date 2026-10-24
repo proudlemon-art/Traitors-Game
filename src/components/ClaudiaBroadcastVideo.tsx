@@ -80,6 +80,8 @@ export const ClaudiaBroadcastVideo: React.FC<Props> = ({
     activeScene?.defaultImageUrl ||
     (phase === 'MISSION' && currentRound === 1
       ? '/assets/aistudio/The_Candlelit_Castle_Mystery_891f6711.png'
+      : phase === 'MISSION' && currentRound === 2
+      ? '/assets/aistudio/Birthday_Majority_in_the_Castle_925a5814.png'
       : '/assets/aistudio/Screenshot_2026-10-20_at_11.50.13_adceafb3.png');
 
   const sceneTitle =

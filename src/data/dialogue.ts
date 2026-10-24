@@ -35,6 +35,18 @@ Please forgive me. You are a good girl.
 
 I am a fucking liability.`;
 
+export const SHARED_ROUND_TABLE_SCRIPT =
+  "Who was steering the investigation? And who suddenly became very interested in somebody else’s object? I’m looking at you, Jamie.\n\nThat isn’t evidence. I just think you need watching.\n\nTake your seats at the Round Table. Bring your suspicions, your flimsy theories, and the confidence of someone who’s got absolutely fuck all to back them up. The debate begins now.";
+
+export const SHARED_VOTING_OPEN_SCRIPT =
+  "Banishment — vote for a PERSON.\n\nThe time for polite chatter has officially evaporated. Cast your accusations in secret on your phones. Poppy, darling... follow your instincts. Unless they’re shit. Lock in your votes. Let’s ruin someone’s evening.";
+
+export const SHARED_ALL_VOTES_LOCKED_SCRIPT =
+  "Every single slate is locked in wax. Seven accusations sealed in cold blood. We shall now reveal your slates... one by one, in seating order.";
+
+export const SHARED_BANISHMENT_REVEAL_SCRIPT =
+  "The votes are in. The decision is final. One of you has just been banished by your own friends. Happy birthday, Libby. If you’ve received the most votes, please stand. Take a moment. Look around at the people who’ve done this to you. Some look terribly pleased with themselves. We’ll see how long that lasts. Before you leave, there is one thing we need to know. Are you a Faithful, or a Traitor?";
+
 export const HOST_SCRIPTS: Record<number, HostDialogueSet> = {
   1: {
     intro:
@@ -43,59 +55,48 @@ export const HOST_SCRIPTS: Record<number, HostDialogueSet> = {
       "Round One. Look down at your phones. Shield your glass screens. One Traitor has been chosen; six of you are Faithful. Traitor... memorise your secret assignment. Faithful... observe every nervous gulp. When you are ready, lock away your screens.",
     missionStart:
       "The lord of the castle is dead. Seven objects were recovered from the scene. One of them is going in the evidence bag. Unfortunately, our entire forensic department is you.\n\nOne object was planted by the Traitor. Their assignment is to persuade you to choose it as Exhibit A. You know what they’re trying to do. You don’t know which object they need you to choose.",
-    roundTable:
-      "Who was steering the investigation? Did anyone suddenly become very interested in somebody else’s object?\n\nTake your seats at the Round Table. The debate begins now.",
-    votingOpen:
-      "Banishment — vote for a PERSON.\n\nThe time for polite chatter has officially evaporated. Cast your accusations in secret on your phones.",
-    allVotesLocked:
-      "Every single slate is locked in wax. Seven accusations sealed in cold blood. We shall now reveal your slates... one by one, in seating order.",
+    roundTable: SHARED_ROUND_TABLE_SCRIPT,
+    votingOpen: SHARED_VOTING_OPEN_SCRIPT,
+    allVotesLocked: SHARED_ALL_VOTES_LOCKED_SCRIPT,
     phoneSlateTurn: (playerName: string) =>
       `${playerName}... darling, lift your slate high. Turn your phone toward the room and tell us who you want to destroy.`,
     voteConfirmedSlate: (voterName: string, targetName: string) =>
       `${voterName} has accused ${targetName}! Oh, the betrayal. The drama is delicious.`,
-    banishment: (targetName: string, isTraitor: boolean) =>
-      isTraitor
-        ? `The castle has spoken! ${targetName}... step into the circle of fire. Look into my eyes. You were... A TRAITOR! You caught them! Pure cinema!`
-        : `The castle has spoken! ${targetName}... step into the circle. Look into my eyes... Oh no. You were... 100% FAITHFUL! You have banished an innocent friend on Libby's birthday! Shame on all of you!`,
+    banishment: (_targetName: string, _isTraitor: boolean) => SHARED_BANISHMENT_REVEAL_SCRIPT,
     tieOccurred: (names: string[]) =>
       `A deadlock! An exact tie between ${names.join(' and ')}. You each have sixty seconds to plead for your lives before a revote.`,
     tieBanishmentFailed:
       "A second tie! By castle decree, nobody is banished tonight. The Traitor survives to laugh another day.",
-    assignmentReveal: (traitorName: string, objectiveTitle: string) =>
+    assignmentReveal: (traitorName: string, _objectiveTitle: string) =>
       `Now for the twist. ${traitorName} was the Traitor! Did their planted object become Exhibit A? Let us look at the evidence.`,
-    roundSummary: (roundNum: number, winnerTeam: string) =>
+    roundSummary: (roundNum: number, _winnerTeam: string) =>
       `End of Round ${roundNum}! The scoreboard is updated. Remember... in round two, roles are completely reshuffled.`,
     finalResults: (winnerName: string) =>
       `All six rounds complete! Our Grand Champion is ${winnerName}!`,
   },
   2: {
     intro:
-      "Round Two, my darlings. Fresh cloaks have been dealt in the dark. The previous Traitor might now be as innocent as a newborn lamb... or they might be holding the poisoned chalice again. Trust nobody.",
+      "Round Two, my darlings. Fresh cloaks have been dealt in the dark. The previous Traitor might now be as innocent as a newborn lamb... or, they might be holding the poisoned chalice again. Trust nobody.",
     roleBriefing:
-      "Shield your devices. One Traitor. Six Faithful. Absorb your role in silence.",
+      "Shield your devices. One Traitor. Six Faithful. Absorb your role in silence... in silence, Gemma.",
     missionStart:
-      "Mission Two: The Birthday Majority! Five delightfully indiscreet questions about everyone in this room. You will all secretly answer who is most likely to do what, then try to predict the group's consensus. Honesty is optional; accuracy is rewarded.",
+      "Mission Two: The Birthday Majority! Five delightfully indiscreet questions about everyone in this room. You will all secretly answer who is most likely to do what, then try to predict the group's consensus. Chris has been very quiet. I suspect he's been saving his opinions for a format where nobody can interrupt. Honesty is optional; accuracy is rewarded.",
     roundTable:
-      "Back to the Round Table. Who threw who under the bus in the majority voting? Who tried to steer the predictions away from the truth? Defend yourselves.",
-    votingOpen:
-      "Banishment — vote for a PERSON. Slates ready, my loves. Pick your suspect and lock it in.",
-    allVotesLocked:
-      "Seven votes sealed in wax. The tension is magnificent. Let the slates turn.",
+      "Back to the Round Table. Who threw who under the bus in the majority voting? Probably Poppy. Who tried to steer the predictions away from the truth? Probably Poppy. Defend yourself, Poppy.",
+    votingOpen: SHARED_VOTING_OPEN_SCRIPT,
+    allVotesLocked: SHARED_ALL_VOTES_LOCKED_SCRIPT,
     phoneSlateTurn: (playerName: string) =>
       `${playerName}... raise your slate to the table. Speak your mind. Do not hold back.`,
     voteConfirmedSlate: (voterName: string, targetName: string) =>
       `${voterName} points the finger directly at ${targetName}. Chills, literal chills.`,
-    banishment: (targetName: string, isTraitor: boolean) =>
-      isTraitor
-        ? `${targetName} has been banished! And they were... THE TRAITOR! Justice in the Highlands!`
-        : `${targetName} has been banished! But oh, the heartbreak... they were completely FAITHFUL! Heartbreaking!`,
+    banishment: (_targetName: string, _isTraitor: boolean) => SHARED_BANISHMENT_REVEAL_SCRIPT,
     tieOccurred: (names: string[]) =>
       `We have an exact tie between ${names.join(' and ')}. Sixty seconds on the clock to save yourselves. Go!`,
     tieBanishmentFailed:
       "Still tied! Nobody leaves tonight. The Traitor has survived another trial.",
     assignmentReveal: (traitorName: string, objectiveTitle: string) =>
       `In Round Two, ${traitorName}’s secret objective was '${objectiveTitle}'. Did they succeed?`,
-    roundSummary: (roundNum: number, winnerTeam: string) =>
+    roundSummary: (roundNum: number, _winnerTeam: string) =>
       `Round ${roundNum} is complete. Let us inspect the leaderboard of shame and glory.`,
     finalResults: (winnerName: string) =>
       `All six rounds complete! Our Grand Champion is ${winnerName}!`,
@@ -107,26 +108,21 @@ export const HOST_SCRIPTS: Record<number, HostDialogueSet> = {
       "Phones out. Look into the glowing screen. Memorise your identity. If you are the Traitor... do not let your eyebrows dance. If you are Faithful... good luck, you're going to need it.",
     missionStart:
       "Mission Three: The Forgery Gallery! Pen and scrap paper ready. The Faithful have been given one secret drawing brief. The Traitor has been given something slightly... well, different. You will all sketch in deadly silence for two minutes, then reveal on my count.",
-    roundTable:
-      "Gaze upon the sketches on the table. One of them looks like a fever dream. Who drew something suspiciously off-kilter? Who is defending their wonky artwork with their life? Attack!",
-    votingOpen:
-      "Banishment — vote for a PERSON. Slates ready, my darlings. Lock in your verdict on the forger. No remorse.",
-    allVotesLocked: "Seven votes sealed in wax. Let the slates turn.",
+    roundTable: SHARED_ROUND_TABLE_SCRIPT,
+    votingOpen: SHARED_VOTING_OPEN_SCRIPT,
+    allVotesLocked: SHARED_ALL_VOTES_LOCKED_SCRIPT,
     phoneSlateTurn: (playerName: string) =>
       `${playerName}... darling, show the room your slate. Who do you want out of the castle?`,
     voteConfirmedSlate: (voterName: string, targetName: string) =>
       `${voterName} accuses ${targetName}. Oh, the cruelty! I love it.`,
-    banishment: (targetName: string, isTraitor: boolean) =>
-      isTraitor
-        ? `Caught red-handed! ${targetName} was indeed THE TRAITOR! High fives all round!`
-        : `Disaster at the castle! ${targetName} was completely and utterly FAITHFUL! You monsters!`,
+    banishment: (_targetName: string, _isTraitor: boolean) => SHARED_BANISHMENT_REVEAL_SCRIPT,
     tieOccurred: (names: string[]) =>
       `We have a deadlock between ${names.join(' and ')}. Revote required immediately!`,
     tieBanishmentFailed:
       "No banishment! The Traitor survives another trial. Unbelievable scenes.",
     assignmentReveal: (traitorName: string, objectiveTitle: string) =>
       `In The Forgery Gallery, ${traitorName}’s objective was '${objectiveTitle}'. Look at them! Did they pull it off?`,
-    roundSummary: (roundNum: number, winnerTeam: string) =>
+    roundSummary: (roundNum: number, _winnerTeam: string) =>
       `Round ${roundNum} concludes. The standings are closer than my fringe to my eyebrows.`,
     finalResults: (winnerName: string) => `The castle is won! All hail ${winnerName}!`,
   },
@@ -136,26 +132,21 @@ export const HOST_SCRIPTS: Record<number, HostDialogueSet> = {
     roleBriefing: "Inspect your screens. Keep your poker face intact.",
     missionStart:
       "Mission Four: The Body Disposal Committee! A completely absurd storytelling crisis. The Duchess has died during dessert. The inspector is five minutes away, your getaway vehicle is a bicycle, and the police already know you're here. Together, pick five objects and tell an absurd story under sixty seconds!",
-    roundTable:
-      "The Round Table resumes. Who insisted on bringing that ridiculous household object? Who was steering the getaway narrative? Time to question everything.",
-    votingOpen:
-      "Banishment — vote for a PERSON. The slates are waiting. Point your finger of doom and lock it in.",
-    allVotesLocked: "All seven votes locked in wax. Let the revelations begin.",
+    roundTable: SHARED_ROUND_TABLE_SCRIPT,
+    votingOpen: SHARED_VOTING_OPEN_SCRIPT,
+    allVotesLocked: SHARED_ALL_VOTES_LOCKED_SCRIPT,
     phoneSlateTurn: (playerName: string) =>
       `${playerName}... present your slate to the group.`,
     voteConfirmedSlate: (voterName: string, targetName: string) =>
       `${voterName} casts their vote against ${targetName}.`,
-    banishment: (targetName: string, isTraitor: boolean) =>
-      isTraitor
-        ? `${targetName} is banished! And yes... THE TRAITOR HAS BEEN CAUGHT!`
-        : `${targetName} is banished... but they were completely FAITHFUL! Pure tragedy!`,
+    banishment: (_targetName: string, _isTraitor: boolean) => SHARED_BANISHMENT_REVEAL_SCRIPT,
     tieOccurred: (names: string[]) =>
       `Tied vote between ${names.join(' and ')}! Defend your lives!`,
     tieBanishmentFailed:
       "Tie unbroken. No banishment tonight. The Traitor smiles in the shadows.",
     assignmentReveal: (traitorName: string, objectiveTitle: string) =>
       `In Mission Four, ${traitorName} was tasked with '${objectiveTitle}'. Did they succeed?`,
-    roundSummary: (roundNum: number, winnerTeam: string) =>
+    roundSummary: (roundNum: number, _winnerTeam: string) =>
       `End of Round ${roundNum}. Let's view the updated leaderboard.`,
     finalResults: (winnerName: string) => `The winner is ${winnerName}!`,
   },
@@ -166,24 +157,19 @@ export const HOST_SCRIPTS: Record<number, HostDialogueSet> = {
       "Look down at your screens. Memorise your identity and your secret briefing.",
     missionStart:
       "Mission Five: The Counterfeit Expert! Everyone must pitch the exact same ridiculous invention in thirty seconds. Faithful have three secret required words to smuggle into their pitch. The Traitor only has two words, and must infer the third! Listen closely to every pitch.",
-    roundTable:
-      "The pitches were magnificent, and deeply suspicious. Who used bizarre vocabulary? Who seemed completely lost? Time to vote.",
-    votingOpen:
-      "Banishment — vote for a PERSON. Slates ready. Lock in your accusations in secret.",
-    allVotesLocked: "Seven slates locked in stone. The hour of reckoning has arrived.",
+    roundTable: SHARED_ROUND_TABLE_SCRIPT,
+    votingOpen: SHARED_VOTING_OPEN_SCRIPT,
+    allVotesLocked: SHARED_ALL_VOTES_LOCKED_SCRIPT,
     phoneSlateTurn: (playerName: string) =>
       `${playerName}... lift your slate high and declare your suspect.`,
     voteConfirmedSlate: (voterName: string, targetName: string) =>
       `${voterName} points the finger at ${targetName}.`,
-    banishment: (targetName: string, isTraitor: boolean) =>
-      isTraitor
-        ? `THE TRAITOR HAS BEEN UNMASKED! ${targetName} was the impostor!`
-        : `Heartache! ${targetName} was 100% FAITHFUL! An innocent soul banished!`,
+    banishment: (_targetName: string, _isTraitor: boolean) => SHARED_BANISHMENT_REVEAL_SCRIPT,
     tieOccurred: (names: string[]) => `Deadlock between ${names.join(' and ')}. Revote!`,
     tieBanishmentFailed: "No banishment! The Traitor survives to the grand finale.",
     assignmentReveal: (traitorName: string, objectiveTitle: string) =>
       `${traitorName} had to guess the missing word: '${objectiveTitle}'. Did they pull it off?`,
-    roundSummary: (roundNum: number, winnerTeam: string) =>
+    roundSummary: (roundNum: number, _winnerTeam: string) =>
       `Round Five complete! Only one final round remains.`,
     finalResults: (winnerName: string) => `The champion is ${winnerName}!`,
   },
@@ -194,24 +180,21 @@ export const HOST_SCRIPTS: Record<number, HostDialogueSet> = {
       "The Traitor chosen for this round stays the Traitor until the game ends.\n\nLook down at your screens. Absorb your true allegiance. One Traitor. Six Faithful. Make history tonight, my loves.",
     missionStart:
       "Mission Six: The Getaway Auction! Everyone starts with twelve auction coins. Six fictional getaway lots will be auctioned in ascending value. Highest sealed bid wins the lot and pays their bid. Who will hoard the most escape points? Persuade, bluff, and bid wisely!",
-    roundTable:
-      "The auction is over. Your money has gone. Your Traitor hasn’t. From this moment, if you’re banished, you’re finished.",
-    votingOpen:
-      "Banishment — vote for a PERSON. Permanent elimination. Choose with utmost care.",
-    allVotesLocked: "The final seven votes are sealed in wax. The slates of destiny await.",
+    roundTable: SHARED_ROUND_TABLE_SCRIPT,
+    votingOpen: SHARED_VOTING_OPEN_SCRIPT,
+    allVotesLocked: SHARED_ALL_VOTES_LOCKED_SCRIPT,
     phoneSlateTurn: (playerName: string) =>
       `${playerName}... for the final time, raise your slate to the castle.`,
     voteConfirmedSlate: (voterName: string, targetName: string) =>
       `${voterName} delivers their accusation against ${targetName}.`,
-    banishment: (targetName: string, isTraitor: boolean) =>
-      `The circle has closed. ${targetName} has been permanently banished from Jasmine's Castle. Their role remains unknown.`,
+    banishment: (_targetName: string, _isTraitor: boolean) => SHARED_BANISHMENT_REVEAL_SCRIPT,
     tieOccurred: (names: string[]) =>
       `A tie in the final hour between ${names.join(' and ')}! Defend yourselves!`,
     tieBanishmentFailed:
       "Tied revote! No banishment! Discussion must resume until an elimination is decided.",
     assignmentReveal: (traitorName: string, objectiveTitle: string) =>
       `The final Traitor was ${traitorName}. Their secret mission: '${objectiveTitle}'.`,
-    roundSummary: (roundNum: number, winnerTeam: string) =>
+    roundSummary: (_roundNum: number, _winnerTeam: string) =>
       `The six rounds are concluded! It is time for the Grand Awards ceremony. Bring out the cake!`,
     finalResults: (winnerName: string) =>
       `What an evening of sheer theatrical drama, Scottish mist, and breathtaking deceit. Our Grand Champion is ${winnerName}! Happy Birthday Libby!`,

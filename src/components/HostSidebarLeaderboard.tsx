@@ -4,13 +4,17 @@ import { Trophy, Crown, Skull, Shield, AlertCircle } from 'lucide-react';
 
 interface Props {
   state: ClientGameState;
+  hideLatestRoundScore?: boolean;
 }
 
-export const HostSidebarLeaderboard: React.FC<Props> = ({ state }) => {
+export const HostSidebarLeaderboard: React.FC<Props> = ({ state, hideLatestRoundScore = false }) => {
   const currentRound = state.currentRound || 1;
-  const completedRounds = [...(state.roundHistory || [])].sort(
+  const allCompletedRounds = [...(state.roundHistory || [])].sort(
     (a, b) => a.roundNumber - b.roundNumber
   );
+  const completedRounds = hideLatestRoundScore
+    ? allCompletedRounds.filter(r => r.roundNumber < currentRound)
+    : allCompletedRounds;
   const hasCompletedRounds = completedRounds.length > 0;
 
   // Compute cumulative points and round-by-round breakdown for all 7 seated players
@@ -28,8 +32,14 @@ export const HostSidebarLeaderboard: React.FC<Props> = ({ state }) => {
         calculatedTotal += roundPts;
       });
 
+      const adjustedRawScore = hideLatestRoundScore
+        ? Math.max(0, (p.score || 0) - (p.lastRoundScore || 0))
+        : (p.score || 0);
+
       const displayScore =
-        typeof p.score === 'number' && p.score >= calculatedTotal ? p.score : calculatedTotal;
+        typeof adjustedRawScore === 'number' && adjustedRawScore >= calculatedTotal
+          ? adjustedRawScore
+          : calculatedTotal;
 
       return {
         id: p.id,

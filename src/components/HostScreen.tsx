@@ -9,7 +9,7 @@ import { ExhibitAMission } from './Missions/ExhibitAMission';
 import { BirthdayMajorityMission } from './Missions/BirthdayMajorityMission';
 import { BodyDisposalMission } from './Missions/BodyDisposalMission';
 import { GetawayAuctionMission } from './Missions/GetawayAuctionMission';
-import { JASMINE_FORFEIT_APOLOGY } from '../data/dialogue';
+import { JASMINE_FORFEIT_APOLOGY, HOST_SCRIPTS } from '../data/dialogue';
 import {
   Flame,
   Shield,
@@ -52,6 +52,12 @@ export const HostScreen: React.FC<Props> = ({
   const [qrDataUrl, setQrDataUrl] = useState<string>('');
   const [audioUnlocked, setAudioUnlocked] = useState(false);
   const [isAdminMode, setIsAdminMode] = useState(false);
+  const [isBanishedRoleRevealed, setIsBanishedRoleRevealed] = useState(false);
+
+  // Reset role reveal toggle whenever the phase, round, or banished player changes
+  useEffect(() => {
+    setIsBanishedRoleRevealed(false);
+  }, [state.phase, state.currentRound, state.finaleState?.currentEliminatedPlayerId]);
 
   // Generate QR code for mobile joining (embeds passcode if available for auto-unlock)
   useEffect(() => {
@@ -389,10 +395,12 @@ export const HostScreen: React.FC<Props> = ({
               Round {state.currentRound} Commences
             </span>
             <h2 className="text-3xl md:text-5xl font-serif font-black text-amber-200">
-              Welcome to Jasmine’s Castle
+              {state.currentRound === 1
+                ? 'Welcome to Jasmine’s Castle'
+                : `Round ${state.currentRound}: Fresh Cloaks in the Dark`}
             </h2>
-            <p className="text-base text-zinc-300 font-serif leading-relaxed max-w-xl mx-auto italic">
-              “Your allegiance changes each round. Your points stay with you. But to win, you must survive the final banishments. A surviving Traitor steals the victory. Otherwise, the highest-scoring Faithful still standing takes the crown.”
+            <p className="text-base text-zinc-300 font-serif leading-relaxed max-w-xl mx-auto italic whitespace-pre-line">
+              “{(HOST_SCRIPTS[state.currentRound] || HOST_SCRIPTS[1]).intro}”
             </p>
 
             <div className="pt-4 border-t border-zinc-800">
@@ -416,8 +424,8 @@ export const HostScreen: React.FC<Props> = ({
             <h2 className="text-3xl md:text-4xl font-serif font-black text-amber-200">
               Inspect Your Screens in Secret
             </h2>
-            <p className="text-sm text-zinc-300 font-serif italic max-w-md mx-auto">
-              One Traitor has been chosen in the shadows. Six Faithful sworn to protect Libby's honour. Memorise your identity and prepare for the mission.
+            <p className="text-sm text-zinc-300 font-serif italic max-w-md mx-auto whitespace-pre-line">
+              “{(HOST_SCRIPTS[state.currentRound] || HOST_SCRIPTS[1]).roleBriefing}”
             </p>
 
             <div className="pt-4 border-t border-zinc-800">
@@ -597,10 +605,8 @@ export const HostScreen: React.FC<Props> = ({
             <h2 className="text-3xl md:text-5xl font-serif font-black text-amber-200">
               The Debate of Accusation
             </h2>
-            <p className="text-sm md:text-base text-zinc-300 font-serif italic max-w-lg mx-auto">
-              {state.currentRound === 1
-                ? '“Who was steering the investigation? Did anyone suddenly become very interested in somebody else’s object?”'
-                : '“Who deflected suspicion? Who was laughing a little too nervously? Defend your honour before the slates are called.”'}
+            <p className="text-sm md:text-base text-zinc-300 font-serif italic max-w-2xl mx-auto">
+              “{(HOST_SCRIPTS[state.currentRound] || HOST_SCRIPTS[1]).roundTable}”
             </p>
 
             <div className="pt-4 border-t border-zinc-800">
@@ -783,41 +789,63 @@ export const HostScreen: React.FC<Props> = ({
             </span>
 
             {state.roundHistory[state.roundHistory.length - 1]?.banishedPlayerName ? (
-              <div className="space-y-4">
+              <div className="space-y-5">
                 <h2 className="text-4xl md:text-5xl font-serif font-black text-amber-200">
                   {state.roundHistory[state.roundHistory.length - 1]?.banishedPlayerName?.toUpperCase()}
                 </h2>
-                <p className="text-sm text-zinc-300 font-serif italic">Step into the circle of fire...</p>
+                <p className="text-sm text-zinc-300 font-serif italic max-w-xl mx-auto leading-relaxed">
+                  “The votes are in. The decision is final. One of you has just been banished by your own friends. Happy birthday, Libby. If you’ve received the most votes, please stand. Take a moment. Look around at the people who’ve done this to you. Some look terribly pleased with themselves. We’ll see how long that lasts. Before you leave, there is one thing we need to know. Are you a Faithful, or a Traitor?”
+                </p>
 
-                <div
-                  className={`p-6 rounded-lg border-2 text-center my-4 ${
-                    state.roundHistory[state.roundHistory.length - 1]?.wasTraitorBanished
-                      ? 'bg-rose-950/60 border-rose-600 text-rose-200'
-                      : 'bg-zinc-900/90 border-zinc-700 text-zinc-200'
-                  }`}
-                >
-                  <span className="text-xs uppercase tracking-widest font-mono block mb-1">
-                    True Role Revealed
-                  </span>
-                  <div className="text-3xl md:text-4xl font-serif font-black tracking-widest">
-                    {state.roundHistory[state.roundHistory.length - 1]?.wasTraitorBanished
-                      ? '🗡️ THE TRAITOR'
-                      : '🛡️ 100% FAITHFUL'}
+                {!isBanishedRoleRevealed ? (
+                  <div className="p-6 rounded-xl border-2 border-amber-500/60 bg-gradient-to-b from-burgundy-950/70 via-zinc-950 to-black text-center space-y-4 my-4 shadow-[0_0_30px_rgba(212,163,69,0.2)]">
+                    <span className="text-xs uppercase tracking-widest text-amber-400 font-mono block animate-pulse">
+                      The Circle of Truth Awaits
+                    </span>
+                    <p className="text-xs text-zinc-300 font-serif max-w-md mx-auto">
+                      Wait for <strong className="text-amber-200">{state.roundHistory[state.roundHistory.length - 1]?.banishedPlayerName}</strong> to stand and declare their allegiance aloud, then click below to reveal the truth on screen:
+                    </p>
+                    <button
+                      onClick={() => setIsBanishedRoleRevealed(true)}
+                      className="py-4 px-8 bg-gradient-to-r from-amber-600 via-amber-500 to-amber-600 hover:from-amber-500 hover:to-amber-400 text-black font-serif font-black text-sm md:text-base uppercase tracking-widest rounded-lg shadow-[0_0_25px_rgba(212,163,69,0.45)] transition transform hover:scale-105 inline-flex items-center gap-2.5"
+                    >
+                      <Eye className="w-5 h-5" />
+                      Click to Reveal Role
+                    </button>
                   </div>
-                </div>
+                ) : (
+                  <div className="space-y-4 animate-fadeIn">
+                    <div
+                      className={`p-6 rounded-lg border-2 text-center my-4 ${
+                        state.roundHistory[state.roundHistory.length - 1]?.wasTraitorBanished
+                          ? 'bg-rose-950/60 border-rose-600 text-rose-200 shadow-[0_0_30px_rgba(225,29,72,0.3)]'
+                          : 'bg-emerald-950/50 border-emerald-600 text-emerald-200 shadow-[0_0_30px_rgba(16,185,129,0.25)]'
+                      }`}
+                    >
+                      <span className="text-xs uppercase tracking-widest font-mono block mb-1">
+                        True Role Revealed
+                      </span>
+                      <div className="text-3xl md:text-4xl font-serif font-black tracking-widest">
+                        {state.roundHistory[state.roundHistory.length - 1]?.wasTraitorBanished
+                          ? '🗡️ THE TRAITOR'
+                          : '🛡️ 100% FAITHFUL'}
+                      </div>
+                    </div>
 
-                {state.currentRound === 1 && state.revealedPlantedObjectName && (
-                  <div className="p-4 bg-black/60 border border-amber-900/60 rounded-lg text-xs font-serif text-amber-200">
-                    The Traitor’s planted evidence was: <strong>"{state.revealedPlantedObjectName}"</strong>
-                    <br />
-                    {state.roundHistory[state.roundHistory.length - 1]?.exhibitAWon ? (
-                      <span className="text-emerald-400 font-bold block mt-1">
-                        ✓ It became Exhibit A! The Traitor succeeds in their mission.
-                      </span>
-                    ) : (
-                      <span className="text-zinc-400 block mt-1">
-                        ✗ It was not chosen as Exhibit A.
-                      </span>
+                    {state.currentRound === 1 && state.revealedPlantedObjectName && (
+                      <div className="p-4 bg-black/60 border border-amber-900/60 rounded-lg text-xs font-serif text-amber-200">
+                        The Traitor’s planted evidence was: <strong>"{state.revealedPlantedObjectName}"</strong>
+                        <br />
+                        {state.roundHistory[state.roundHistory.length - 1]?.exhibitAWon ? (
+                          <span className="text-emerald-400 font-bold block mt-1">
+                            ✓ It became Exhibit A! The Traitor succeeds in their mission.
+                          </span>
+                        ) : (
+                          <span className="text-zinc-400 block mt-1">
+                            ✗ It was not chosen as Exhibit A.
+                          </span>
+                        )}
+                      </div>
                     )}
                   </div>
                 )}
@@ -831,14 +859,16 @@ export const HostScreen: React.FC<Props> = ({
               </div>
             )}
 
-            <div className="pt-4 border-t border-zinc-800">
-              <button
-                onClick={() => api.sendAction(state.roomCode, 'CONFIRM_ASSIGNMENT_RESULT', { success: state.roundHistory[state.roundHistory.length - 1]?.traitorAssignmentCompleted })}
-                className="py-3 px-8 bg-burgundy-900 hover:bg-burgundy-800 border border-amber-500/60 text-amber-100 font-serif font-bold text-sm uppercase tracking-widest rounded shadow-lg"
-              >
-                View Round Summary & Standings
-              </button>
-            </div>
+            {(isBanishedRoleRevealed || !state.roundHistory[state.roundHistory.length - 1]?.banishedPlayerName) && (
+              <div className="pt-4 border-t border-zinc-800 animate-fadeIn">
+                <button
+                  onClick={() => api.sendAction(state.roomCode, 'CONFIRM_ASSIGNMENT_RESULT', { success: state.roundHistory[state.roundHistory.length - 1]?.traitorAssignmentCompleted })}
+                  className="py-3 px-8 bg-burgundy-900 hover:bg-burgundy-800 border border-amber-500/60 text-amber-100 font-serif font-bold text-sm uppercase tracking-widest rounded shadow-lg"
+                >
+                  View Round Summary & Standings
+                </button>
+              </div>
+            )}
           </div>
         )}
 
@@ -1101,11 +1131,11 @@ export const HostScreen: React.FC<Props> = ({
           </div>
         )}
 
-        {/* FINALE: ELIMINATION OUTCOME (ROLE KEPT SECRET) */}
+        {/* FINALE: ELIMINATION OUTCOME (CLICK TO REVEAL ROLE) */}
         {state.phase === 'FINALE_ELIMINATION' && (
           <div className="max-w-2xl mx-auto text-center space-y-6 bg-zinc-950/90 border-2 border-amber-500/60 p-8 md:p-12 rounded-xl shadow-2xl animate-fadeIn">
             <span className="text-xs uppercase tracking-widest text-amber-500 font-mono">
-              Permanent Elimination
+              Permanent Elimination · The Verdict of Jasmine’s Castle
             </span>
 
             <h2 className="text-4xl md:text-5xl font-serif font-black text-amber-200">
@@ -1113,18 +1143,55 @@ export const HostScreen: React.FC<Props> = ({
               HAS BEEN BANISHED
             </h2>
 
-            <div className="p-4 bg-burgundy-950/60 border border-amber-900/60 rounded-xl text-xs font-serif text-amber-200 leading-relaxed max-w-md mx-auto">
-              “The circle has closed. Their role remains unknown. They must step back and watch in silence.”
-            </div>
+            <p className="text-sm text-zinc-300 font-serif italic max-w-xl mx-auto leading-relaxed">
+              “The votes are in. The decision is final. One of you has just been banished by your own friends. Happy birthday, Libby. If you’ve received the most votes, please stand. Take a moment. Look around at the people who’ve done this to you. Some look terribly pleased with themselves. We’ll see how long that lasts. Before you leave, there is one thing we need to know. Are you a Faithful, or a Traitor?”
+            </p>
 
-            <div className="pt-4 border-t border-zinc-800">
-              <button
-                onClick={() => api.sendAction(state.roomCode, 'FINALE_NEXT_CYCLE')}
-                className="py-3.5 px-8 bg-amber-500 hover:bg-amber-400 text-black font-serif font-bold text-sm uppercase tracking-wider rounded-lg shadow-lg"
+            {!isBanishedRoleRevealed ? (
+              <div className="p-6 rounded-xl border-2 border-amber-500/60 bg-gradient-to-b from-burgundy-950/70 via-zinc-950 to-black text-center space-y-4 my-4 shadow-[0_0_30px_rgba(212,163,69,0.2)]">
+                <span className="text-xs uppercase tracking-widest text-amber-400 font-mono block animate-pulse">
+                  The Circle of Truth Awaits
+                </span>
+                <p className="text-xs text-zinc-300 font-serif max-w-md mx-auto">
+                  Wait for <strong className="text-amber-200">{state.players.find(p => p.id === finale?.currentEliminatedPlayerId)?.name}</strong> to stand and declare their allegiance aloud, then click below to reveal the truth on screen:
+                </p>
+                <button
+                  onClick={() => setIsBanishedRoleRevealed(true)}
+                  className="py-4 px-8 bg-gradient-to-r from-amber-600 via-amber-500 to-amber-600 hover:from-amber-500 hover:to-amber-400 text-black font-serif font-black text-sm md:text-base uppercase tracking-widest rounded-lg shadow-[0_0_25px_rgba(212,163,69,0.45)] transition transform hover:scale-105 inline-flex items-center gap-2.5"
+                >
+                  <Eye className="w-5 h-5" />
+                  Click to Reveal Role
+                </button>
+              </div>
+            ) : (
+              <div
+                className={`p-6 rounded-lg border-2 text-center my-4 animate-fadeIn ${
+                  state.players.find(p => p.id === finale?.currentEliminatedPlayerId)?.revealedRole === 'TRAITOR'
+                    ? 'bg-rose-950/60 border-rose-600 text-rose-200 shadow-[0_0_30px_rgba(225,29,72,0.3)]'
+                    : 'bg-emerald-950/50 border-emerald-600 text-emerald-200 shadow-[0_0_30px_rgba(16,185,129,0.25)]'
+                }`}
               >
-                {survivors.length > 4 ? 'Next Finale Banishment Cycle' : 'Proceed to Final Four: End or Banish'}
-              </button>
-            </div>
+                <span className="text-xs uppercase tracking-widest font-mono block mb-1">
+                  True Role Revealed
+                </span>
+                <div className="text-3xl md:text-4xl font-serif font-black tracking-widest">
+                  {state.players.find(p => p.id === finale?.currentEliminatedPlayerId)?.revealedRole === 'TRAITOR'
+                    ? '🗡️ THE TRAITOR'
+                    : '🛡️ 100% FAITHFUL'}
+                </div>
+              </div>
+            )}
+
+            {isBanishedRoleRevealed && (
+              <div className="pt-4 border-t border-zinc-800 animate-fadeIn">
+                <button
+                  onClick={() => api.sendAction(state.roomCode, 'FINALE_NEXT_CYCLE')}
+                  className="py-3.5 px-8 bg-amber-500 hover:bg-amber-400 text-black font-serif font-bold text-sm uppercase tracking-wider rounded-lg shadow-lg"
+                >
+                  {survivors.length > 4 ? 'Next Finale Banishment Cycle' : 'Proceed to Final Four: End or Banish'}
+                </button>
+              </div>
+            )}
           </div>
         )}
 
@@ -1387,7 +1454,10 @@ export const HostScreen: React.FC<Props> = ({
 
         {/* Permanent Leaderboard on Side of Host Screen */}
         <div className="lg:col-span-4 xl:col-span-3 sticky top-4 space-y-4">
-          <HostSidebarLeaderboard state={state} />
+          <HostSidebarLeaderboard
+            state={state}
+            hideLatestRoundScore={state.phase === 'BANISHMENT_OUTCOME' && !isBanishedRoleRevealed}
+          />
         </div>
       </div>
     )}

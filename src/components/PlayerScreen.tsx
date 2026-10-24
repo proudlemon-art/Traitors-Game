@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { ClientGameState } from '../types/game';
 import { api } from '../services/api';
 import { PrivacyShield } from './PrivacyShield';
@@ -34,6 +34,11 @@ export const PlayerScreen: React.FC<Props> = ({ state, playerToken }) => {
   const [isShowingSlate, setIsShowingSlate] = useState(false);
   const [endOrBanishChoice, setEndOrBanishChoice] = useState<'END' | 'BANISH' | null>(null);
   const [isSubmittingEndOrBanish, setIsSubmittingEndOrBanish] = useState(false);
+  const [phoneOutcomeRevealed, setPhoneOutcomeRevealed] = useState(false);
+
+  useEffect(() => {
+    setPhoneOutcomeRevealed(false);
+  }, [state.phase, state.currentRound]);
 
   const me = state.players.find(p => p.id === state.myPlayerId);
   const isTraitor = state.myRole === 'TRAITOR';
@@ -158,7 +163,10 @@ export const PlayerScreen: React.FC<Props> = ({ state, playerToken }) => {
                 Seat #{me?.seatNumber || 1}
               </span>
               <span className="bg-zinc-900 px-2.5 py-1 rounded border border-zinc-800 text-zinc-300">
-                {me?.score || 0} Pts
+                {state.phase === 'BANISHMENT_OUTCOME' && !phoneOutcomeRevealed
+                  ? Math.max(0, (me?.score || 0) - (me?.lastRoundScore || 0))
+                  : me?.score || 0}{' '}
+                Pts
               </span>
             </div>
           </div>
@@ -480,52 +488,77 @@ export const PlayerScreen: React.FC<Props> = ({ state, playerToken }) => {
           {/* ROUND SUMMARY & PERSONAL SCORE BREAKDOWN ON PHONE */}
           {(state.phase === 'ROUND_SUMMARY' || state.phase === 'BANISHMENT_OUTCOME') && me && (
             <div className="bg-zinc-950/95 border-2 border-amber-500/50 rounded-xl p-5 shadow-2xl space-y-3">
-              <div className="flex items-center justify-between border-b border-zinc-800 pb-2">
-                <span className="text-[11px] font-mono uppercase tracking-widest text-amber-500">
-                  Round {state.currentRound} Outcome
-                </span>
-                <span className="text-xs font-mono font-bold text-amber-300">
-                  Total: {me.score} pts
-                </span>
-              </div>
+              {state.phase === 'BANISHMENT_OUTCOME' && !phoneOutcomeRevealed ? (
+                <div className="text-center space-y-3 py-2">
+                  <span className="text-[11px] font-mono uppercase tracking-widest text-amber-500 block">
+                    The Circle of Truth
+                  </span>
+                  <h4 className="font-serif font-bold text-base text-amber-100">
+                    {state.roundHistory[state.roundHistory.length - 1]?.banishedPlayerName
+                      ? `${state.roundHistory[state.roundHistory.length - 1]?.banishedPlayerName} Has Been Banished`
+                      : 'Banishment Verdict Reached'}
+                  </h4>
+                  <p className="text-xs text-zinc-400 font-serif italic leading-relaxed">
+                    Wait for the banished player to stand and announce whether they are a Faithful or a Traitor before revealing your round outcome!
+                  </p>
+                  <button
+                    onClick={() => setPhoneOutcomeRevealed(true)}
+                    className="w-full py-3 px-4 bg-gradient-to-r from-amber-600 to-amber-500 hover:from-amber-500 hover:to-amber-400 text-black font-serif font-bold text-xs uppercase tracking-widest rounded-lg shadow-lg inline-flex items-center justify-center gap-2"
+                  >
+                    <Eye className="w-4 h-4" />
+                    Click to Reveal Role & Round Points
+                  </button>
+                </div>
+              ) : (
+                <>
+                  <div className="flex items-center justify-between border-b border-zinc-800 pb-2">
+                    <span className="text-[11px] font-mono uppercase tracking-widest text-amber-500">
+                      Round {state.currentRound} Outcome
+                    </span>
+                    <span className="text-xs font-mono font-bold text-amber-300">
+                      Total: {me.score} pts
+                    </span>
+                  </div>
 
-              {state.roundHistory.length > 0 && (
-                (() => {
-                  const latest = state.roundHistory[state.roundHistory.length - 1];
-                  const myBreakdown = latest?.scoreBreakdown?.[me.id];
-                  return (
-                    <div className="space-y-2">
-                      <div className="p-3 bg-zinc-900/80 rounded-lg border border-zinc-800 text-xs space-y-1.5 font-mono">
-                        <div className="flex justify-between text-zinc-300">
-                          <span>Mission Performance:</span>
-                          <strong className="text-amber-300">{myBreakdown?.missionPoints ?? 0}/3 pts</strong>
-                        </div>
-                        <div className="flex justify-between text-zinc-300">
-                          <span>Personal Objective:</span>
-                          <strong className="text-amber-300">{myBreakdown?.personalObjectivePoints ?? 0}/2 pts</strong>
-                        </div>
-                        <div className="flex justify-between text-zinc-300">
-                          <span>Round Outcome:</span>
-                          <strong className="text-amber-300">{myBreakdown?.roundOutcomePoints ?? 0}/1 pt</strong>
-                        </div>
-                        <div className="flex justify-between text-amber-200 border-t border-zinc-700/80 pt-1.5 font-bold">
-                          <span>This Round:</span>
-                          <span className="text-emerald-400">+{myBreakdown?.totalRoundPoints ?? (me.lastRoundScore || 0)} pts</span>
-                        </div>
-                      </div>
+                  {state.roundHistory.length > 0 && (
+                    (() => {
+                      const latest = state.roundHistory[state.roundHistory.length - 1];
+                      const myBreakdown = latest?.scoreBreakdown?.[me.id];
+                      return (
+                        <div className="space-y-2 animate-fadeIn">
+                          <div className="p-3 bg-zinc-900/80 rounded-lg border border-zinc-800 text-xs space-y-1.5 font-mono">
+                            <div className="flex justify-between text-zinc-300">
+                              <span>Mission Performance:</span>
+                              <strong className="text-amber-300">{myBreakdown?.missionPoints ?? 0}/3 pts</strong>
+                            </div>
+                            <div className="flex justify-between text-zinc-300">
+                              <span>Personal Objective:</span>
+                              <strong className="text-amber-300">{myBreakdown?.personalObjectivePoints ?? 0}/2 pts</strong>
+                            </div>
+                            <div className="flex justify-between text-zinc-300">
+                              <span>Round Outcome:</span>
+                              <strong className="text-amber-300">{myBreakdown?.roundOutcomePoints ?? 0}/1 pt</strong>
+                            </div>
+                            <div className="flex justify-between text-amber-200 border-t border-zinc-700/80 pt-1.5 font-bold">
+                              <span>This Round:</span>
+                              <span className="text-emerald-400">+{myBreakdown?.totalRoundPoints ?? (me.lastRoundScore || 0)} pts</span>
+                            </div>
+                          </div>
 
-                      {latest.banishedPlayerName ? (
-                        <p className="text-xs text-zinc-400 text-center italic font-serif">
-                          Banished: <strong className="text-amber-300">{latest.banishedPlayerName}</strong> ({latest.wasTraitorBanished ? 'Traitor' : 'Faithful'})
-                        </p>
-                      ) : (
-                        <p className="text-xs text-zinc-400 text-center italic font-serif">
-                          No banishment occurred this round.
-                        </p>
-                      )}
-                    </div>
-                  );
-                })()
+                          {latest.banishedPlayerName ? (
+                            <p className="text-xs text-zinc-400 text-center italic font-serif">
+                              Banished: <strong className="text-amber-300">{latest.banishedPlayerName}</strong> ({latest.wasTraitorBanished ? 'Traitor' : 'Faithful'})
+                            </p>
+                          ) : (
+                            <p className="text-xs text-zinc-400 text-center italic font-serif">
+                              No banishment occurred this round.
+                            </p>
+                          )}
+                        </div>
+                      );
+                    })()
+                  )}
+                </>
               )}
             </div>
           )}

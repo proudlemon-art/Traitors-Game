@@ -36,6 +36,24 @@ export const PRESET_CASTLE_IMAGES = [
     url: '/assets/aistudio/Screenshot_2026-10-20_at_11.50.13_adceafb3.png',
   },
   {
+    id: 'round_table_slates',
+    name: 'Seven Sealed Slates at the Round Table',
+    description: 'Claudia placing 7 wax-sealed envelopes at the candlelit Round Table',
+    url: '/assets/aistudio/Seven_Sealed_Slates_at_the_Round_Table_a2338a35.png',
+  },
+  {
+    id: 'banishment_reveal',
+    name: 'Candlelit Banishment Reveal',
+    description: 'Claudia standing in the candlelit castle hall for the Banishment Reveal',
+    url: '/assets/aistudio/Candlelit_Banishment_Reveal_50dd669e.png',
+  },
+  {
+    id: 'birthday_majority_mission',
+    name: 'The Birthday Majority (Mission 2)',
+    description: 'Claudia in the candlelit castle hall for Mission 2: The Birthday Majority',
+    url: '/assets/aistudio/Birthday_Majority_in_the_Castle_925a5814.png',
+  },
+  {
     id: 'round_table_chamber',
     name: 'The Round Table Chamber',
     description: 'Circular candlelit council table with 7 leather seats',
@@ -61,7 +79,7 @@ export const PRESET_CASTLE_IMAGES = [
   },
 ];
 
-const STORAGE_KEY = 'traitors_castle_admin_media_v2';
+const STORAGE_KEY = 'traitors_castle_admin_media_v5';
 
 function buildInitialScenes(): SceneMediaConfig[] {
   const scenes: SceneMediaConfig[] = [];
@@ -69,9 +87,8 @@ function buildInitialScenes(): SceneMediaConfig[] {
   // ROUNDS 1 TO 6 COMPLETE CATALOG
   for (let r = 1; r <= 6; r++) {
     const s = HOST_SCRIPTS[r] || HOST_SCRIPTS[1];
-    const roundImg = r === 1 ? PRESET_CASTLE_IMAGES[1].url : (r % 2 === 0 ? PRESET_CASTLE_IMAGES[5].url : PRESET_CASTLE_IMAGES[4].url);
 
-    // 1. Prologue / Intro
+    // 1. Prologue / Intro (Same image as Round 1 repeated across all rounds)
     scenes.push({
       id: `ROUND_${r}_INTRO`,
       title: `Round ${r}: Prologue`,
@@ -79,10 +96,27 @@ function buildInitialScenes(): SceneMediaConfig[] {
       round: r,
       phase: 'INTRO',
       defaultText: s.intro,
-      defaultImageUrl: r === 1 || r === 6 ? PRESET_CASTLE_IMAGES[1].url : PRESET_CASTLE_IMAGES[5].url,
+      defaultImageUrl: PRESET_CASTLE_IMAGES[1].url,
+      ...(r === 1
+        ? {
+            voiceClip: {
+              audioUrl: '/uploads/audio_ROUND_1_INTRO_1792587571220_ffeb8.webm',
+              fileName: 'Round_1_Prologue_Claudia.webm',
+            },
+          }
+        : r === 2
+        ? {
+            voiceClip: {
+              audioUrl:
+                '/assets/aistudio/ElevenLabs_2026-10-24T13_34_30_Claudia_ivc_sp100_s50_sb75_v4_2e1ac63c.mp3',
+              fileName: 'Round_2_Prologue_Claudia.mp3',
+              durationSec: 15,
+            },
+          }
+        : {}),
     });
 
-    // 2. Role Briefing
+    // 2. Role Briefing (Same image as Round 1 repeated across all rounds)
     scenes.push({
       id: `ROUND_${r}_ROLE_BRIEFING`,
       title: `Round ${r}: Role Briefing`,
@@ -90,7 +124,7 @@ function buildInitialScenes(): SceneMediaConfig[] {
       round: r,
       phase: 'ROLE_BRIEFING',
       defaultText: s.roleBriefing,
-      defaultImageUrl: PRESET_CASTLE_IMAGES[3].url,
+      defaultImageUrl: PRESET_CASTLE_IMAGES[1].url,
     });
 
     // 3. Mission
@@ -111,10 +145,25 @@ function buildInitialScenes(): SceneMediaConfig[] {
       defaultText: r === 1
         ? 'Look closely at the crime scene before you. Eight curious objects rest upon the table beside our slumbering Lord. One will be chosen as Exhibit A. One Traitor has secretly planted their mark.'
         : s.missionStart,
-      defaultImageUrl: r === 1 ? '/assets/aistudio/The_Candlelit_Castle_Mystery_891f6711.png' : PRESET_CASTLE_IMAGES[4].url,
+      defaultImageUrl:
+        r === 1
+          ? '/assets/aistudio/The_Candlelit_Castle_Mystery_891f6711.png'
+          : r === 2
+          ? '/assets/aistudio/Birthday_Majority_in_the_Castle_925a5814.png'
+          : PRESET_CASTLE_IMAGES[7].url,
+      ...(r === 2
+        ? {
+            voiceClip: {
+              audioUrl:
+                '/assets/aistudio/ElevenLabs_2026-10-24T14_12_33_Claudia_ivc_sp100_s50_sb75_v4_c621a2e3.mp3',
+              fileName: 'Round_2_Mission_Birthday_Majority_Claudia.mp3',
+              durationSec: 25,
+            },
+          }
+        : {}),
     });
 
-    // 4. Round Table Debate
+    // 4. Round Table Debate (Same image across all rounds 1-6; Round 2 uses Poppy audio)
     scenes.push({
       id: `ROUND_${r}_ROUND_TABLE`,
       title: `Round ${r}: The Round Table`,
@@ -122,10 +171,24 @@ function buildInitialScenes(): SceneMediaConfig[] {
       round: r,
       phase: 'ROUND_TABLE',
       defaultText: s.roundTable,
-      defaultImageUrl: PRESET_CASTLE_IMAGES[2].url,
+      defaultImageUrl: '/assets/aistudio/Seven_Sealed_Slates_at_the_Round_Table_a2338a35.png',
+      voiceClip:
+        r === 2
+          ? {
+              audioUrl:
+                '/assets/aistudio/ElevenLabs_2026-10-24T14_27_59_Claudia_ivc_sp100_s50_sb75_v4_13301d74.mp3',
+              fileName: 'Round_2_Round_Table_Claudia.mp3',
+              durationSec: 14,
+            }
+          : {
+              audioUrl:
+                '/assets/aistudio/ElevenLabs_2026-10-20T17_01_04_Claudia_ivc_sp100_s50_sb75_v4_f3a7a8ee.mp3',
+              fileName: `Round_${r}_Round_Table_Claudia.mp3`,
+              durationSec: 24,
+            },
     });
 
-    // 5. Voting Slates Open
+    // 5. Voting Slates Open (Duplicated across all rounds 1-6)
     scenes.push({
       id: `ROUND_${r}_VOTING`,
       title: `Round ${r}: Voting Slates Open`,
@@ -133,10 +196,10 @@ function buildInitialScenes(): SceneMediaConfig[] {
       round: r,
       phase: 'VOTING',
       defaultText: s.votingOpen,
-      defaultImageUrl: PRESET_CASTLE_IMAGES[2].url,
+      defaultImageUrl: '/assets/aistudio/Seven_Sealed_Slates_at_the_Round_Table_a2338a35.png',
     });
 
-    // 6. All Votes Locked
+    // 6. All Votes Locked (Duplicated across all rounds 1-6)
     scenes.push({
       id: `ROUND_${r}_ALL_LOCKED`,
       title: `Round ${r}: All Votes Locked`,
@@ -144,7 +207,24 @@ function buildInitialScenes(): SceneMediaConfig[] {
       round: r,
       phase: 'VOTE_REVEALS',
       defaultText: s.allVotesLocked,
-      defaultImageUrl: PRESET_CASTLE_IMAGES[2].url,
+      defaultImageUrl: '/assets/aistudio/Seven_Sealed_Slates_at_the_Round_Table_a2338a35.png',
+    });
+
+    // 7. Banishment Reveal Ceremony (Duplicated across all rounds 1-6)
+    scenes.push({
+      id: `ROUND_${r}_BANISHMENT_OUTCOME`,
+      title: `Round ${r}: Banishment Reveal`,
+      subtitle: `Candlelit banishment reveal ceremony for Round ${r}`,
+      round: r,
+      phase: 'BANISHMENT_OUTCOME',
+      defaultText: s.banishment('Someone', false),
+      defaultImageUrl: '/assets/aistudio/Candlelit_Banishment_Reveal_50dd669e.png',
+      voiceClip: {
+        audioUrl:
+          '/assets/aistudio/ElevenLabs_2026-10-24T13_04_48_Claudia_ivc_sp100_s50_sb75_v4_e982cd57.mp3',
+        fileName: `Round_${r}_Banishment_Reveal_Claudia.mp3`,
+        durationSec: 28,
+      },
     });
   }
 
@@ -156,7 +236,7 @@ function buildInitialScenes(): SceneMediaConfig[] {
     round: 6,
     phase: 'FINAL_RESULTS',
     defaultText: HOST_SCRIPTS[6].finalResults('The Grand Champion'),
-    defaultImageUrl: PRESET_CASTLE_IMAGES[4].url,
+    defaultImageUrl: PRESET_CASTLE_IMAGES[5].url,
   });
 
   scenes.push({
@@ -164,8 +244,14 @@ function buildInitialScenes(): SceneMediaConfig[] {
     title: 'Banishment Reveal Ceremony',
     subtitle: 'When a player is banished and their true role is revealed',
     phase: 'BANISHMENT_OUTCOME',
-    defaultText: "The castle has spoken! Step into the circle of fire. Look into my eyes... Was this soul a Traitor or Faithful?",
-    defaultImageUrl: PRESET_CASTLE_IMAGES[2].url,
+    defaultText: HOST_SCRIPTS[1].banishment('Someone', false),
+    defaultImageUrl: '/assets/aistudio/Candlelit_Banishment_Reveal_50dd669e.png',
+    voiceClip: {
+      audioUrl:
+        '/assets/aistudio/ElevenLabs_2026-10-24T13_04_48_Claudia_ivc_sp100_s50_sb75_v4_e982cd57.mp3',
+      fileName: 'Banishment_Reveal_Claudia.mp3',
+      durationSec: 28,
+    },
   });
 
   scenes.push({
@@ -365,22 +451,35 @@ class AdminMediaService {
   }
 
   public getActiveScene(phase: string, round: number = 1): SceneMediaConfig | undefined {
+    const normalizedPhaseMap: Record<string, string> = {
+      FINALE_DISCUSSION: 'ROUND_TABLE',
+      FINALE_AUCTION_RECAP: 'ROUND_TABLE',
+      FINALE_VOTING: 'VOTING',
+      TIE_VOTING: 'VOTING',
+      FINALE_VOTE_REVEALS: 'VOTE_REVEALS',
+      TIE_REVEALS: 'VOTE_REVEALS',
+      FINALE_TIE_REVEALS: 'VOTE_REVEALS',
+      FINALE_ELIMINATION: 'BANISHMENT_OUTCOME',
+      FINALE_TIE_DEFENCE: 'TIE_DEFENCE',
+    };
+    const effectivePhase = normalizedPhaseMap[phase] || phase;
+
     // 1. Try round-specific exact match
-    const roundSpecificId = `ROUND_${round}_${phase}`;
+    const roundSpecificId = `ROUND_${round}_${effectivePhase}`;
     if (this.scenes.has(roundSpecificId)) {
       return this.scenes.get(roundSpecificId);
     }
 
     // 2. Try phase fallback with round match
     for (const scene of this.scenes.values()) {
-      if (scene.phase === phase && scene.round === round) {
+      if (scene.phase === effectivePhase && scene.round === round) {
         return scene;
       }
     }
 
     // 3. Try global phase match
     for (const scene of this.scenes.values()) {
-      if (scene.phase === phase && !scene.round) {
+      if (scene.phase === effectivePhase && !scene.round) {
         return scene;
       }
     }

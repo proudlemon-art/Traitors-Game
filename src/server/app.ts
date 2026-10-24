@@ -349,7 +349,12 @@ function sanitizeState(
     const isSelf = callingPlayer?.id === p.id;
     let revealedRole: Role | undefined = undefined;
 
-    if (isRound1to5PostBanishment || isFinalResultsRevealed) {
+    if (
+      isRound1to5PostBanishment ||
+      isFinalResultsRevealed ||
+      (s.phase === 'FINALE_FINAL_REVEAL' && s.finaleState?.revealedSurvivorIds.includes(p.id)) ||
+      (s.phase === 'FINALE_ELIMINATION' && s.finaleState?.currentEliminatedPlayerId === p.id)
+    ) {
       revealedRole = p.role;
     } else if (isSelf) {
       revealedRole = p.role;
@@ -2008,7 +2013,7 @@ app.post('/api/rooms/:code/action', async (req, res) => {
           s.finaleState.eliminationCount += 1;
           s.phase = 'FINALE_ELIMINATION';
           s.finaleState.stage = 'ELIMINATION_OUTCOME';
-          s.latestDialogue = `The circle has closed. ${banishedPlayer?.name || 'Someone'} has been permanently eliminated. Their identity remains shrouded in mist.`;
+          s.latestDialogue = HOST_SCRIPTS[6].banishment(banishedPlayer?.name || 'Someone', false);
         }
       }
       break;
@@ -2292,7 +2297,7 @@ app.post('/api/rooms/:code/action', async (req, res) => {
         s,
         'FINALE_DISCUSSION',
         180,
-        `Discussion Cycle ${s.finaleState.cycleNumber}. Four minutes on the clock to question the survivors.`
+        HOST_SCRIPTS[6].roundTable
       );
       break;
     }
@@ -2305,7 +2310,7 @@ app.post('/api/rooms/:code/action', async (req, res) => {
         s,
         'FINALE_VOTING',
         120,
-        'Banishment — vote for a PERSON. Permanent elimination. Choose with utmost care.'
+        HOST_SCRIPTS[6].votingOpen
       );
 
       // Reset votes for active non-eliminated players
@@ -2346,7 +2351,7 @@ app.post('/api/rooms/:code/action', async (req, res) => {
         s.phase = 'FINALE_VOTE_REVEALS';
         s.finaleState.stage = 'VOTE_REVEALS';
         s.currentRevealIndex = 0;
-        s.latestDialogue = 'All surviving slates locked. Let the slates turn in seating order.';
+        s.latestDialogue = HOST_SCRIPTS[6].allVotesLocked;
       }
       break;
     }
@@ -2419,7 +2424,7 @@ app.post('/api/rooms/:code/action', async (req, res) => {
           s.finaleState.eliminationCount += 1;
           s.phase = 'FINALE_ELIMINATION';
           s.finaleState.stage = 'ELIMINATION_OUTCOME';
-          s.latestDialogue = `The circle has closed. ${banishedPlayer?.name || 'Someone'} has been permanently eliminated. Their identity remains shrouded in mist.`;
+          s.latestDialogue = HOST_SCRIPTS[6].banishment(banishedPlayer?.name || 'Someone', false);
         }
       }
       break;
