@@ -98,7 +98,7 @@ export const ROUNDS_PLAN_DATA: RoundPlanItem[] = [
       successCondition: 'The Traitor’s secret planted object is chosen as the final Exhibit A.',
     },
     scoring: 'If Exhibit A is the Traitor’s planted item: Traitor steals +10 Gold. Otherwise: +10 Gold to the Faithful Prize Pot.',
-    imageUrl: '/assets/aistudio/The_Candlelit_Castle_Mystery_891f6711.png',
+    imageUrl: '/castle-media/The_Candlelit_Castle_Mystery_891f6711.png',
     sampleScript:
       '“Welcome to Jasmine’s Castle. One of you will be murdered, several banished, and the rest deeply untrustworthy. Look at each other... because by tonight, one of you is a Traitor.”',
   },
@@ -125,7 +125,7 @@ export const ROUNDS_PLAN_DATA: RoundPlanItem[] = [
       successCondition: 'Target Faithful locks an incorrect majority prediction on the assigned question.',
     },
     scoring: '+2 Gold per correct prediction for Faithful. Traitor earns +10 Gold if their target was successfully misled.',
-    imageUrl: '/assets/aistudio/Birthday_Majority_in_the_Castle_925a5814.png',
+    imageUrl: '/castle-media/Birthday_Majority_in_the_Castle_925a5814.png',
     sampleScript:
       '“You think you know your friends? You don’t. You know their curated social media and polite dinner party faces. Now we find out what they really think of you.”',
   },
@@ -152,7 +152,7 @@ export const ROUNDS_PLAN_DATA: RoundPlanItem[] = [
       successCondition: 'Another guest publicly suspects or accuses an innocent Faithful of having the wrong drawing.',
     },
     scoring: '+10 Gold to Faithful pot if Traitor sketch is identified. Traitor steals +10 Gold if an innocent Faithful is accused.',
-    imageUrl: '/assets/aistudio/The_Forgery_Gallery_efeeaa3f.png',
+    imageUrl: '/castle-media/The_Forgery_Gallery_efeeaa3f.png',
     sampleScript:
       '“Two minutes of dead silence. Put pencil to paper. One among you has a forged brief. When I say show, reveal your slates to the table!”',
   },
@@ -178,7 +178,7 @@ export const ROUNDS_PLAN_DATA: RoundPlanItem[] = [
       successCondition: 'Another player fetches or votes your assigned item into the final five.',
     },
     scoring: '+10 Gold if the 60-second escape story succeeds. Traitor steals +10 Gold if their contraband item is packed.',
-    imageUrl: '/assets/aistudio/Pirate_s_Tandem_Escape_Plan_b8d68311.png',
+    imageUrl: '/castle-media/Pirate_s_Tandem_Escape_Plan_b8d68311.png',
     sampleScript:
       '“A body has been found in the wine cellar. You must flee on a two-seater bicycle across the moors. You can only pack five items. Choose wisely.”',
   },
@@ -205,7 +205,7 @@ export const ROUNDS_PLAN_DATA: RoundPlanItem[] = [
       successCondition: 'Traitor uses or correctly identifies the missing 3rd word.',
     },
     scoring: '+10 Gold to Faithful if Traitor fails to use or identify the word. Traitor steals +10 Gold if 3rd word is deduced.',
-    imageUrl: '/assets/aistudio/Woman_Presenting_a_Brass_Teacup_Invention_8d0dc60f.png',
+    imageUrl: '/castle-media/Woman_Presenting_a_Brass_Teacup_Invention_8d0dc60f.png',
     sampleScript:
       '“High finance. Unregulated tech. Thirty seconds on the clock. Pitch for your lives.”',
   },
@@ -233,7 +233,7 @@ export const ROUNDS_PLAN_DATA: RoundPlanItem[] = [
       successCondition: 'Survive the final banishments as a Traitor to claim the entire prize pot.',
     },
     scoring: 'Winner takes all! A surviving Traitor takes the ENTIRE gold pot. If all Traitors banished, the top-scoring Faithful wins.',
-    imageUrl: '/assets/aistudio/Seven_at_the_final_reveal_84c3c2c2.png',
+    imageUrl: '/castle-media/Seven_at_the_final_reveal_84c3c2c2.png',
     sampleScript:
       '“The auction is over. Your money has gone. Your Traitor hasn’t. From this moment, if you’re banished, you are finished.”',
   },

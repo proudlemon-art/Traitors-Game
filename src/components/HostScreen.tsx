@@ -83,7 +83,7 @@ export const HostScreen: React.FC<Props> = ({
       pensDownScene?.defaultText ||
       "Pens down! Your masterpieces are complete — I'm using that word very generously. Hold up your drawings in three, two, one! Have a good look around. The Faithful were all working from the same secret brief. The Traitor had something different. Who's drawn something suspicious, and who is simply terrible at drawing?";
     setCaption(pensDownText);
-    audioHost.speak(pensDownText, 'ROUND_3_PENS_DOWN', 3);
+    audioHost.speak(pensDownText, 'ROUND_3_PENS_DOWN', 3, { force: true });
   };
 
   // Countdown tick for Round 3 2-minute sketch timer
@@ -155,6 +155,7 @@ export const HostScreen: React.FC<Props> = ({
   useEffect(() => {
     if (state.phase === 'LOBBY') {
       audioHost.stop();
+      audioHost.resetAutoSceneTracking();
       return;
     }
     const activeScene = adminMediaService.getActiveScene(state.phase, state.currentRound);

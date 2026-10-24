@@ -68,6 +68,36 @@ try {
   // Read-only filesystem in serverless environments
 }
 
+// Serve built-in castle audio & images directly via /castle-media (bypasses /assets/aistudio proxy interception)
+const CASTLE_MEDIA_DIR = path.resolve('public/castle-media');
+const AISTUDIO_ASSETS_DIR = path.resolve('public/assets/aistudio');
+try {
+  if (fs.existsSync(CASTLE_MEDIA_DIR)) {
+    app.use('/castle-media', express.static(CASTLE_MEDIA_DIR));
+  }
+  if (fs.existsSync(AISTUDIO_ASSETS_DIR)) {
+    app.use('/castle-media', express.static(AISTUDIO_ASSETS_DIR));
+  }
+} catch {
+  // Ignore static mount errors
+}
+
+app.get(['/castle-media/:filename', '/api/castle-media/:filename'], (req, res) => {
+  const filename = path.basename(req.params.filename);
+  const candidates = [
+    path.join(CASTLE_MEDIA_DIR, filename),
+    path.join(AISTUDIO_ASSETS_DIR, filename),
+    path.join(path.resolve('dist/castle-media'), filename),
+    path.join(path.resolve('dist/assets/aistudio'), filename),
+  ];
+  for (const c of candidates) {
+    if (fs.existsSync(c)) {
+      return res.sendFile(c);
+    }
+  }
+  return res.status(404).json({ error: 'Media file not found' });
+});
+
 // Also support /api/uploads/:filename route for serverless static serving
 app.get('/api/uploads/:filename', (req, res) => {
   const filename = path.basename(req.params.filename);

@@ -27,61 +27,61 @@ export const PRESET_CASTLE_IMAGES = [
     id: 'crime_scene_mystery',
     name: 'The Candlelit Mystery (Mission 1)',
     description: 'Slumbering lord in armchair with 8 crime scene objects on table',
-    url: '/assets/aistudio/The_Candlelit_Castle_Mystery_891f6711.png',
+    url: '/castle-media/The_Candlelit_Castle_Mystery_891f6711.png',
   },
   {
     id: 'prologue_arrival',
     name: 'Jasmine’s Castle Arrival',
     description: 'Claudia at the wrought iron gates of Jasmine’s Castle',
-    url: '/assets/aistudio/Screenshot_2026-10-20_at_11.50.13_adceafb3.png',
+    url: '/castle-media/Screenshot_2026-10-20_at_11.50.13_adceafb3.png',
   },
   {
     id: 'round_table_slates',
     name: 'Seven Sealed Slates at the Round Table',
     description: 'Claudia placing 7 wax-sealed envelopes at the candlelit Round Table',
-    url: '/assets/aistudio/Seven_Sealed_Slates_at_the_Round_Table_a2338a35.png',
+    url: '/castle-media/Seven_Sealed_Slates_at_the_Round_Table_a2338a35.png',
   },
   {
     id: 'banishment_reveal',
     name: 'Candlelit Banishment Reveal',
     description: 'Claudia standing in the candlelit castle hall for the Banishment Reveal',
-    url: '/assets/aistudio/Candlelit_Banishment_Reveal_50dd669e.png',
+    url: '/castle-media/Candlelit_Banishment_Reveal_50dd669e.png',
   },
   {
     id: 'birthday_majority_mission',
     name: 'The Birthday Majority (Mission 2)',
     description: 'Claudia in the candlelit castle hall for Mission 2: The Birthday Majority',
-    url: '/assets/aistudio/Birthday_Majority_in_the_Castle_925a5814.png',
+    url: '/castle-media/Birthday_Majority_in_the_Castle_925a5814.png',
   },
   {
     id: 'forgery_gallery_mission',
     name: 'The Forgery Gallery (Mission 3)',
     description: 'Mission Three: The Forgery Gallery — Masterpiece or misdirection?',
-    url: '/assets/aistudio/The_Forgery_Gallery_efeeaa3f.png',
+    url: '/castle-media/The_Forgery_Gallery_efeeaa3f.png',
   },
   {
     id: 'body_disposal_mission',
     name: 'The Body Disposal Committee (Mission 4)',
     description: 'Mission Four: The Body Disposal Committee — Tandem bicycle & household objects',
-    url: '/assets/aistudio/Pirate_s_Tandem_Escape_Plan_b8d68311.png',
+    url: '/castle-media/Pirate_s_Tandem_Escape_Plan_b8d68311.png',
   },
   {
     id: 'counterfeit_expert_mission',
     name: 'The Counterfeit Expert (Mission 5)',
     description: 'Mission Five: The Counterfeit Expert — Brass teacup invention pitch',
-    url: '/assets/aistudio/Woman_Presenting_a_Brass_Teacup_Invention_8d0dc60f.png',
+    url: '/castle-media/Woman_Presenting_a_Brass_Teacup_Invention_8d0dc60f.png',
   },
   {
     id: 'getaway_auction_mission',
     name: 'The Getaway Auction (Mission 6)',
     description: 'Mission Six: The Getaway Auction — Mystery escape lots & gold coins',
-    url: '/assets/aistudio/Final_mission_The_getaway_auction.png',
+    url: '/castle-media/Final_mission_The_getaway_auction.png',
   },
   {
     id: 'finale_final_reveal',
     name: 'The Final Reveal: The Finale',
     description: 'The Finale — One last look around the table with 7 guests and golden goblet',
-    url: '/assets/aistudio/Seven_at_the_final_reveal_84c3c2c2.png',
+    url: '/castle-media/Seven_at_the_final_reveal_84c3c2c2.png',
   },
   {
     id: 'round_table_chamber',
@@ -109,39 +109,47 @@ export const PRESET_CASTLE_IMAGES = [
   },
 ];
 
-const STORAGE_KEY = 'traitors_castle_admin_media_v18';
+const STORAGE_KEY = 'traitors_castle_admin_media_v19';
+
+export function normalizeCastleMediaUrl(url?: string): string | undefined {
+  if (!url || typeof url !== 'string') return url;
+  if (url.startsWith('/assets/aistudio/')) {
+    return url.replace('/assets/aistudio/', '/castle-media/');
+  }
+  return url;
+}
 
 function buildInitialScenes(): SceneMediaConfig[] {
   const scenes: SceneMediaConfig[] = [];
 
   const introAudioByRound: Record<number, { audioUrl: string; fileName: string; durationSec: number }> = {
     1: {
-      audioUrl: '/assets/aistudio/ElevenLabs_2026-10-20T10_46_01_Claudia_ivc_sp100_s50_sb75_v4.mp3',
+      audioUrl: '/castle-media/ElevenLabs_2026-10-20T10_46_01_Claudia_ivc_sp100_s50_sb75_v4.mp3',
       fileName: 'Round_1_Prologue_Claudia.mp3',
       durationSec: 32,
     },
     2: {
-      audioUrl: '/assets/aistudio/ElevenLabs_2026-10-24T13_34_30_Claudia_ivc_sp100_s50_sb75_v4_2e1ac63c.mp3',
+      audioUrl: '/castle-media/ElevenLabs_2026-10-24T13_34_30_Claudia_ivc_sp100_s50_sb75_v4_2e1ac63c.mp3',
       fileName: 'Round_2_Prologue_Claudia.mp3',
       durationSec: 15,
     },
     3: {
-      audioUrl: '/assets/aistudio/ElevenLabs_2026-10-24T14_42_51_Claudia_ivc_sp100_s50_sb75_v4.mp3',
+      audioUrl: '/castle-media/ElevenLabs_2026-10-24T14_42_51_Claudia_ivc_sp100_s50_sb75_v4.mp3',
       fileName: 'Round_3_Prologue_Claudia.mp3',
       durationSec: 19,
     },
     4: {
-      audioUrl: '/assets/aistudio/ElevenLabs_2026-10-24T15_16_17_Claudia_ivc_sp100_s50_sb75_v4.mp3',
+      audioUrl: '/castle-media/ElevenLabs_2026-10-24T15_16_17_Claudia_ivc_sp100_s50_sb75_v4.mp3',
       fileName: 'Round_4_Prologue_Claudia.mp3',
       durationSec: 18,
     },
     5: {
-      audioUrl: '/assets/aistudio/ElevenLabs_2026-10-24T15_32_00_Claudia_ivc_sp100_s50_sb75_v4.mp3',
+      audioUrl: '/castle-media/ElevenLabs_2026-10-24T15_32_00_Claudia_ivc_sp100_s50_sb75_v4.mp3',
       fileName: 'Round_5_Prologue_Claudia.mp3',
       durationSec: 16,
     },
     6: {
-      audioUrl: '/assets/aistudio/ElevenLabs_2026-10-24T15_42_30_Claudia_ivc_sp100_s50_sb75_v4.mp3',
+      audioUrl: '/castle-media/ElevenLabs_2026-10-24T15_42_30_Claudia_ivc_sp100_s50_sb75_v4.mp3',
       fileName: 'Round_6_Prologue_Claudia.mp3',
       durationSec: 21,
     },
@@ -149,32 +157,32 @@ function buildInitialScenes(): SceneMediaConfig[] {
 
   const roleBriefingAudioByRound: Record<number, { audioUrl: string; fileName: string; durationSec: number }> = {
     1: {
-      audioUrl: '/assets/aistudio/ElevenLabs_2026-10-20T13_49_46_Claudia_ivc_sp100_s50_sb75_v4.mp3',
+      audioUrl: '/castle-media/ElevenLabs_2026-10-20T13_49_46_Claudia_ivc_sp100_s50_sb75_v4.mp3',
       fileName: 'Round_1_Role_Briefing_Claudia.mp3',
       durationSec: 19,
     },
     2: {
-      audioUrl: '/assets/aistudio/ElevenLabs_2026-10-24T14_05_52_Claudia_ivc_sp100_s50_sb75_v4.mp3',
+      audioUrl: '/castle-media/ElevenLabs_2026-10-24T14_05_52_Claudia_ivc_sp100_s50_sb75_v4.mp3',
       fileName: 'Round_2_Role_Briefing_Claudia.mp3',
       durationSec: 9,
     },
     3: {
-      audioUrl: '/assets/aistudio/ElevenLabs_2026-10-24T14_48_06_Claudia_ivc_sp100_s50_sb75_v4.mp3',
+      audioUrl: '/castle-media/ElevenLabs_2026-10-24T14_48_06_Claudia_ivc_sp100_s50_sb75_v4.mp3',
       fileName: 'Round_3_Role_Briefing_Claudia.mp3',
       durationSec: 14,
     },
     4: {
-      audioUrl: '/assets/aistudio/ElevenLabs_2026-10-24T15_17_26_Claudia_ivc_sp100_s50_sb75_v4.mp3',
+      audioUrl: '/castle-media/ElevenLabs_2026-10-24T15_17_26_Claudia_ivc_sp100_s50_sb75_v4.mp3',
       fileName: 'Round_4_Role_Briefing_Claudia.mp3',
       durationSec: 15,
     },
     5: {
-      audioUrl: '/assets/aistudio/ElevenLabs_2026-10-24T15_32_44_Claudia_ivc_sp100_s50_sb75_v4__1__ab52da49.mp3',
+      audioUrl: '/castle-media/ElevenLabs_2026-10-24T15_32_44_Claudia_ivc_sp100_s50_sb75_v4__1__ab52da49.mp3',
       fileName: 'Round_5_Role_Briefing_Claudia.mp3',
       durationSec: 16,
     },
     6: {
-      audioUrl: '/assets/aistudio/ElevenLabs_2026-10-24T15_43_40_Claudia_ivc_sp100_s50_sb75_v4.mp3',
+      audioUrl: '/castle-media/ElevenLabs_2026-10-24T15_43_40_Claudia_ivc_sp100_s50_sb75_v4.mp3',
       fileName: 'Round_6_Role_Briefing_Claudia.mp3',
       durationSec: 15,
     },
@@ -182,32 +190,32 @@ function buildInitialScenes(): SceneMediaConfig[] {
 
   const missionAudioByRound: Record<number, { audioUrl: string; fileName: string; durationSec: number }> = {
     1: {
-      audioUrl: '/assets/aistudio/ElevenLabs_2026-10-20T17_03_10_Claudia_ivc_sp100_s50_sb75_v4.mp3',
+      audioUrl: '/castle-media/ElevenLabs_2026-10-20T17_03_10_Claudia_ivc_sp100_s50_sb75_v4.mp3',
       fileName: 'Round_1_Mission_Exhibit_A_Claudia.mp3',
       durationSec: 28,
     },
     2: {
-      audioUrl: '/assets/aistudio/ElevenLabs_2026-10-24T14_12_33_Claudia_ivc_sp100_s50_sb75_v4_c621a2e3.mp3',
+      audioUrl: '/castle-media/ElevenLabs_2026-10-24T14_12_33_Claudia_ivc_sp100_s50_sb75_v4_c621a2e3.mp3',
       fileName: 'Round_2_Mission_Birthday_Majority_Claudia.mp3',
       durationSec: 25,
     },
     3: {
-      audioUrl: '/assets/aistudio/ElevenLabs_2026-10-24T14_49_51_Claudia_ivc_sp100_s50_sb75_v4.mp3',
+      audioUrl: '/castle-media/ElevenLabs_2026-10-24T14_49_51_Claudia_ivc_sp100_s50_sb75_v4.mp3',
       fileName: 'Round_3_Mission_Forgery_Gallery_Claudia.mp3',
       durationSec: 19,
     },
     4: {
-      audioUrl: '/assets/aistudio/ElevenLabs_2026-10-24T15_20_21_Claudia_ivc_sp100_s50_sb75_v4_c4d3b012.mp3',
+      audioUrl: '/castle-media/ElevenLabs_2026-10-24T15_20_21_Claudia_ivc_sp100_s50_sb75_v4_c4d3b012.mp3',
       fileName: 'Round_4_Mission_Body_Disposal_Claudia.mp3',
       durationSec: 34,
     },
     5: {
-      audioUrl: '/assets/aistudio/ElevenLabs_2026-10-24T15_33_58_Claudia_ivc_sp100_s50_sb75_v4__1__6f7fd83c.mp3',
+      audioUrl: '/castle-media/ElevenLabs_2026-10-24T15_33_58_Claudia_ivc_sp100_s50_sb75_v4__1__6f7fd83c.mp3',
       fileName: 'Round_5_Mission_Counterfeit_Expert_Claudia.mp3',
       durationSec: 24,
     },
     6: {
-      audioUrl: '/assets/aistudio/ElevenLabs_2026-10-24T15_44_45_Claudia_ivc_sp100_s50_sb75_v4.mp3',
+      audioUrl: '/castle-media/ElevenLabs_2026-10-24T15_44_45_Claudia_ivc_sp100_s50_sb75_v4.mp3',
       fileName: 'Round_6_Mission_Getaway_Auction_Claudia.mp3',
       durationSec: 22,
     },
@@ -215,38 +223,38 @@ function buildInitialScenes(): SceneMediaConfig[] {
 
   const roundTableAudioByRound: Record<number, { audioUrl: string; fileName: string; durationSec: number }> = {
     1: {
-      audioUrl: '/assets/aistudio/ElevenLabs_2026-10-20T17_01_04_Claudia_ivc_sp100_s50_sb75_v4_f3a7a8ee.mp3',
+      audioUrl: '/castle-media/ElevenLabs_2026-10-20T17_01_04_Claudia_ivc_sp100_s50_sb75_v4_f3a7a8ee.mp3',
       fileName: 'Round_1_Round_Table_Claudia.mp3',
       durationSec: 24,
     },
     2: {
-      audioUrl: '/assets/aistudio/ElevenLabs_2026-10-24T14_27_59_Claudia_ivc_sp100_s50_sb75_v4_13301d74.mp3',
+      audioUrl: '/castle-media/ElevenLabs_2026-10-24T14_27_59_Claudia_ivc_sp100_s50_sb75_v4_13301d74.mp3',
       fileName: 'Round_2_Round_Table_Claudia.mp3',
       durationSec: 14,
     },
     3: {
-      audioUrl: '/assets/aistudio/ElevenLabs_2026-10-24T15_14_49_Claudia_ivc_sp100_s50_sb75_v4_8da55de8.mp3',
+      audioUrl: '/castle-media/ElevenLabs_2026-10-24T15_14_49_Claudia_ivc_sp100_s50_sb75_v4_8da55de8.mp3',
       fileName: 'Round_3_Round_Table_Claudia.mp3',
       durationSec: 28,
     },
     4: {
-      audioUrl: '/assets/aistudio/ElevenLabs_2026-10-24T15_30_37_Claudia_ivc_sp100_s50_sb75_v4.mp3',
+      audioUrl: '/castle-media/ElevenLabs_2026-10-24T15_30_37_Claudia_ivc_sp100_s50_sb75_v4.mp3',
       fileName: 'Round_4_Round_Table_Claudia.mp3',
       durationSec: 24,
     },
     5: {
-      audioUrl: '/assets/aistudio/ElevenLabs_2026-10-24T15_41_20_Claudia_ivc_sp100_s50_sb75_v4.mp3',
+      audioUrl: '/castle-media/ElevenLabs_2026-10-24T15_41_20_Claudia_ivc_sp100_s50_sb75_v4.mp3',
       fileName: 'Round_5_Round_Table_Claudia.mp3',
       durationSec: 24,
     },
     6: {
-      audioUrl: '/assets/aistudio/ElevenLabs_2026-10-24T15_48_08_Claudia_ivc_sp100_s50_sb75_v4_6dfe2fbc.mp3',
+      audioUrl: '/castle-media/ElevenLabs_2026-10-24T15_48_08_Claudia_ivc_sp100_s50_sb75_v4_6dfe2fbc.mp3',
       fileName: 'Round_6_Round_Table_Claudia.mp3',
       durationSec: 28,
     },
   };
 
-  const FINALE_IMAGE_URL = '/assets/aistudio/Seven_at_the_final_reveal_84c3c2c2.png';
+  const FINALE_IMAGE_URL = '/castle-media/Seven_at_the_final_reveal_84c3c2c2.png';
 
   // ROUNDS 1 TO 6 COMPLETE CATALOG
   for (let r = 1; r <= 6; r++) {
@@ -294,16 +302,16 @@ function buildInitialScenes(): SceneMediaConfig[] {
       defaultText: s.missionStart,
       defaultImageUrl:
         r === 1
-          ? '/assets/aistudio/The_Candlelit_Castle_Mystery_891f6711.png'
+          ? '/castle-media/The_Candlelit_Castle_Mystery_891f6711.png'
           : r === 2
-          ? '/assets/aistudio/Birthday_Majority_in_the_Castle_925a5814.png'
+          ? '/castle-media/Birthday_Majority_in_the_Castle_925a5814.png'
           : r === 3
-          ? '/assets/aistudio/The_Forgery_Gallery_efeeaa3f.png'
+          ? '/castle-media/The_Forgery_Gallery_efeeaa3f.png'
           : r === 4
-          ? '/assets/aistudio/Pirate_s_Tandem_Escape_Plan_b8d68311.png'
+          ? '/castle-media/Pirate_s_Tandem_Escape_Plan_b8d68311.png'
           : r === 5
-          ? '/assets/aistudio/Woman_Presenting_a_Brass_Teacup_Invention_8d0dc60f.png'
-          : '/assets/aistudio/Final_mission_The_getaway_auction.png',
+          ? '/castle-media/Woman_Presenting_a_Brass_Teacup_Invention_8d0dc60f.png'
+          : '/castle-media/Final_mission_The_getaway_auction.png',
       voiceClip: missionAudioByRound[r],
     });
 
@@ -317,9 +325,9 @@ function buildInitialScenes(): SceneMediaConfig[] {
         phase: 'PENS_DOWN',
         defaultText:
           "Pens down! Your masterpieces are complete — I'm using that word very generously. Hold up your drawings in three, two, one! Have a good look around. The Faithful were all working from the same secret brief. The Traitor had something different. Who's drawn something suspicious, and who is simply terrible at drawing?",
-        defaultImageUrl: '/assets/aistudio/The_Forgery_Gallery_efeeaa3f.png',
+        defaultImageUrl: '/castle-media/The_Forgery_Gallery_efeeaa3f.png',
         voiceClip: {
-          audioUrl: '/assets/aistudio/ElevenLabs_2026-10-24T14_51_56_Claudia_ivc_sp100_s50_sb75_v4.mp3',
+          audioUrl: '/castle-media/ElevenLabs_2026-10-24T14_51_56_Claudia_ivc_sp100_s50_sb75_v4.mp3',
           fileName: 'Round_3_Pens_Down_Claudia.mp3',
           durationSec: 22,
         },
@@ -337,7 +345,7 @@ function buildInitialScenes(): SceneMediaConfig[] {
       defaultImageUrl:
         r === 6
           ? FINALE_IMAGE_URL
-          : '/assets/aistudio/Seven_Sealed_Slates_at_the_Round_Table_a2338a35.png',
+          : '/castle-media/Seven_Sealed_Slates_at_the_Round_Table_a2338a35.png',
       voiceClip: roundTableAudioByRound[r],
     });
 
@@ -352,9 +360,9 @@ function buildInitialScenes(): SceneMediaConfig[] {
       defaultImageUrl:
         r === 6
           ? FINALE_IMAGE_URL
-          : '/assets/aistudio/Seven_Sealed_Slates_at_the_Round_Table_a2338a35.png',
+          : '/castle-media/Seven_Sealed_Slates_at_the_Round_Table_a2338a35.png',
       voiceClip: {
-        audioUrl: '/assets/aistudio/ElevenLabs_2026-10-20T17_13_30_Claudia_ivc_sp100_s50_sb75_v4.mp3',
+        audioUrl: '/castle-media/ElevenLabs_2026-10-20T17_13_30_Claudia_ivc_sp100_s50_sb75_v4.mp3',
         fileName: `Round_${r}_Voting_Open_Claudia.mp3`,
         durationSec: 17,
       },
@@ -371,9 +379,9 @@ function buildInitialScenes(): SceneMediaConfig[] {
       defaultImageUrl:
         r === 6
           ? FINALE_IMAGE_URL
-          : '/assets/aistudio/Seven_Sealed_Slates_at_the_Round_Table_a2338a35.png',
+          : '/castle-media/Seven_Sealed_Slates_at_the_Round_Table_a2338a35.png',
       voiceClip: {
-        audioUrl: '/assets/aistudio/ElevenLabs_2026-10-20T17_14_29_Claudia_ivc_sp100_s50_sb75_v4.mp3',
+        audioUrl: '/castle-media/ElevenLabs_2026-10-20T17_14_29_Claudia_ivc_sp100_s50_sb75_v4.mp3',
         fileName: `Round_${r}_All_Votes_Locked_Claudia.mp3`,
         durationSec: 12,
       },
@@ -390,10 +398,10 @@ function buildInitialScenes(): SceneMediaConfig[] {
       defaultImageUrl:
         r === 6
           ? FINALE_IMAGE_URL
-          : '/assets/aistudio/Candlelit_Banishment_Reveal_50dd669e.png',
+          : '/castle-media/Candlelit_Banishment_Reveal_50dd669e.png',
       voiceClip: {
         audioUrl:
-          '/assets/aistudio/ElevenLabs_2026-10-24T13_04_48_Claudia_ivc_sp100_s50_sb75_v4_e982cd57.mp3',
+          '/castle-media/ElevenLabs_2026-10-24T13_04_48_Claudia_ivc_sp100_s50_sb75_v4_e982cd57.mp3',
         fileName: `Round_${r}_Banishment_Reveal_Claudia.mp3`,
         durationSec: 28,
       },
@@ -411,7 +419,7 @@ function buildInitialScenes(): SceneMediaConfig[] {
     defaultImageUrl: FINALE_IMAGE_URL,
     voiceClip: {
       audioUrl:
-        '/assets/aistudio/ElevenLabs_2026-10-24T17_15_37_Claudia_ivc_sp100_s50_sb75_v4_f94b6dc6.mp3',
+        '/castle-media/ElevenLabs_2026-10-24T17_15_37_Claudia_ivc_sp100_s50_sb75_v4_f94b6dc6.mp3',
       fileName: 'Round_6_Final_Results_Claudia.mp3',
       durationSec: 21,
     },
@@ -423,10 +431,10 @@ function buildInitialScenes(): SceneMediaConfig[] {
     subtitle: 'When a player is banished and their true role is revealed',
     phase: 'BANISHMENT_OUTCOME',
     defaultText: HOST_SCRIPTS[1].banishment('Someone', false),
-    defaultImageUrl: '/assets/aistudio/Candlelit_Banishment_Reveal_50dd669e.png',
+    defaultImageUrl: '/castle-media/Candlelit_Banishment_Reveal_50dd669e.png',
     voiceClip: {
       audioUrl:
-        '/assets/aistudio/ElevenLabs_2026-10-24T13_04_48_Claudia_ivc_sp100_s50_sb75_v4_e982cd57.mp3',
+        '/castle-media/ElevenLabs_2026-10-24T13_04_48_Claudia_ivc_sp100_s50_sb75_v4_e982cd57.mp3',
       fileName: 'Banishment_Reveal_Claudia.mp3',
       durationSec: 28,
     },
@@ -442,7 +450,7 @@ function buildInitialScenes(): SceneMediaConfig[] {
     defaultImageUrl: PRESET_CASTLE_IMAGES[1].url,
     voiceClip: {
       audioUrl:
-        '/assets/aistudio/ElevenLabs_2026-10-24T17_24_00_Claudia_ivc_sp100_s50_sb75_v4_35c184ad.mp3',
+        '/castle-media/ElevenLabs_2026-10-24T17_24_00_Claudia_ivc_sp100_s50_sb75_v4_35c184ad.mp3',
       fileName: 'Tie_Defence_Claudia.mp3',
       durationSec: 19,
     },
@@ -513,18 +521,21 @@ class AdminMediaService {
     savedList.forEach(saved => {
       if (!saved || !saved.id) return;
       const existing = this.scenes.get(saved.id);
+      const normalizedSavedAudioUrl = normalizeCastleMediaUrl(saved.voiceClip?.audioUrl);
       const validVoiceClip =
-        saved.voiceClip?.audioUrl && !invalidUrls.has(saved.voiceClip.audioUrl)
-          ? saved.voiceClip
+        normalizedSavedAudioUrl && !invalidUrls.has(normalizedSavedAudioUrl)
+          ? { ...saved.voiceClip!, audioUrl: normalizedSavedAudioUrl }
           : undefined;
+      const normalizedSavedImageUrl = normalizeCastleMediaUrl(saved.customImageUrl);
       const validCustomImage =
-        saved.customImageUrl &&
-        !invalidUrls.has(saved.customImageUrl) &&
+        normalizedSavedImageUrl &&
+        !invalidUrls.has(normalizedSavedImageUrl) &&
         !(
-          existing?.defaultImageUrl?.startsWith('/assets/aistudio/') &&
-          saved.customImageUrl.startsWith('/src/assets/images/')
+          (existing?.defaultImageUrl?.startsWith('/castle-media/') ||
+            existing?.defaultImageUrl?.startsWith('/assets/aistudio/')) &&
+          normalizedSavedImageUrl.startsWith('/src/assets/images/')
         )
-          ? saved.customImageUrl
+          ? normalizedSavedImageUrl
           : undefined;
       const validCustomText =
         saved.customText && saved.customText !== 'Welcome to the castle'
@@ -532,11 +543,14 @@ class AdminMediaService {
           : undefined;
 
       if (existing) {
+        const hasBuiltInClip =
+          existing.voiceClip?.audioUrl?.startsWith('/castle-media/') ||
+          existing.voiceClip?.audioUrl?.startsWith('/assets/aistudio/');
         this.scenes.set(saved.id, {
           ...existing,
           customText: validCustomText ?? existing.customText,
           customImageUrl: validCustomImage ?? existing.customImageUrl,
-          voiceClip: existing.voiceClip?.audioUrl?.startsWith('/assets/aistudio/')
+          voiceClip: hasBuiltInClip
             ? validVoiceClip?.audioUrl?.startsWith('data:')
               ? validVoiceClip
               : existing.voiceClip
@@ -545,6 +559,7 @@ class AdminMediaService {
       } else {
         this.scenes.set(saved.id, {
           ...saved,
+          defaultImageUrl: normalizeCastleMediaUrl(saved.defaultImageUrl) || saved.defaultImageUrl,
           customText: validCustomText,
           customImageUrl: validCustomImage,
           voiceClip: validVoiceClip,

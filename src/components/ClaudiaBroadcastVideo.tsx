@@ -94,21 +94,21 @@ export const ClaudiaBroadcastVideo: React.FC<Props> = ({
   const displayImage =
     activeScene?.customImageUrl ||
     (isFinalePhase
-      ? '/assets/aistudio/Seven_at_the_final_reveal_84c3c2c2.png'
+      ? '/castle-media/Seven_at_the_final_reveal_84c3c2c2.png'
       : activeScene?.defaultImageUrl) ||
     (phase === 'MISSION' && currentRound === 1
-      ? '/assets/aistudio/The_Candlelit_Castle_Mystery_891f6711.png'
+      ? '/castle-media/The_Candlelit_Castle_Mystery_891f6711.png'
       : phase === 'MISSION' && currentRound === 2
-      ? '/assets/aistudio/Birthday_Majority_in_the_Castle_925a5814.png'
+      ? '/castle-media/Birthday_Majority_in_the_Castle_925a5814.png'
       : (phase === 'MISSION' || phase === 'ROUND_3_PENS_DOWN') && currentRound === 3
-      ? '/assets/aistudio/The_Forgery_Gallery_efeeaa3f.png'
+      ? '/castle-media/The_Forgery_Gallery_efeeaa3f.png'
       : phase === 'MISSION' && currentRound === 4
-      ? '/assets/aistudio/Pirate_s_Tandem_Escape_Plan_b8d68311.png'
+      ? '/castle-media/Pirate_s_Tandem_Escape_Plan_b8d68311.png'
       : phase === 'MISSION' && currentRound === 5
-      ? '/assets/aistudio/Woman_Presenting_a_Brass_Teacup_Invention_8d0dc60f.png'
+      ? '/castle-media/Woman_Presenting_a_Brass_Teacup_Invention_8d0dc60f.png'
       : phase === 'MISSION' && currentRound === 6
-      ? '/assets/aistudio/Final_mission_The_getaway_auction.png'
-      : '/assets/aistudio/Screenshot_2026-10-20_at_11.50.13_adceafb3.png');
+      ? '/castle-media/Final_mission_The_getaway_auction.png'
+      : '/castle-media/Screenshot_2026-10-20_at_11.50.13_adceafb3.png');
 
   const sceneTitle =
     activeScene?.title ||

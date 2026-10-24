@@ -1,5 +1,5 @@
 import { AudioEventMapping } from '../types/game';
-import { adminMediaService, VoiceClipData } from './adminMediaService';
+import { adminMediaService, normalizeCastleMediaUrl, VoiceClipData } from './adminMediaService';
 
 export interface AudioPlaybackState {
   isPlaying: boolean;
@@ -7,6 +7,18 @@ export interface AudioPlaybackState {
   currentTime: number;
   duration: number;
   activeClip: VoiceClipData | null;
+}
+
+function getFallbackAudioUrls(primaryUrl: string): string[] {
+  if (!primaryUrl || primaryUrl.startsWith('data:')) return [];
+  const fileName = primaryUrl.split('/').pop();
+  if (!fileName) return [];
+  const candidates = [
+    `/castle-media/${fileName}`,
+    `/api/castle-media/${fileName}`,
+    `/assets/aistudio/${fileName}`,
+  ];
+  return candidates.filter(u => u !== primaryUrl);
 }
 
 class AudioHostService {
@@ -17,6 +29,7 @@ class AudioHostService {
   private currentTimeSec: number = 0;
   private durationSec: number = 0;
   private lastSpokenText: string = '';
+  private lastAutoSceneKey: string = '';
   private currentActiveClip: VoiceClipData | null = null;
   private pendingAutoPlayClip: VoiceClipData | null = null;
   private captionListeners: Set<(caption: string) => void> = new Set();
@@ -28,6 +41,11 @@ class AudioHostService {
     if (typeof window !== 'undefined') {
       const unlockHandler = () => {
         this.isUnlocked = true;
+        // Ensure persistent audio element exists and is warmed up on user gesture
+        if (!this.currentAudioElement && typeof Audio !== 'undefined') {
+          this.currentAudioElement = new Audio();
+          this.currentAudioElement.preload = 'auto';
+        }
         if (this.pendingAutoPlayClip) {
           const clip = this.pendingAutoPlayClip;
           this.pendingAutoPlayClip = null;
@@ -43,6 +61,10 @@ class AudioHostService {
   public unlockAudio(): boolean {
     this.isUnlocked = true;
     this.isMuted = false;
+    if (!this.currentAudioElement && typeof Audio !== 'undefined') {
+      this.currentAudioElement = new Audio();
+      this.currentAudioElement.preload = 'auto';
+    }
     if (this.pendingAutoPlayClip) {
       const clip = this.pendingAutoPlayClip;
       this.pendingAutoPlayClip = null;
@@ -145,7 +167,7 @@ class AudioHostService {
   public resume(fallbackClip?: VoiceClipData) {
     this.isMuted = false;
     this.isUnlocked = true;
-    if (this.currentAudioElement && this.isPausedState) {
+    if (this.currentAudioElement && this.isPausedState && this.currentAudioElement.src) {
       this.isPausedState = false;
       this.notifySpeaking(true);
       this.currentAudioElement.play().catch(err => {
@@ -165,7 +187,7 @@ class AudioHostService {
   public togglePlayPause(fallbackClip?: VoiceClipData) {
     if (this.isSpeakingActive && this.currentAudioElement && !this.currentAudioElement.paused) {
       this.pause();
-    } else if (this.isPausedState && this.currentAudioElement) {
+    } else if (this.isPausedState && this.currentAudioElement && this.currentAudioElement.src) {
       this.resume(fallbackClip);
     } else {
       const clipToPlay = fallbackClip || this.currentActiveClip;
@@ -181,23 +203,6 @@ class AudioHostService {
     this.isMuted = false;
     this.isUnlocked = true;
     const clipToPlay = fallbackClip || this.currentActiveClip;
-    if (this.currentAudioElement && (!fallbackClip || fallbackClip.audioUrl === this.currentActiveClip?.audioUrl)) {
-      try {
-        this.currentAudioElement.pause();
-        this.currentAudioElement.currentTime = 0;
-        this.currentTimeSec = 0;
-        this.isPausedState = false;
-        this.notifySpeaking(true);
-        this.currentAudioElement.play().catch(err => {
-          console.warn('Could not restart audio clip:', err);
-          this.notifySpeaking(false);
-        });
-        return;
-      } catch {
-        // Fallback to recreating audio element below
-      }
-    }
-
     if (clipToPlay?.audioUrl) {
       this.playCustomClip(clipToPlay);
     }
@@ -216,7 +221,6 @@ class AudioHostService {
         this.currentAudioElement.pause();
         this.currentAudioElement.currentTime = 0;
       } catch {}
-      this.currentAudioElement = null;
     }
     this.notifySpeaking(false);
   }
@@ -233,23 +237,62 @@ class AudioHostService {
       return Promise.resolve();
     }
 
-    this.currentActiveClip = clip;
+    const normalizedUrl = normalizeCastleMediaUrl(clip.audioUrl) || clip.audioUrl;
+    const normalizedClip: VoiceClipData = {
+      ...clip,
+      audioUrl: normalizedUrl,
+    };
+
+    this.currentActiveClip = normalizedClip;
     if (this.isMuted) {
       return Promise.resolve();
     }
 
     this.stop();
-    this.currentActiveClip = clip;
-    this.durationSec = clip.durationSec || 0;
+    this.currentActiveClip = normalizedClip;
+    this.durationSec = normalizedClip.durationSec || 0;
     this.notifySpeaking(true);
+
+    const fallbackUrls = getFallbackAudioUrls(normalizedUrl);
+    let fallbackIndex = 0;
 
     return new Promise(resolve => {
       try {
-        const audio = new Audio();
-        audio.preload = 'auto';
-        audio.src = clip.audioUrl;
+        const audio = this.currentAudioElement || new Audio();
         this.currentAudioElement = audio;
+        audio.preload = 'auto';
         audio.playbackRate = 1.0;
+
+        const attemptPlayUrl = (urlToTry: string) => {
+          audio.src = urlToTry;
+          audio.load();
+
+          const playPromise = audio.play();
+          if (playPromise !== undefined) {
+            playPromise
+              .then(() => {
+                this.pendingAutoPlayClip = null;
+                this.isPausedState = false;
+                this.notifySpeaking(true);
+              })
+              .catch(err => {
+                // If NotSupportedError or load failure and we have fallbacks, try next URL
+                if (
+                  fallbackIndex < fallbackUrls.length &&
+                  (err?.name === 'NotSupportedError' || err?.message?.includes('supported'))
+                ) {
+                  const nextUrl = fallbackUrls[fallbackIndex++];
+                  attemptPlayUrl(nextUrl);
+                  return;
+                }
+                console.warn('Autoplay deferred until user interaction:', err);
+                this.pendingAutoPlayClip = normalizedClip;
+                this.isPausedState = true;
+                this.notifySpeaking(false);
+                resolve();
+              });
+          }
+        };
 
         audio.onloadedmetadata = () => {
           if (audio.duration && isFinite(audio.duration)) {
@@ -274,30 +317,19 @@ class AudioHostService {
         };
 
         audio.onerror = e => {
-          console.warn('Audio clip playback failed:', clip.audioUrl, e);
-          this.currentAudioElement = null;
+          if (fallbackIndex < fallbackUrls.length) {
+            const nextUrl = fallbackUrls[fallbackIndex++];
+            console.warn(`Audio URL failed (${audio.src}), trying fallback: ${nextUrl}`);
+            attemptPlayUrl(nextUrl);
+            return;
+          }
+          console.warn('Audio clip playback failed:', normalizedClip.audioUrl, e);
           this.isPausedState = false;
           this.notifySpeaking(false);
           resolve();
         };
 
-        const playPromise = audio.play();
-        if (playPromise !== undefined) {
-          playPromise
-            .then(() => {
-              this.pendingAutoPlayClip = null;
-              this.isPausedState = false;
-              this.notifySpeaking(true);
-            })
-            .catch(err => {
-              console.warn('Autoplay deferred until user interaction:', err);
-              // Keep the audio element ready at 0:00 and queue for next click
-              this.pendingAutoPlayClip = clip;
-              this.isPausedState = true;
-              this.notifySpeaking(false);
-              resolve();
-            });
-        }
+        attemptPlayUrl(normalizedUrl);
       } catch (err) {
         console.warn('Audio playback error:', err);
         this.isPausedState = false;
@@ -308,14 +340,26 @@ class AudioHostService {
   }
 
   /**
-   * Main speech method called by HostScreen when scene/phase updates.
-   * Looks up the user's custom voice clip for this scene from adminMediaService.
+   * Main speech method called by HostScreen / App when scene/phase updates.
+   * Looks up the scene's voice clip from adminMediaService.
    */
-  public speak(text: string, eventId?: string, round?: number): Promise<void> {
+  public speak(
+    text: string,
+    eventId?: string,
+    round?: number,
+    options?: { force?: boolean }
+  ): Promise<void> {
     const scene = eventId ? adminMediaService.getActiveScene(eventId, round) : undefined;
-    const displayText = scene?.customText || text;
+    const displayText = scene?.customText || text || scene?.defaultText || '';
 
     this.notifyCaptions(displayText);
+
+    const sceneKey = `${round ?? 1}:${scene?.id || eventId || 'DEFAULT'}`;
+    if (!options?.force && this.lastAutoSceneKey === sceneKey) {
+      // Already triggered for this exact round + scene; do not cut off or restart mid-sentence
+      return Promise.resolve();
+    }
+    this.lastAutoSceneKey = sceneKey;
 
     if (this.isMuted) {
       return Promise.resolve();
@@ -331,6 +375,10 @@ class AudioHostService {
     this.currentActiveClip = null;
     this.notifyPlaybackState();
     return Promise.resolve();
+  }
+
+  public resetAutoSceneTracking() {
+    this.lastAutoSceneKey = '';
   }
 
   /**

@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { api } from './services/api';
+import { audioHost } from './services/audioHost';
+import { adminMediaService } from './services/adminMediaService';
 import { ClientGameState } from './types/game';
 import { HostScreen } from './components/HostScreen';
 import { PlayerScreen } from './components/PlayerScreen';
@@ -103,9 +105,26 @@ export default function App() {
 
   const handleJumpToRound = async (round: number, phase: string = 'INTRO') => {
     const code = currentRoomCode || 'DEMO7';
+    audioHost.unlockAudio();
+    const targetScene = adminMediaService.getActiveScene(phase, round);
+    const dialogueText = targetScene?.customText || targetScene?.defaultText || '';
+    audioHost.speak(dialogueText, phase, round, { force: true });
     await api.sendAction(code, 'DEMO_JUMP_TO_ROUND', { round, phase });
     setShowAdminStudio(false);
   };
+
+  // Trigger scene voice clip at top-level so audio plays even when inspecting simulated Player tabs in Demo Mode
+  useEffect(() => {
+    if (!gameState) return;
+    if (gameState.phase === 'LOBBY') {
+      audioHost.stop();
+      audioHost.resetAutoSceneTracking();
+      return;
+    }
+    const activeScene = adminMediaService.getActiveScene(gameState.phase, gameState.currentRound);
+    const dialogueText = gameState.latestDialogue || activeScene?.defaultText || '';
+    audioHost.speak(dialogueText, gameState.phase, gameState.currentRound);
+  }, [gameState?.phase, gameState?.currentRound]);
 
   // Form states for Lobby
   const [hostName, setHostName] = useState('Libby');

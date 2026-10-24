@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import { ClientGameState } from '../types/game';
 import { api } from '../services/api';
+import { audioHost } from '../services/audioHost';
+import { adminMediaService } from '../services/adminMediaService';
 import {
   Monitor,
   Smartphone,
@@ -46,6 +48,10 @@ export const DemoSwitcher: React.FC<Props> = ({
   const handleJumpRound = async (round: number, phase: string = 'INTRO') => {
     setIsJumping(true);
     try {
+      audioHost.unlockAudio();
+      const targetScene = adminMediaService.getActiveScene(phase, round);
+      const dialogueText = targetScene?.customText || targetScene?.defaultText || '';
+      audioHost.speak(dialogueText, phase, round, { force: true });
       await api.sendAction(state.roomCode, 'DEMO_JUMP_TO_ROUND', { round, phase });
     } finally {
       setIsJumping(false);
