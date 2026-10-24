@@ -1229,45 +1229,72 @@ app.post('/api/rooms', async (req, res) => {
   }
 });
 
-// Join room
+// Join room (or reclaim existing seat by token or name so Host can play on phone & guests can reconnect mid-game)
 app.post('/api/rooms/:code/join', async (req, res) => {
   try {
     const code = req.params.code.toUpperCase();
     const room = await db.getRoom(code);
     if (!room) {
-      return res.status(404).json({ error: 'Castle room not found.' });
+      return res.status(404).json({ error: 'Castle room not found. Check your 5-letter room code.' });
     }
 
-    const existingToken = req.body?.playerToken;
-    if (existingToken && room.players[existingToken]) {
-      const existingPlayer = room.players[existingToken];
-      existingPlayer.connected = true;
-      await db.saveRoom(room);
-      return res.json({
-        roomCode: code,
-        playerToken: existingToken,
-        playerId: existingPlayer.id,
-        name: existingPlayer.name,
-        seatNumber: existingPlayer.seatNumber,
-        isRoomCreator: !!existingPlayer.isRoomCreator,
-        state: sanitizeState(room.state, room.players, existingToken, !!existingPlayer.isRoomCreator),
-      });
+    const requestedName = (req.body?.name || '').trim();
+    const existingToken = (req.body?.playerToken || '').trim();
+
+    // 1. If caller provides a valid token (or playerId), AND they didn't explicitly type a different player's name:
+    if (existingToken) {
+      const tokenEntry = room.players[existingToken]
+        ? ([existingToken, room.players[existingToken]] as [string, Player])
+        : (Object.entries(room.players).find(([_, p]) => p.id === existingToken) as [string, Player] | undefined);
+
+      if (tokenEntry) {
+        const [resolvedToken, existingPlayer] = tokenEntry;
+        // If they didn't type a name, or typed the same name as their token's player, return this seat immediately
+        if (!requestedName || existingPlayer.name.trim().toLowerCase() === requestedName.toLowerCase()) {
+          existingPlayer.connected = true;
+          await db.saveRoom(room);
+          return res.json({
+            roomCode: code,
+            playerToken: resolvedToken,
+            playerId: existingPlayer.id,
+            name: existingPlayer.name,
+            seatNumber: existingPlayer.seatNumber,
+            isRoomCreator: !!existingPlayer.isRoomCreator,
+            state: sanitizeState(room.state, room.players, resolvedToken, false),
+          });
+        }
+      }
+    }
+
+    // 2. Check if requestedName matches an existing player in the room (case-insensitive).
+    // This allows:
+    // - The Host (e.g. "Libby") to launch the TV Host Display on the TV and then join as "Libby" on her phone to claim Seat #1!
+    // - Any guest who disconnected or refreshed their phone mid-game to type/tap their name and reclaim their exact seat, role, and score!
+    if (requestedName) {
+      const matchedEntry = Object.entries(room.players || {}).find(
+        ([_, p]) => p.name.trim().toLowerCase() === requestedName.toLowerCase()
+      );
+      if (matchedEntry) {
+        const [matchedToken, matchedPlayer] = matchedEntry;
+        matchedPlayer.connected = true;
+        await db.saveRoom(room);
+        return res.json({
+          roomCode: code,
+          playerToken: matchedToken,
+          playerId: matchedPlayer.id,
+          name: matchedPlayer.name,
+          seatNumber: matchedPlayer.seatNumber,
+          isRoomCreator: !!matchedPlayer.isRoomCreator,
+          state: sanitizeState(room.state, room.players, matchedToken, false),
+        });
+      }
     }
 
     const playersList = Object.values(room.players || {});
 
-    let name = (req.body?.name || '').trim();
+    let name = requestedName;
     if (!name) {
       name = `Guest ${playersList.length + 1}`;
-    }
-
-    const existingNames = playersList.map(p => p.name.toLowerCase());
-    if (existingNames.includes(name.toLowerCase())) {
-      let suffix = 2;
-      while (existingNames.includes(`${name.toLowerCase()} ${suffix}`)) {
-        suffix++;
-      }
-      name = `${name} ${suffix}`;
     }
 
     const newToken = generateId('token_');
@@ -1413,6 +1440,15 @@ app.get('/api/rooms/:code/state', async (req, res) => {
   const playerToken = (req.query.playerToken as string) || '';
   const isHost = req.query.isHost === 'true';
 
+  if (playerToken && room.players) {
+    const p =
+      room.players[playerToken] ||
+      Object.values(room.players).find(pl => pl.id === playerToken);
+    if (p && !p.connected) {
+      p.connected = true;
+    }
+  }
+
   res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
   res.json(sanitizeState(room.state, room.players, playerToken, isHost));
 });
@@ -1437,21 +1473,38 @@ app.post('/api/rooms/:code/action', async (req, res) => {
     const targetId = payload.targetPlayerId || payload.playerId;
     player = Object.values(room.players).find(p => p.id === targetId);
   }
+  if (player) {
+    player.connected = true;
+  }
 
   switch (action) {
+    case 'REMOVE_PLAYER': {
+      const targetPlayerId = payload?.playerId;
+      if (targetPlayerId && Object.keys(room.players).length > 1) {
+        const entryToRemove = Object.entries(room.players).find(([_, p]) => p.id === targetPlayerId);
+        if (entryToRemove) {
+          delete room.players[entryToRemove[0]];
+          s.seatingOrder = s.seatingOrder.filter(id => id !== targetPlayerId);
+          s.seatingOrder.forEach((id, idx) => {
+            const p = Object.values(room.players).find(pl => pl.id === id);
+            if (p) p.seatNumber = idx + 1;
+          });
+        }
+      }
+      break;
+    }
+
     case 'ADD_FAILSAFE_PLAYER': {
       const playersList = Object.values(room.players || {});
       let name = (payload?.name || '').trim();
       if (!name) {
         name = `Guest ${playersList.length + 1}`;
       }
-      const existingNames = playersList.map(p => p.name.toLowerCase());
-      if (existingNames.includes(name.toLowerCase())) {
-        let suffix = 2;
-        while (existingNames.includes(`${name.toLowerCase()} ${suffix}`)) {
-          suffix++;
-        }
-        name = `${name} ${suffix}`;
+      // If a player with this exact name already exists, don't duplicate if requested via failsafe
+      const existingMatch = playersList.find(p => p.name.trim().toLowerCase() === name.toLowerCase());
+      if (existingMatch) {
+        existingMatch.connected = true;
+        break;
       }
       const newToken = generateId('token_');
       const newPlayerId = generateId('p_');

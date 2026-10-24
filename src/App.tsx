@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { api } from './services/api';
 import { audioHost } from './services/audioHost';
 import { adminMediaService } from './services/adminMediaService';
-import { ClientGameState } from './types/game';
+import { ClientGameState, SanitizedPlayer } from './types/game';
 import { HostScreen } from './components/HostScreen';
 import { PlayerScreen } from './components/PlayerScreen';
 import { AudioSettingsModal } from './components/AudioSettingsModal';
@@ -78,6 +78,9 @@ export default function App() {
   const [currentRoomCode, setCurrentRoomCode] = useState<string>('');
   const [playerToken, setPlayerToken] = useState<string>('');
   const [viewMode, setViewMode] = useState<'HOST' | 'PLAYER'>('HOST');
+  // True when this device is the TV Host (and uses Failsafe Phone Tabs); false when a player joined on their own mobile phone
+  const [isHostDevice, setIsHostDevice] = useState<boolean>(true);
+  const [showMobileSeatSwitcher, setShowMobileSeatSwitcher] = useState<boolean>(false);
 
   // Modals
   const [showSettings, setShowSettings] = useState(false);
@@ -98,6 +101,20 @@ export default function App() {
     setIsCastleUnlocked(false);
   };
 
+  const handleLeaveRoom = () => {
+    api.clearActiveRoomSession();
+    audioHost.stop();
+    setGameState(null);
+    setCurrentRoomCode('');
+    setPlayerToken('');
+    setShowMobileSeatSwitcher(false);
+    if (typeof window !== 'undefined') {
+      const url = new URL(window.location.href);
+      url.searchParams.delete('room');
+      window.history.replaceState({}, '', url.pathname + url.search);
+    }
+  };
+
   const handleOpenAdminStudio = (sceneId?: string) => {
     setAdminStudioSceneId(sceneId);
     setShowAdminStudio(true);
@@ -113,9 +130,12 @@ export default function App() {
     setShowAdminStudio(false);
   };
 
-  // Trigger scene voice clip at top-level so audio plays even when inspecting simulated Player tabs in Demo Mode
+  // Trigger scene voice clip at top-level only for TV Host or Demo Mode (so guest phones don't blare TV audio)
   useEffect(() => {
     if (!gameState) return;
+    if (!gameState.isDemoRoom && viewMode !== 'HOST') {
+      return;
+    }
     if (gameState.phase === 'LOBBY') {
       audioHost.stop();
       audioHost.resetAutoSceneTracking();
@@ -124,34 +144,74 @@ export default function App() {
     const activeScene = adminMediaService.getActiveScene(gameState.phase, gameState.currentRound);
     const dialogueText = gameState.latestDialogue || activeScene?.defaultText || '';
     audioHost.speak(dialogueText, gameState.phase, gameState.currentRound);
-  }, [gameState?.phase, gameState?.currentRound]);
+  }, [gameState?.phase, gameState?.currentRound, viewMode, gameState?.isDemoRoom]);
 
   // Form states for Lobby
   const [hostName, setHostName] = useState('Libby');
   const [joinCode, setJoinCode] = useState('');
   const [joinName, setJoinName] = useState('');
+  const [peekedPlayers, setPeekedPlayers] = useState<SanitizedPlayer[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  // Parse URL query parameter for room code
+  // Restore active session on page reload or parse URL query parameter (?room=CODE)
   useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const params = new URLSearchParams(window.location.search);
-      const roomParam = params.get('room');
-      if (roomParam) {
-        setJoinCode(roomParam.toUpperCase());
-        // Try restoring session
-        const stored = api.getStoredSession(roomParam.toUpperCase());
-        if (stored) {
-          setCurrentRoomCode(roomParam.toUpperCase());
-          setPlayerToken(stored.playerToken);
-          setViewMode('PLAYER');
-        }
+    if (typeof window === 'undefined') return;
+    const params = new URLSearchParams(window.location.search);
+    const roomParam = params.get('room')?.trim().toUpperCase();
+    const activeSession = api.getActiveRoomSession();
+
+    if (roomParam) {
+      setJoinCode(roomParam);
+      const storedForRoom = api.getStoredSession(roomParam);
+      if (activeSession && activeSession.roomCode === roomParam && activeSession.playerToken) {
+        setCurrentRoomCode(roomParam);
+        setPlayerToken(activeSession.playerToken);
+        setViewMode(activeSession.viewMode);
+        setIsHostDevice(activeSession.isHostDevice);
+        api.setActivePlayerToken(activeSession.playerToken, activeSession.viewMode === 'HOST');
+        return;
       }
+      if (storedForRoom && storedForRoom.playerToken) {
+        setCurrentRoomCode(roomParam);
+        setPlayerToken(storedForRoom.playerToken);
+        setViewMode('PLAYER');
+        setIsHostDevice(false);
+        api.setActivePlayerToken(storedForRoom.playerToken, false);
+        return;
+      }
+      // If scanning QR code on a new phone, pre-fetch the room's seated players so they can 1-tap their name!
+      api.peekRoomPlayers(roomParam).then(players => {
+        setPeekedPlayers(players);
+      });
+    } else if (activeSession && activeSession.roomCode && activeSession.playerToken) {
+      // Automatically restore session if phone refreshed or screen woke up
+      setJoinCode(activeSession.roomCode);
+      setCurrentRoomCode(activeSession.roomCode);
+      setPlayerToken(activeSession.playerToken);
+      setViewMode(activeSession.viewMode);
+      setIsHostDevice(activeSession.isHostDevice);
+      api.setActivePlayerToken(activeSession.playerToken, activeSession.viewMode === 'HOST');
     }
   }, []);
 
-  // Subscribe to SSE updates when roomCode is active
+  // Whenever joinCode is 4-5 chars on the Welcome screen, peek seated players in that room for 1-tap seat claiming
+  useEffect(() => {
+    const clean = joinCode.trim().toUpperCase();
+    if (clean.length >= 4 && !gameState) {
+      let cancelled = false;
+      api.peekRoomPlayers(clean).then(players => {
+        if (!cancelled) setPeekedPlayers(players);
+      });
+      return () => {
+        cancelled = true;
+      };
+    } else {
+      setPeekedPlayers([]);
+    }
+  }, [joinCode, gameState]);
+
+  // Subscribe to room state updates when roomCode is active
   useEffect(() => {
     if (!currentRoomCode) return;
 
@@ -176,7 +236,16 @@ export default function App() {
       setCurrentRoomCode(demo.roomCode);
       setPlayerToken(demo.playerToken);
       setViewMode('HOST');
+      setIsHostDevice(true);
       api.setActivePlayerToken(demo.playerToken, true);
+      api.saveActiveRoomSession({
+        roomCode: demo.roomCode,
+        playerToken: demo.playerToken,
+        playerId: demo.playerId,
+        playerName: demo.name,
+        viewMode: 'HOST',
+        isHostDevice: true,
+      });
 
       if (demo.state) {
         setGameState(demo.state);
@@ -189,6 +258,7 @@ export default function App() {
       setCurrentRoomCode('DEMO7');
       setPlayerToken('demo_token_libby');
       setViewMode('HOST');
+      setIsHostDevice(true);
       api.setActivePlayerToken('demo_token_libby', true);
       setGameState(createFallbackDemoClientState('demo_token_libby', true));
     } finally {
@@ -196,7 +266,7 @@ export default function App() {
     }
   };
 
-  // Handle Create Real Room
+  // Handle Create Real Room (TV Host Display)
   const handleCreateRoom = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!hostName.trim()) return;
@@ -207,7 +277,20 @@ export default function App() {
       setCurrentRoomCode(res.roomCode);
       setPlayerToken(res.playerToken);
       setViewMode('HOST');
+      setIsHostDevice(true);
       api.setActivePlayerToken(res.playerToken, true);
+      api.saveActiveRoomSession({
+        roomCode: res.roomCode,
+        playerToken: res.playerToken,
+        playerId: res.playerId,
+        playerName: res.name,
+        viewMode: 'HOST',
+        isHostDevice: true,
+      });
+
+      if (typeof window !== 'undefined') {
+        window.history.replaceState({}, '', `?room=${res.roomCode}`);
+      }
 
       if (res.state) {
         setGameState(res.state);
@@ -224,18 +307,33 @@ export default function App() {
     }
   };
 
-  // Handle Join Real Room
-  const handleJoinRoom = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!joinCode.trim() || !joinName.trim()) return;
+  // Join or Claim Seat on Mobile Phone
+  const joinOrClaimSeatOnPhone = async (codeToJoin: string, playerNameToJoin: string) => {
+    if (!codeToJoin.trim() || !playerNameToJoin.trim()) return;
     setIsLoading(true);
     setErrorMessage(null);
     try {
-      const res = await api.joinRoom(joinCode.trim(), joinName.trim());
+      const res = await api.joinRoom(codeToJoin.trim(), playerNameToJoin.trim(), '');
       setCurrentRoomCode(res.roomCode);
       setPlayerToken(res.playerToken);
       setViewMode('PLAYER');
+      setIsHostDevice(false);
+      setIsPrivacyConfirmed(true);
+      setIsDeviceFrameMode(false);
+      setShowMobileSeatSwitcher(false);
       api.setActivePlayerToken(res.playerToken, false);
+      api.saveActiveRoomSession({
+        roomCode: res.roomCode,
+        playerToken: res.playerToken,
+        playerId: res.playerId,
+        playerName: res.name,
+        viewMode: 'PLAYER',
+        isHostDevice: false,
+      });
+
+      if (typeof window !== 'undefined') {
+        window.history.replaceState({}, '', `?room=${res.roomCode}`);
+      }
 
       if (res.state) {
         setGameState(res.state);
@@ -250,6 +348,12 @@ export default function App() {
     } finally {
       setIsLoading(false);
     }
+  };
+
+  // Handle Join Real Room Form Submit
+  const handleJoinRoom = async (e: React.FormEvent) => {
+    e.preventDefault();
+    await joinOrClaimSeatOnPhone(joinCode, joinName);
   };
 
   // Demo player view switcher
@@ -279,7 +383,7 @@ export default function App() {
       setViewMode('PLAYER');
       const found = DEMO_PLAYERS.find(p => p.token === view);
       if (found) {
-        api.saveSession(code, view, found.id);
+        api.saveSession(code, view, found.id, found.name);
         api.setActivePlayerToken(view, false);
         const playerState = await api.fetchState(code, view, false);
         if (playerState) {
@@ -291,7 +395,7 @@ export default function App() {
     }
   };
 
-  // Real room failsafe player view switcher (with mandatory privacy confirmation gate)
+  // Real room failsafe player view switcher (for TV Host device with mandatory privacy confirmation gate)
   const handleSelectRealRoomView = async (targetView: 'HOST' | string) => {
     const code = currentRoomCode || gameState?.roomCode || '';
     if (!code) return;
@@ -300,11 +404,25 @@ export default function App() {
       setViewMode('HOST');
       setIsPrivacyConfirmed(false);
       api.setActivePlayerToken(playerToken || '', true);
+      api.saveActiveRoomSession({
+        roomCode: code,
+        playerToken: playerToken || '',
+        playerId: gameState?.myPlayerId || '',
+        viewMode: 'HOST',
+        isHostDevice,
+      });
       const hostState = await api.fetchState(code, playerToken || '', true);
       if (hostState) setGameState(hostState);
     } else {
-      // Switching to a specific player's simulated phone tab in a real room:
-      // Always lock behind the privacy confirmation screen first!
+      // If on TV Host device, lock behind privacy confirmation screen first
+      // If on a personal phone switching seats, claim that seat directly
+      if (!isHostDevice) {
+        const targetPlayer = gameState?.players?.find(p => p.id === targetView);
+        if (targetPlayer) {
+          await joinOrClaimSeatOnPhone(code, targetPlayer.name);
+          return;
+        }
+      }
       setIsPrivacyConfirmed(false);
       setPlayerToken(targetView);
       setViewMode('PLAYER');
@@ -338,13 +456,15 @@ export default function App() {
     const prevPlayer = DEMO_PLAYERS[(activeIndex - 1 + DEMO_PLAYERS.length) % DEMO_PLAYERS.length];
     const nextPlayer = DEMO_PLAYERS[(activeIndex + 1) % DEMO_PLAYERS.length];
 
-    // Real room sorted players for the failsafe top nav bar
+    // Real room sorted players
     const realRoomPlayers = [...(gameState.players || [])].sort(
       (a, b) => (a.seatNumber || 0) - (b.seatNumber || 0)
     );
     const activeRealPlayer =
-      realRoomPlayers.find(p => p.id === playerToken || p.id === gameState.myPlayerId) ||
+      realRoomPlayers.find(p => p.id === gameState.myPlayerId || p.id === playerToken) ||
       realRoomPlayers[0];
+
+    const isPersonalPhoneMode = !gameState.isDemoRoom && !isHostDevice && viewMode === 'PLAYER';
 
     return (
       <div className="relative min-h-screen bg-castle-black text-amber-100 flex flex-col">
@@ -361,8 +481,81 @@ export default function App() {
           />
         )}
 
-        {/* REAL CASTLE ROOM TOP NAV: TV HOST + FAILSAFE SIMULATED PLAYER TABS + UNLIMITED PLAYER GENERATOR */}
-        {!gameState.isDemoRoom && (
+        {/* PERSONAL MOBILE PHONE HEADER (Clean, native mobile bar for players & Host playing on their phone) */}
+        {isPersonalPhoneMode && (
+          <div className="bg-zinc-950/98 border-b border-amber-500/40 px-3 py-2 text-xs sticky top-0 z-50 backdrop-blur-md shadow-lg">
+            <div className="max-w-lg mx-auto flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2 min-w-0">
+                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse shrink-0" title="Connected to Castle Room" />
+                <span className="font-mono text-amber-400 bg-zinc-900 border border-amber-900/50 px-2 py-0.5 rounded text-[11px] shrink-0">
+                  {gameState.roomCode}
+                </span>
+                <span className="truncate font-serif font-bold text-amber-200 text-xs">
+                  Seat #{activeRealPlayer?.seatNumber || 1}: {activeRealPlayer?.name || 'Guest'}
+                </span>
+              </div>
+
+              <div className="flex items-center gap-1.5 shrink-0">
+                <button
+                  onClick={() => setShowMobileSeatSwitcher(!showMobileSeatSwitcher)}
+                  className="px-2 py-1 rounded bg-zinc-900 hover:bg-zinc-800 border border-zinc-700 text-amber-300 font-mono text-[10px]"
+                >
+                  {showMobileSeatSwitcher ? 'Close' : 'Switch Seat'}
+                </button>
+                <button
+                  onClick={() => {
+                    setIsHostDevice(true);
+                    handleSelectRealRoomView('HOST');
+                  }}
+                  className="px-2 py-1 rounded bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-zinc-400 hover:text-amber-200 font-mono text-[10px] flex items-center gap-1"
+                  title="Switch to TV Host Screen"
+                >
+                  <Tv className="w-3 h-3" />
+                  <span>TV</span>
+                </button>
+                <button
+                  onClick={handleLeaveRoom}
+                  className="px-2 py-1 rounded bg-rose-950/60 hover:bg-rose-900/80 border border-rose-800/50 text-rose-200 font-mono text-[10px]"
+                  title="Leave Room"
+                >
+                  Leave
+                </button>
+              </div>
+            </div>
+
+            {/* Expandable Seat Switcher on Phone in case someone wants to claim/switch to their seat */}
+            {showMobileSeatSwitcher && (
+              <div className="max-w-lg mx-auto mt-2 pt-2 border-t border-zinc-800 space-y-2">
+                <span className="text-[10px] font-mono uppercase tracking-wider text-amber-400 block">
+                  Tap your name to claim your seat on this phone:
+                </span>
+                <div className="flex flex-wrap gap-1.5">
+                  {realRoomPlayers.map(rp => {
+                    const isMe = rp.id === activeRealPlayer?.id;
+                    return (
+                      <button
+                        key={rp.id}
+                        onClick={() => joinOrClaimSeatOnPhone(gameState.roomCode, rp.name)}
+                        className={`px-2.5 py-1.5 rounded-lg text-xs font-serif flex items-center gap-1.5 transition ${
+                          isMe
+                            ? 'bg-amber-500 text-black font-bold'
+                            : 'bg-zinc-900 border border-zinc-700 text-amber-200 hover:bg-zinc-800'
+                        }`}
+                      >
+                        <span className="font-mono text-[10px]">#{rp.seatNumber}</span>
+                        <span>{rp.name}</span>
+                        {rp.isRoomCreator && <span className="text-[9px] font-mono opacity-80">(Host)</span>}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* REAL CASTLE ROOM TOP NAV (For TV Host Display & Failsafe Phone Tabs) */}
+        {!gameState.isDemoRoom && !isPersonalPhoneMode && (
           <div className="bg-zinc-950/98 border-b-2 border-amber-500/60 p-2 text-xs sticky top-0 z-50 backdrop-blur-md shadow-xl">
             <div className="max-w-[1700px] mx-auto flex flex-wrap items-center justify-between gap-2">
               {/* Left: Room Code & TV Host Switcher */}
@@ -482,8 +675,15 @@ export default function App() {
                 )}
               </div>
 
-              {/* Right: Lock Castle */}
-              <div className="flex items-center gap-2">
+              {/* Right: Leave Room & Lock Castle */}
+              <div className="flex items-center gap-1.5">
+                <button
+                  onClick={handleLeaveRoom}
+                  className="px-2 py-1 rounded text-[10px] font-mono bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-zinc-400 hover:text-amber-200 transition"
+                  title="Exit to Lobby Welcome Screen"
+                >
+                  Exit Room
+                </button>
                 <button
                   onClick={handleLockCastle}
                   className="p-1.5 rounded text-xs bg-zinc-900 hover:bg-zinc-800 text-zinc-400 hover:text-amber-300 transition"
@@ -505,6 +705,11 @@ export default function App() {
               onOpenGuide={() => setShowGuide(true)}
               onOpenAdminStudio={handleOpenAdminStudio}
             />
+          ) : isPersonalPhoneMode ? (
+            /* PERSONAL MOBILE PHONE VIEW (Direct full-screen player slate for guests & Host playing on their phone) */
+            <div className="flex-1 w-full max-w-lg mx-auto p-3 sm:p-4">
+              <PlayerScreen state={gameState} playerToken={playerToken || activeRealPlayer?.id || ''} />
+            </div>
           ) : gameState.isDemoRoom ? (
             /* Mobile Device Simulator Frame for Testing */
             <div className="flex-1 flex flex-col items-center justify-start p-2 sm:p-6 bg-gradient-to-b from-castle-black via-zinc-950 to-castle-black">
@@ -594,7 +799,7 @@ export default function App() {
               )}
             </div>
           ) : !isPrivacyConfirmed ? (
-            /* REAL CASTLE ROOM: PRIVATE VIEWING CONFIRMATION SHIELD */
+            /* REAL CASTLE ROOM: PRIVATE VIEWING CONFIRMATION SHIELD (Only when opening Failsafe Tabs on the TV) */
             <div className="flex-1 flex flex-col items-center justify-center p-6 bg-gradient-to-b from-castle-black via-zinc-950 to-castle-black">
               <div className="w-full max-w-lg bg-zinc-950 border-2 border-amber-500/70 rounded-2xl p-8 text-center space-y-6 shadow-[0_0_60px_rgba(212,163,69,0.2)]">
                 <div className="w-16 h-16 rounded-full bg-burgundy-950 border-2 border-amber-500/60 flex items-center justify-center mx-auto shadow-lg">
@@ -638,7 +843,7 @@ export default function App() {
               </div>
             </div>
           ) : (
-            /* REAL CASTLE ROOM: UNLOCKED FAILSAFE SIMULATED PHONE VIEW */
+            /* REAL CASTLE ROOM: UNLOCKED FAILSAFE SIMULATED PHONE VIEW ON TV */
             <div className="flex-1 flex flex-col items-center justify-start p-2 sm:p-6 bg-gradient-to-b from-castle-black via-zinc-950 to-castle-black">
               <div className="w-full max-w-2xl bg-zinc-900/95 border border-amber-900/60 rounded-xl p-3 mb-4 shadow-xl flex flex-wrap items-center justify-between gap-3 text-xs">
                 <div className="flex items-center gap-2 flex-wrap">
@@ -847,24 +1052,24 @@ export default function App() {
 
         {/* Room Creation & Joining Cards */}
         <div className="grid md:grid-cols-2 gap-6 max-w-2xl mx-auto w-full pt-4">
-          {/* Create Real Castle Room */}
+          {/* Create Real Castle Room (TV Display) */}
           <div className="bg-zinc-950/90 border border-amber-900/50 p-6 rounded-xl shadow-xl flex flex-col justify-between">
             <div className="space-y-3">
               <span className="text-xs font-mono uppercase tracking-widest text-amber-500 block">
-                Party Organiser
+                TV Screen / Party Organiser
               </span>
               <h3 className="text-xl font-serif font-bold text-amber-200">
-                Create Game Room
+                Create Game Room on TV
               </h3>
               <p className="text-xs text-zinc-400 font-sans leading-relaxed">
-                Creates a new room for the TV host display and reserves Seat #1 for Libby.
+                Launches the TV Host Display and reserves Seat #1 for Libby. You can then join this room on your phone as “Libby” to play from your phone!
               </p>
             </div>
 
             <form onSubmit={handleCreateRoom} className="space-y-3 mt-4">
               <div>
                 <label className="text-[11px] font-mono text-zinc-400 block mb-1">
-                  Host / Birthday Name:
+                  Host / Birthday Name (Seat #1):
                 </label>
                 <input
                   type="text"
@@ -880,22 +1085,22 @@ export default function App() {
                 disabled={isLoading}
                 className="w-full py-2.5 px-4 bg-burgundy-900 hover:bg-burgundy-800 text-amber-100 border border-amber-500/50 font-serif font-bold text-xs uppercase tracking-wider rounded transition-all shadow"
               >
-                Create Castle Room
+                Create Castle Room (TV Host)
               </button>
             </form>
           </div>
 
-          {/* Join from Mobile Phone */}
-          <div className="bg-zinc-950/90 border border-amber-900/50 p-6 rounded-xl shadow-xl flex flex-col justify-between">
+          {/* Join from Mobile Phone (Guests & Host Phone) */}
+          <div className="bg-zinc-950/90 border border-amber-500/60 p-6 rounded-xl shadow-xl flex flex-col justify-between">
             <div className="space-y-3">
-              <span className="text-xs font-mono uppercase tracking-widest text-amber-500 block">
-                Guest Phone
+              <span className="text-xs font-mono uppercase tracking-widest text-amber-400 block">
+                Mobile Phone (Guests & Host Phone)
               </span>
               <h3 className="text-xl font-serif font-bold text-amber-200">
-                Join by Room Code
+                Join or Rejoin Room on Phone
               </h3>
-              <p className="text-xs text-zinc-400 font-sans leading-relaxed">
-                Guests join using the 5-letter code displayed on the TV screen.
+              <p className="text-xs text-zinc-300 font-sans leading-relaxed">
+                Enter the 5-letter Room Code on the TV. If you are the Host (Libby) or reconnecting mid-game, tap your name below or type it to claim your seat!
               </p>
             </div>
 
@@ -922,18 +1127,42 @@ export default function App() {
                     type="text"
                     value={joinName}
                     onChange={e => setJoinName(e.target.value)}
-                    placeholder="e.g. James"
+                    placeholder="e.g. Libby"
                     className="w-full bg-black border border-amber-900/60 p-2.5 text-xs text-amber-200 rounded focus:outline-none focus:border-amber-400"
                   />
                 </div>
               </div>
 
+              {/* 1-Tap Claim Existing Seat (Ideal for Libby joining on her phone or any player reconnecting!) */}
+              {peekedPlayers.length > 0 && (
+                <div className="bg-zinc-900/90 border border-amber-500/40 rounded-lg p-2.5 space-y-1.5">
+                  <span className="text-[10px] font-mono uppercase tracking-wider text-amber-400 block">
+                    Already seated in {joinCode.toUpperCase()}? Tap your name to play on this phone:
+                  </span>
+                  <div className="flex flex-wrap gap-1.5">
+                    {peekedPlayers.map(p => (
+                      <button
+                        key={p.id}
+                        type="button"
+                        disabled={isLoading}
+                        onClick={() => joinOrClaimSeatOnPhone(joinCode, p.name)}
+                        className="px-2.5 py-1.5 bg-burgundy-950 hover:bg-amber-500 hover:text-black text-amber-200 border border-amber-500/50 rounded text-xs font-serif font-bold transition flex items-center gap-1 shadow"
+                      >
+                        <Smartphone className="w-3 h-3" />
+                        <span>#{p.seatNumber} {p.name}</span>
+                        {p.isRoomCreator && <span className="text-[10px] font-mono opacity-80">(Host)</span>}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               <button
                 type="submit"
                 disabled={isLoading || !joinCode.trim() || !joinName.trim()}
-                className="w-full py-2.5 px-4 bg-zinc-900 hover:bg-zinc-800 text-amber-200 border border-zinc-700 font-serif font-bold text-xs uppercase tracking-wider rounded transition-all shadow disabled:opacity-40"
+                className="w-full py-2.5 px-4 bg-amber-500 hover:bg-amber-400 text-black font-serif font-bold text-xs uppercase tracking-wider rounded transition-all shadow disabled:opacity-40"
               >
-                Enter Castle
+                {isLoading ? 'Joining...' : 'Enter Castle on Phone'}
               </button>
             </form>
           </div>

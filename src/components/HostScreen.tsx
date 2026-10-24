@@ -413,8 +413,15 @@ export const HostScreen: React.FC<Props> = ({
                 Join Jasmine’s Castle
               </h2>
               <p className="text-sm text-zinc-300 font-sans leading-relaxed">
-                Scan the QR code on your mobile phone or enter the 5-letter room code. Exactly 7 seats await at the Round Table.
+                Scan the QR code on your mobile phone or enter the 5-letter room code.
               </p>
+
+              <div className="bg-burgundy-950/70 border border-amber-500/50 rounded-lg p-3 text-xs text-amber-200 font-sans leading-relaxed text-left">
+                <strong className="text-amber-400 font-serif block mb-0.5">
+                  📱 Playing on your phone while this TV is the Host Screen?
+                </strong>
+                Scan the QR code (or enter code <strong className="font-mono text-amber-300">{state.roomCode}</strong>) on your phone and tap <strong className="text-amber-300">#{1} {playersList[0]?.name || 'Libby'} (Host)</strong> to control Seat #1 from your phone while this TV stays on the Host Display!
+              </div>
 
               <div className="inline-block p-3 bg-black border-2 border-amber-500/60 rounded-lg shadow-lg">
                 {qrDataUrl && <img src={qrDataUrl} alt="Room QR Code" className="w-44 h-44 mx-auto" />}
@@ -457,7 +464,7 @@ export const HostScreen: React.FC<Props> = ({
                         </strong>
                         {player?.isRoomCreator && (
                           <span className="px-2 py-0.5 bg-amber-500/20 text-amber-300 border border-amber-500/40 rounded text-[10px] font-mono">
-                            Host
+                            Host Seat
                           </span>
                         )}
                       </div>
@@ -467,6 +474,7 @@ export const HostScreen: React.FC<Props> = ({
                           onClick={() => handleMoveSeat(idx, 'UP')}
                           disabled={idx === 0}
                           className="px-2 py-1 bg-zinc-800 hover:bg-zinc-700 disabled:opacity-30 rounded text-[10px] font-mono"
+                          title="Move Seat Up"
                         >
                           ▲
                         </button>
@@ -474,9 +482,19 @@ export const HostScreen: React.FC<Props> = ({
                           onClick={() => handleMoveSeat(idx, 'DOWN')}
                           disabled={idx === seatingList.length - 1}
                           className="px-2 py-1 bg-zinc-800 hover:bg-zinc-700 disabled:opacity-30 rounded text-[10px] font-mono"
+                          title="Move Seat Down"
                         >
                           ▼
                         </button>
+                        {playersList.length > 1 && (
+                          <button
+                            onClick={() => api.sendAction(state.roomCode, 'REMOVE_PLAYER', { playerId })}
+                            className="px-2 py-1 bg-rose-950/60 hover:bg-rose-900 text-rose-300 rounded text-[10px] font-mono ml-1"
+                            title={`Remove ${player?.name || 'Player'}`}
+                          >
+                            ✕
+                          </button>
+                        )}
                       </div>
                     </div>
                   );
@@ -493,7 +511,7 @@ export const HostScreen: React.FC<Props> = ({
                   <ChevronRight className="w-4 h-4" />
                 </button>
                 <p className="text-[11px] text-zinc-400 text-center mt-2 font-mono">
-                  {playersList.length} player{playersList.length === 1 ? '' : 's'} seated · Guests whose phones can’t scan the QR code can be added & simulated from the Top Nav Bar at any time!
+                  {playersList.length} player{playersList.length === 1 ? '' : 's'} seated · Anyone can also rejoin mid-game on their phone by entering Room Code {state.roomCode} & their name!
                 </p>
               </div>
             </div>

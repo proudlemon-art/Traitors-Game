@@ -104,12 +104,7 @@ class DatabaseService {
   public async getRoom(code: string): Promise<RoomRecord | null> {
     const normalizedCode = code.toUpperCase();
 
-    // 1. Check local memory store first for instant zero-latency response
-    if (this.localMemoryStore.has(normalizedCode)) {
-      return this.localMemoryStore.get(normalizedCode)!;
-    }
-
-    // 2. Try Supabase (authoritative across serverless instances)
+    // 1. If Supabase is configured, read from Supabase first so multi-instance serverless stays 100% in sync
     if (this.supabase) {
       try {
         const { data, error } = await this.supabase
@@ -137,6 +132,12 @@ class DatabaseService {
       }
     }
 
+    // 2. Check local memory store for instant response in single-instance / local Node server
+    if (this.localMemoryStore.has(normalizedCode)) {
+      return this.localMemoryStore.get(normalizedCode)!;
+    }
+
+    // 3. Check persistent local disk files
     const candidateFiles = [
       path.join(this.localFallbackPath, `room_${normalizedCode}.json`),
       `/tmp/room_${normalizedCode}.json`,
